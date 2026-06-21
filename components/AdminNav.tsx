@@ -2,7 +2,9 @@ import Link from "next/link";
 
 const LINKS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/admin/upload", label: "Add Inventory", icon: "↑" },
   { href: "/admin/catalogue", label: "Catalogue", icon: "✦" },
+  { href: "/admin/categories", label: "Categories", icon: "▦" },
   { href: "/admin/inventory", label: "Inventory", icon: "▤" },
   { href: "/admin/approvals", label: "Approvals", icon: "✓" },
 ];
