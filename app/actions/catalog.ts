@@ -66,3 +66,47 @@ export async function bulkUploadAction(categoryId: string, rows: Omit<NewProduct
   revalidatePath("/admin/catalogue"); revalidatePath("/shop");
   return { created: results.filter((r) => r.ok).length, results };
 }
+
+const BUCKET = "product-media";
+async function ensureMediaBucket(sb: ReturnType<typeof supabaseServer>) {
+  await sb.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+}
+
+export async function createProductWithImageAction(formData: FormData): Promise<RowResult> {
+  const sb = supabaseServer();
+  const n: NewProduct = {
+    categoryId: String(formData.get("categoryId") ?? ""),
+    name: String(formData.get("name") ?? "").trim(),
+    basePriceRupees: Number(formData.get("price")) || 0,
+    qty: Number(formData.get("qty")) || 0,
+    type: String(formData.get("type")) === "configurable" ? "configurable" : "simple",
+    colors: String(formData.get("colors") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  };
+  const [formula, skuNum] = await Promise.all([getPricingFormula(), nextSku(sb)]);
+  const res = await insertOne(sb, formula, n, skuNum);
+  if (res.ok && res.sku) {
+    const file = formData.get("image") as File | null;
+    if (file && typeof file === "object" && file.size > 0) {
+      await ensureMediaBucket(sb);
+      const ext = ((file.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+      const path = `${res.sku}/source.${ext}`;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const up = await sb.storage.from(BUCKET).upload(path, bytes, { contentType: file.type || "image/jpeg", upsert: true });
+      if (!up.error) {
+        const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
+        const { data: prod } = await sb.from("products").select("id").eq("sku", res.sku).single();
+        if (prod) await sb.from("product_images").insert({ product_id: prod.id, path: pub.publicUrl, kind: "flatlay", sort: 0 });
+      }
+    }
+  }
+  revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+  return res;
+}
+
+export async function createCategoryJsonAction(name: string): Promise<{ id: string; name: string } | null> {
+  const nm = name.trim(); if (!nm) return null;
+  const sb = supabaseServer();
+  const { data } = await sb.from("categories").insert({ name: nm, slug: slugify(nm) }).select("id,name").single();
+  revalidatePath("/admin/categories"); revalidatePath("/shop"); revalidatePath("/admin/upload");
+  return data ? { id: (data as any).id, name: (data as any).name } : null;
+}

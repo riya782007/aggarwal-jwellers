@@ -42,7 +42,7 @@ export function buildImagePrompt(opts: {
   const aspect = opts.aspect ?? "4:5";
   const aspectNote = aspect === "1:1" ? "1:1 for thumbnails/grid" : "4:5 for product page hero";
 
-  return `Use the attached image as the EXACT product reference. Generate a professional, editorial-grade e-commerce photograph of a model wearing this exact piece of jewelry.
+  return `This is a REAL, manufactured jewellery product that a customer will physically receive — the design in your output MUST be a pixel-faithful reproduction of the reference image. Use the attached image as the EXACT product reference. Generate a professional, editorial-grade e-commerce photograph of a model wearing this exact piece of jewelry.
 
 NON-NEGOTIABLE — PRODUCT FIDELITY:
 The jewelry in the output must be IDENTICAL to the reference image — same metal color and finish, same gemstone cut, color, size, and placement, same engravings, links, clasps, and proportions. Do not redesign, restyle, embellish, or "improve" the piece. Treat it as a real product that must match what the customer will receive.

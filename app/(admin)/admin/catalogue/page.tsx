@@ -8,6 +8,7 @@ import { aiProvidersStatus } from "@/lib/ai/listingAgent";
 import { ProductImage } from "@/components/Placeholder";
 import { generateOneAction, generateAllAction } from "@/app/actions/images";
 import { generateContentAction, generateAllContentAction } from "@/app/actions/aiContent";
+import { GeneratePhotoButton } from "@/components/admin/GeneratePhotoButton";
 import { generateEmbeddingsAction } from "@/app/actions/embeddings";
 
 export const metadata = { title: "Owner Console · Catalogue" };
@@ -19,7 +20,6 @@ export default async function AdminCatalogue() {
 
   async function genContent(fd: FormData) { "use server"; await generateContentAction(String(fd.get("sku"))); }
   async function genAllContent() { "use server"; await generateAllContentAction(); }
-  async function genPhoto(fd: FormData) { "use server"; await generateOneAction(String(fd.get("sku"))); }
   async function genEmbeddings() { "use server"; await generateEmbeddingsAction(); }
 
   const Pill = ({ on, label }: { on: boolean; label: string }) => (
@@ -76,10 +76,7 @@ export default async function AdminCatalogue() {
                     </form>
                   </td>
                   <td className="p-3">
-                    <form action={genPhoto}>
-                      <input type="hidden" name="sku" value={p.sku} />
-                      <button className="px-3 py-1.5 rounded-full bg-gold/15 text-gold-dark text-xs font-medium hover:bg-gold/25 transition-colors">Photo</button>
-                    </form>
+                    <GeneratePhotoButton sku={p.sku} />
                   </td>
                 </tr>
               );

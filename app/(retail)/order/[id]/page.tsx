@@ -47,7 +47,8 @@ export default async function OrderConfirm({ params }: { params: { id: string } 
         <p className="text-xs text-muted mt-4 text-center">We&apos;ll send tracking on WhatsApp the moment your order ships.</p>
       </div>
       <div className="text-center mt-8">
-        <Link href="/shop" className="btn-primary inline-block px-7 py-3 text-sm font-medium">Continue shopping</Link>
+        <Link href={`/account?order=${order.id}`} className="btn-primary inline-block px-7 py-3 text-sm font-medium">Track this order</Link>
+        <Link href="/shop" className="inline-block ml-2 px-7 py-3 text-sm font-medium rounded-full border border-ink/15 text-ink hover:border-emerald hover:text-emerald transition-colors">Continue shopping</Link>
       </div>
     </div>
   );

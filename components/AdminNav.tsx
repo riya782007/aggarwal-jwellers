@@ -3,6 +3,7 @@ import { logoutAction } from "@/app/actions/auth";
 
 const LINKS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/admin/analytics", label: "Analytics & SEO", icon: "◷" },
   { href: "/admin/upload", label: "Add Inventory", icon: "↑" },
   { href: "/admin/catalogue", label: "Catalogue", icon: "✦" },
   { href: "/admin/categories", label: "Categories", icon: "▦" },

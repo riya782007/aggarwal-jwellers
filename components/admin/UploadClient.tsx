@@ -1,44 +1,55 @@
 "use client";
-import { useState } from "react";
-import { createProductAction, bulkUploadAction, type RowResult } from "@/app/actions/catalog";
+import { useState, useRef } from "react";
+import { useToast } from "@/components/ui/Toast";
+import { createProductWithImageAction, bulkUploadAction, createCategoryJsonAction, type RowResult } from "@/app/actions/catalog";
 
 type Cat = { id: string; name: string };
 
 export function UploadClient({ categories }: { categories: Cat[] }) {
+  const { toast } = useToast();
+  const [cats, setCats] = useState<Cat[]>(categories);
   const [catId, setCatId] = useState("");
+  const [newCat, setNewCat] = useState(""); const [showNewCat, setShowNewCat] = useState(false);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string>("");
+  const [msg, setMsg] = useState("");
   const [results, setResults] = useState<RowResult[]>([]);
   const [form, setForm] = useState({ name: "", price: "", qty: "", type: "simple" as "simple" | "configurable", colors: "" });
   const [csv, setCsv] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors";
-  const catName = categories.find((c) => c.id === catId)?.name;
+  const catName = cats.find((c) => c.id === catId)?.name;
+
+  async function createCat() {
+    const nm = newCat.trim(); if (!nm) return;
+    setBusy(true);
+    const res = await createCategoryJsonAction(nm);
+    setBusy(false);
+    if (res) { setCats((c) => [...c, res]); setCatId(res.id); setNewCat(""); setShowNewCat(false); toast(`Category “${res.name}” created`); }
+    else toast("Couldn't create category", "error");
+  }
 
   async function addSingle() {
     setBusy(true); setMsg(""); setResults([]);
-    const res = await createProductAction({
-      categoryId: catId, name: form.name.trim(), basePriceRupees: Number(form.price),
-      qty: Number(form.qty) || 0, type: form.type, colors: form.colors.split(",").map((s) => s.trim()).filter(Boolean),
-    });
+    const fd = new FormData();
+    fd.set("categoryId", catId); fd.set("name", form.name.trim()); fd.set("price", form.price);
+    fd.set("qty", form.qty); fd.set("type", form.type); fd.set("colors", form.colors);
+    const file = fileRef.current?.files?.[0]; if (file) fd.set("image", file);
+    const res = await createProductWithImageAction(fd);
     setBusy(false);
-    if (res.ok) { setMsg(`✓ Added ${res.sku} to ${catName}`); setForm({ name: "", price: "", qty: "", type: "simple", colors: "" }); }
+    if (res.ok) { setMsg(`✓ Added ${res.sku} to ${catName}${file ? " · photo uploaded — generate the model shot in Catalogue" : ""}`); setForm({ name: "", price: "", qty: "", type: "simple", colors: "" }); if (fileRef.current) fileRef.current.value = ""; toast(`${res.sku} added`); }
     else setMsg(`✕ ${res.error}`);
   }
 
   async function addBulk() {
     setBusy(true); setMsg(""); setResults([]);
-    const rows = csv.split("\n").map((l) => l.trim()).filter(Boolean)
-      .filter((l) => !/^name\s*,/i.test(l))
-      .map((l) => {
-        const [name, price, qty, type, colors] = l.split(",").map((s) => s?.trim() ?? "");
-        return { name, basePriceRupees: Number(price), qty: Number(qty) || 0, type: (type === "configurable" ? "configurable" : "simple") as "simple" | "configurable", colors: (colors ?? "").split("|").map((s) => s.trim()).filter(Boolean) };
-      });
+    const rows = csv.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^name\s*,/i.test(l)).map((l) => {
+      const [name, price, qty, type, colors] = l.split(",").map((s) => s?.trim() ?? "");
+      return { name, basePriceRupees: Number(price), qty: Number(qty) || 0, type: (type === "configurable" ? "configurable" : "simple") as "simple" | "configurable", colors: (colors ?? "").split("|").map((s) => s.trim()).filter(Boolean) };
+    });
     const res = await bulkUploadAction(catId, rows);
-    setBusy(false);
-    setResults(res.results);
-    setMsg(`${res.created} of ${rows.length} rows imported into ${catName}`);
+    setBusy(false); setResults(res.results); setMsg(`${res.created} of ${rows.length} rows imported into ${catName}`);
   }
 
   return (
@@ -46,10 +57,19 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
       <div className="bg-white rounded-2xl p-6 shadow-card mb-5">
         <label className="text-sm font-medium text-ink">Step 1 · Choose a category <span className="text-rose">*</span></label>
         <p className="text-xs text-muted mb-2">Everything you upload goes under this category — no misclassification.</p>
-        <select value={catId} onChange={(e) => setCatId(e.target.value)} className={input}>
-          <option value="">Select a category…</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div className="flex gap-2">
+          <select value={catId} onChange={(e) => setCatId(e.target.value)} className={input}>
+            <option value="">Select a category…</option>
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button type="button" onClick={() => setShowNewCat((v) => !v)} className="px-4 rounded-xl border border-emerald text-emerald text-sm whitespace-nowrap hover:bg-emerald-mist transition-colors">+ New</button>
+        </div>
+        {showNewCat && (
+          <div className="flex gap-2 mt-2">
+            <input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="New category name (e.g. Maang Tikka)" className={input} />
+            <button type="button" onClick={createCat} disabled={busy} className="px-4 rounded-xl bg-ink text-white text-sm whitespace-nowrap disabled:opacity-50">Create</button>
+          </div>
+        )}
       </div>
 
       <div className={`bg-white rounded-2xl p-6 shadow-card transition-opacity ${catId ? "" : "opacity-40 pointer-events-none"}`}>
@@ -76,6 +96,10 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
               </select>
               <input className={input} placeholder="Colours, comma separated" value={form.colors} onChange={(e) => setForm({ ...form, colors: e.target.value })} disabled={form.type !== "configurable"} />
             </div>
+            <div>
+              <label className="text-sm font-medium text-ink">Raw product photo <span className="text-muted font-normal">(the design as shot — AI turns it into a model photo)</span></label>
+              <input ref={fileRef} type="file" accept="image/*" className="mt-1 block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
+            </div>
             <button onClick={addSingle} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Adding…" : "Add design"}</button>
           </div>
         ) : (
@@ -89,11 +113,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
         {msg && <p className="text-sm mt-3 text-ink">{msg}</p>}
         {results.length > 0 && (
           <div className="mt-3 max-h-44 overflow-y-auto text-xs space-y-1">
-            {results.map((r) => (
-              <div key={r.row} className={r.ok ? "text-emerald-dark" : "text-rose"}>
-                Row {r.row}: {r.ok ? `✓ added ${r.sku}` : `✕ ${r.error}`}
-              </div>
-            ))}
+            {results.map((r) => <div key={r.row} className={r.ok ? "text-emerald-dark" : "text-rose"}>Row {r.row}: {r.ok ? `✓ added ${r.sku}` : `✕ ${r.error}`}</div>)}
           </div>
         )}
       </div>
