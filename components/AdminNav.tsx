@@ -6,6 +6,8 @@ const LINKS = [
   { href: "/admin/catalogue", label: "Catalogue", icon: "✦" },
   { href: "/admin/categories", label: "Categories", icon: "▦" },
   { href: "/admin/billing", label: "Billing (POS)", icon: "₹" },
+  { href: "/admin/estimates", label: "Estimates", icon: "≈" },
+  { href: "/admin/returns", label: "Returns", icon: "⤺" },
   { href: "/admin/inventory", label: "Inventory", icon: "▤" },
   { href: "/admin/approvals", label: "Approvals", icon: "✓" },
 ];

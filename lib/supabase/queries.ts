@@ -222,3 +222,22 @@ export async function getOrder(id: string) {
   const { data: items } = await sb.from("order_items").select("qty,unit_price,line_total,product:products(name,sku)").eq("order_id", id);
   return { order, items: (items as any[]) ?? [] };
 }
+
+// ---------- estimates + returns ----------
+export async function getEstimates() {
+  const sb = supabaseServer();
+  const { data } = await sb.from("estimates").select("id,customer_name,total,status,created_at").order("created_at", { ascending: false }).limit(30);
+  return (data as any[]) ?? [];
+}
+export async function getRecentOrders(limit = 12) {
+  const sb = supabaseServer();
+  const { data } = await sb.from("orders")
+    .select("id,total,channel,payment_mode,customer_name,created_at,order_items(qty,product:products(id,name,sku))")
+    .order("created_at", { ascending: false }).limit(limit);
+  return (data as any[]) ?? [];
+}
+export async function getReturns() {
+  const sb = supabaseServer();
+  const { data } = await sb.from("returns").select("id,kind,reason,qty,created_at").order("created_at", { ascending: false }).limit(20);
+  return (data as any[]) ?? [];
+}
