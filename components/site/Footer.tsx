@@ -25,10 +25,12 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
           <p className="text-gold-light text-xs uppercase tracking-widest mb-4">Information</p>
           <ul className="space-y-2 text-sm">
             <li><Link href="/wholesale" className="hover:text-gold transition-colors">Wholesale Signup</Link></li>
-            <li><span className="hover:text-gold transition-colors cursor-pointer">Shipping Policy</span></li>
-            <li><span className="hover:text-gold transition-colors cursor-pointer">Returns &amp; Cancellation</span></li>
-            <li><span className="hover:text-gold transition-colors cursor-pointer">About Us</span></li>
-            <li><span className="hover:text-gold transition-colors cursor-pointer">Contact</span></li>
+            <li><Link href="/shipping" className="hover:text-gold transition-colors">Shipping Policy</Link></li>
+            <li><Link href="/returns" className="hover:text-gold transition-colors">Returns &amp; Cancellation</Link></li>
+            <li><Link href="/about" className="hover:text-gold transition-colors">About Us</Link></li>
+            <li><Link href="/contact" className="hover:text-gold transition-colors">Contact</Link></li>
+            <li><Link href="/faq" className="hover:text-gold transition-colors">FAQ</Link></li>
+            <li><Link href="/size-guide" className="hover:text-gold transition-colors">Size &amp; Length Guide</Link></li>
           </ul>
         </div>
         <div>
