@@ -13,7 +13,7 @@ import { generateImage, geminiConfigured } from "@/lib/ai/gemini";
 
 const BUCKET = "product-media";
 
-export type GenResult = { ok: boolean; sku: string; reason?: string; url?: string; prompt?: string };
+export type GenResult = { ok: boolean; sku: string; reason?: string; error?: string; url?: string; prompt?: string };
 
 export async function generateOneAction(sku: string): Promise<GenResult> {
   const p = await getProductBySku(sku);
@@ -37,7 +37,7 @@ export async function generateOneAction(sku: string): Promise<GenResult> {
   }
 
   const result = await generateImage({ prompt, referenceBase64, referenceMime, aspectRatio: "4:5" });
-  if (!result.ok) return { ok: false, sku, reason: result.reason, prompt };
+  if (!result.ok) return { ok: false, sku, reason: result.reason, error: result.error, prompt };
 
   const sb = supabaseServer();
   await sb.storage.createBucket(BUCKET, { public: true }).catch(() => {});

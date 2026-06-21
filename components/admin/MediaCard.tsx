@@ -36,7 +36,12 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
     const res = await generateOneAction(p.sku);
     setBusy("");
     if (res.ok) { toast(`Model photo generated for ${p.sku} ✓`); router.refresh(); }
-    else toast(GEN_MSG[res.reason ?? ""] ?? `Couldn't generate: ${res.reason}`, "error");
+    else {
+      const friendly = GEN_MSG[res.reason ?? ""];
+      const detail = res.error ? ` — ${res.error}` : "";
+      toast(friendly ?? `Couldn't generate: ${res.reason}${detail}`, "error");
+      if (res.error) console.error("[generate]", res.reason, res.error);
+    }
   }
   async function del(id: string) { const fd = new FormData(); fd.set("id", id); await deleteProductImageAction(fd); router.refresh(); }
   async function hero(id: string) { const fd = new FormData(); fd.set("id", id); fd.set("productId", p.id); await setHeroImageAction(fd); toast("Hero image set"); router.refresh(); }
