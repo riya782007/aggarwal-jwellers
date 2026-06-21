@@ -360,3 +360,27 @@ export async function getReviewsForResponse() {
   const { data } = await sb.from("reviews").select("id,author_name,rating,body,response,product:products(name)").not("body", "is", null).order("created_at", { ascending: false }).limit(20);
   return (data as any[]) ?? [];
 }
+
+// ---------- shoppable reels ----------
+import { liveOffer as _liveOffer } from "../offers";
+export type ReelProduct = { sku: string; name: string; price: number; categorySlug: string; category: string };
+export type ShopReel = { id: string; caption: string; video_url: string | null; products: ReelProduct[] };
+
+export async function getShoppableReels(): Promise<ShopReel[]> {
+  const sb = supabaseServer();
+  const [{ data }, formula] = await Promise.all([
+    sb.from("reels").select("id,caption,video_url,posted_at, reel_products(product:products(sku,name,base_wholesale,status,category:categories(slug,name)))").order("posted_at", { ascending: false }),
+    getPricingFormula(),
+  ]);
+  return ((data as any[]) ?? []).map((r) => ({
+    id: r.id, caption: r.caption, video_url: r.video_url,
+    products: (r.reel_products ?? []).map((rp: any) => rp.product).filter((p: any) => p && p.status === "published")
+      .map((p: any) => ({ sku: p.sku, name: p.name, price: _liveOffer(p.base_wholesale, formula).price, categorySlug: p.category?.slug ?? "all", category: p.category?.name ?? "" })),
+  })).filter((r) => r.products.length > 0);
+}
+
+export async function getAdminReels() {
+  const sb = supabaseServer();
+  const { data } = await sb.from("reels").select("id,caption,video_url,posted_at, reel_products(product:products(sku,name))").order("posted_at", { ascending: false });
+  return ((data as any[]) ?? []).map((r) => ({ id: r.id, caption: r.caption, video_url: r.video_url, products: (r.reel_products ?? []).map((rp: any) => rp.product).filter(Boolean) }));
+}

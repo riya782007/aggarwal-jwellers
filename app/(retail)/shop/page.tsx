@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getStorefront, getFeaturedReviews } from "@/lib/supabase/queries";
+import { getStorefront, getFeaturedReviews, getShoppableReels } from "@/lib/supabase/queries";
 import { ProductCard } from "@/components/site/ProductCard";
 import { ProductImage } from "@/components/Placeholder";
 import { TrustBar } from "@/components/site/TrustBar";
 import { Reveal } from "@/components/site/Reveal";
 import { Stars } from "@/components/site/Stars";
+import { ReelsSection } from "@/components/site/ReelsSection";
 
 export const metadata = {
   title: "Premium Artificial Jewellery — Kundan, Meena, Temple",
@@ -13,7 +14,7 @@ export const metadata = {
 };
 
 export default async function Shop() {
-  const [{ products, formula }, reviews] = await Promise.all([getStorefront(), getFeaturedReviews()]);
+  const [{ products, formula }, reviews, reels] = await Promise.all([getStorefront(), getFeaturedReviews(), getShoppableReels()]);
   const cats = Array.from(new Map(products.map((p) => [p.category.slug, p.category])).values());
   const bestsellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
   const trending = products.slice(0, 8);
@@ -108,6 +109,8 @@ export default async function Shop() {
           ))}
         </div>
       </section>
+
+      <ReelsSection reels={reels} />
 
       {/* REVIEWS */}
       <section className="bg-emerald-mist/60 py-16 mt-12">

@@ -38,6 +38,7 @@ export function Header({ categories }: { categories: Cat[] }) {
             </div>
             <Link href="/shop?sort=new" className="nav-link py-2">New Arrivals</Link>
             <Link href="/shop?sort=bestseller" className="nav-link py-2">Bestsellers</Link>
+            <Link href="/reels" className="nav-link py-2">Reels</Link>
             <Link href="/wholesale" className="nav-link py-2">Wholesale</Link>
           </nav>
 
