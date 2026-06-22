@@ -8,6 +8,7 @@ export function EstimateClient({ products }: { products: P[] }) {
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<{ sku: string; name: string; price: number; qty: number }[]>([]);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const matches = useMemo(() => q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 6) : [], [q, products]);
@@ -16,9 +17,9 @@ export function EstimateClient({ products }: { products: P[] }) {
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
   async function save() {
     setBusy(true); setMsg("");
-    const res = await createEstimateAction({ items: lines.map((l) => ({ sku: l.sku, qty: l.qty })), customer: { name } });
+    const res = await createEstimateAction({ items: lines.map((l) => ({ sku: l.sku, qty: l.qty })), customer: { name, phone } });
     setBusy(false);
-    if (res.ok) { setMsg(`✓ Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to convert later.`); setLines([]); setName(""); }
+    if (res.ok) { setMsg(`✓ Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to bill or hold.`); setLines([]); setName(""); setPhone(""); }
     else setMsg(`✕ ${res.error}`);
   }
   return (
@@ -35,13 +36,18 @@ export function EstimateClient({ products }: { products: P[] }) {
       {lines.map((l) => (
         <div key={l.sku} className="flex items-center gap-3 border-b border-sand/60 py-2 text-sm">
           <span className="flex-1">{l.name}</span>
-          <div className="inline-flex items-center rounded-full border border-sand"><button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: Math.max(1, x.qty - 1) } : x))} className="px-2">−</button><span className="px-2">{l.qty}</span><button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: x.qty + 1 } : x))} className="px-2">+</button></div>
+          <div className="inline-flex items-center rounded-full border border-sand overflow-hidden">
+            <button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: Math.max(1, x.qty - 1) } : x))} className="px-2.5 py-1 hover:bg-cream">−</button>
+            <input type="number" min={1} value={l.qty} onChange={(e) => { const v = Math.max(1, Math.floor(parseInt(e.target.value, 10) || 1)); setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: v } : x)); }} className="w-14 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            <button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: x.qty + 1 } : x))} className="px-2.5 py-1 hover:bg-cream">+</button>
+          </div>
           <span className="w-20 text-right font-medium">{formatPaise(l.price * l.qty)}</span>
           <button onClick={() => setLines((p) => p.filter((x) => x.sku !== l.sku))} className="text-muted hover:text-rose">✕</button>
         </div>
       ))}
-      <div className="flex items-center gap-3 mt-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
         <input className={input + " flex-1"} placeholder="Customer name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className={input + " sm:w-44"} placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <span className="text-lg font-semibold text-ink whitespace-nowrap">{formatPaise(total)}</span>
         <button onClick={save} disabled={busy || !lines.length} className="btn-primary px-5 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save estimate"}</button>
       </div>

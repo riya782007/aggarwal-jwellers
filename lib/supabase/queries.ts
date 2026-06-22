@@ -226,8 +226,15 @@ export async function getOrder(id: string) {
 // ---------- estimates + returns ----------
 export async function getEstimates() {
   const sb = supabaseServer();
-  const { data } = await sb.from("estimates").select("id,customer_name,total,status,created_at").order("created_at", { ascending: false }).limit(30);
+  const { data } = await sb.from("estimates").select("id,customer_name,customer_phone,total,status,gst,order_id,notes,created_at").order("created_at", { ascending: false }).limit(200);
   return (data as any[]) ?? [];
+}
+export async function getEstimate(id: string) {
+  const sb = supabaseServer();
+  const { data: estimate } = await sb.from("estimates").select("*").eq("id", id).maybeSingle();
+  if (!estimate) return null;
+  const { data: items } = await sb.from("estimate_items").select("qty,unit_price,line_total,product:products(name,sku)").eq("estimate_id", id);
+  return { estimate, items: (items as any[]) ?? [] };
 }
 export async function getRecentOrders(limit = 12) {
   const sb = supabaseServer();

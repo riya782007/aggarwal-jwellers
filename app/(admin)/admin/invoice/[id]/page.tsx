@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
+import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, stateCodeFromGstin, amountInWords } from "@/lib/business";
 
 export const metadata = { title: "Invoice" };
 
@@ -11,73 +12,141 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const data = await getOrder(params.id);
   if (!data) notFound();
   const { order, items } = data;
+
+  const isCash = order.bill_type === "cash";
   const total = order.total as number;
-  const taxable = Math.round(total / 1.03);
-  const gst = total - taxable;
-  const cgst = Math.round(gst / 2);
-  const sgst = gst - cgst;
-  const invNo = "BD-" + String(order.id).slice(0, 8).toUpperCase();
+  const buyerStateCode = order.buyer_state || stateCodeFromGstin(order.buyer_gstin);
+  const g = gstSplit(total, buyerStateCode);
+  const roundedTotal = Math.round(total / 100) * 100;
+  const roundOff = roundedTotal - total;
+
+  const prefix = isCash ? "CM-" : "INV-";
+  const invNo = prefix + String(order.id).slice(0, 8).toUpperCase();
   const date = new Date(order.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const qtyTotal = items.reduce((s: number, it: any) => s + it.qty, 0);
+
+  const th = "py-2 px-2 text-xs font-semibold text-ink/70";
+  const td = "py-2 px-2 align-top";
 
   return (
-    <main className="p-8 bg-cream/40 min-h-screen">
-      <div className="max-w-3xl mx-auto">
+    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+      <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
           <Link href="/admin/billing" className="text-sm text-emerald nav-link">← New sale</Link>
           <PrintButton />
         </div>
 
-        <div className="print-area bg-white rounded-2xl shadow-card p-8" id="invoice">
-          <div className="flex justify-between items-start border-b border-sand pb-5">
-            <div>
-              <p className="font-display text-3xl text-ink">Blythe Diva</p>
-              <p className="text-xs text-muted">Yogendra Industries</p>
-              <p className="text-xs text-muted mt-1">Sadar Bazar, Rui Mandi, Delhi 110006</p>
-              <p className="text-xs text-muted">GSTIN: 07ABCDE1234F1Z5 · +91 98731 51767</p>
+        <div className="print-area bg-white rounded-2xl shadow-card p-5 sm:p-8 text-[13px]" id="invoice">
+          {/* Title bar */}
+          <div className="text-center pb-3 mb-3 border-b-2 border-ink/80">
+            <p className="text-[15px] font-bold tracking-wide text-ink">{isCash ? "CASH MEMO" : "TAX INVOICE"}</p>
+            {!isCash && <p className="text-[10px] text-muted">(Original for Recipient)</p>}
+          </div>
+
+          {/* Seller + meta */}
+          <div className="grid sm:grid-cols-2 gap-4 border border-sand rounded-lg overflow-hidden">
+            <div className="p-4 border-b sm:border-b-0 sm:border-r border-sand">
+              <p className="font-display text-2xl text-ink leading-none">{BUSINESS.brand}</p>
+              <p className="text-xs text-muted mt-0.5">{BUSINESS.legalName}</p>
+              <p className="text-xs text-muted mt-1">{BUSINESS.address}</p>
+              <p className="text-xs text-ink mt-1"><b>GSTIN:</b> {BUSINESS.gstin}</p>
+              <p className="text-xs text-muted"><b>PAN:</b> {BUSINESS.pan} · State: {BUSINESS.stateName} ({BUSINESS.stateCode})</p>
+              <p className="text-xs text-muted">{BUSINESS.phone} · {BUSINESS.email}</p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-ink">TAX INVOICE</p>
-              <p className="text-xs text-muted mt-1">No: {invNo}</p>
-              <p className="text-xs text-muted">Date: {date}</p>
-              <p className="text-xs text-muted">Payment: {String(order.payment_mode).toUpperCase()}</p>
+            <div className="p-4 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-muted">Invoice No.</span><span className="font-medium text-ink">{invNo}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Payment mode</span><span className="text-ink">{String(order.payment_mode || "—").toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Channel</span><span className="text-ink capitalize">{order.channel}</span></div>
+              {!isCash && <div className="flex justify-between"><span className="text-muted">Place of supply</span><span className="text-ink">{BUSINESS.stateName} ({buyerStateCode || BUSINESS.stateCode})</span></div>}
             </div>
           </div>
 
-          <div className="py-4 text-sm">
-            <p className="text-xs uppercase tracking-wide text-muted">Bill to</p>
+          {/* Buyer */}
+          <div className="border border-t-0 border-sand rounded-b-lg p-4 -mt-px">
+            <p className="text-[10px] uppercase tracking-wide text-muted mb-1">{isCash ? "Customer" : "Bill to / Buyer"}</p>
             <p className="text-ink font-medium">{order.customer_name || "Walk-in customer"}</p>
-            {order.customer_phone && <p className="text-muted text-xs">{order.customer_phone}</p>}
+            {order.buyer_address && <p className="text-muted text-xs">{order.buyer_address}</p>}
+            {order.customer_phone && <p className="text-muted text-xs">Ph: {order.customer_phone}</p>}
+            {!isCash && order.buyer_gstin && <p className="text-xs text-ink mt-0.5"><b>GSTIN:</b> {order.buyer_gstin}</p>}
           </div>
 
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-y border-sand text-muted text-left">
-                <th className="py-2">#</th><th className="py-2">Item</th><th className="py-2 text-right">Qty</th><th className="py-2 text-right">Rate</th><th className="py-2 text-right">Amount</th>
+          {/* Items */}
+          <table className="w-full mt-4 border border-sand">
+            <thead className="bg-cream border-b border-sand">
+              <tr className="text-left">
+                <th className={th}>#</th>
+                <th className={th}>Description</th>
+                {!isCash && <th className={`${th} text-center`}>HSN</th>}
+                <th className={`${th} text-right`}>Qty</th>
+                <th className={`${th} text-right`}>Rate</th>
+                <th className={`${th} text-right`}>{isCash ? "Amount" : "Taxable Value"}</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it: any, i: number) => (
-                <tr key={i} className="border-b border-sand/50">
-                  <td className="py-2 text-muted">{i + 1}</td>
-                  <td className="py-2 text-ink">{it.product?.name} <span className="text-muted text-xs">({it.product?.sku})</span></td>
-                  <td className="py-2 text-right">{it.qty}</td>
-                  <td className="py-2 text-right">{formatPaise(it.unit_price)}</td>
-                  <td className="py-2 text-right">{formatPaise(it.line_total)}</td>
-                </tr>
-              ))}
+              {items.map((it: any, i: number) => {
+                const lineTaxable = isCash ? it.line_total : Math.round(it.line_total / (1 + GST_RATE / 100));
+                const unit = isCash ? it.unit_price : Math.round(it.unit_price / (1 + GST_RATE / 100));
+                return (
+                  <tr key={i} className="border-b border-sand/60">
+                    <td className={`${td} text-muted`}>{i + 1}</td>
+                    <td className={`${td} text-ink`}>{it.product?.name}<span className="text-muted text-xs"> · {it.product?.sku}</span></td>
+                    {!isCash && <td className={`${td} text-center text-muted`}>{HSN_JEWELLERY}</td>}
+                    <td className={`${td} text-right`}>{it.qty}</td>
+                    <td className={`${td} text-right`}>{formatPaise(unit)}</td>
+                    <td className={`${td} text-right`}>{formatPaise(lineTaxable)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-cream/50 font-medium">
+                <td className={td}></td><td className={`${td} text-ink`}>Total</td>{!isCash && <td className={td}></td>}
+                <td className={`${td} text-right`}>{qtyTotal}</td><td className={td}></td>
+                <td className={`${td} text-right`}>{formatPaise(isCash ? total : g.taxable)}</td>
+              </tr>
             </tbody>
           </table>
 
-          <div className="flex justify-end mt-4">
-            <div className="w-64 text-sm space-y-1">
-              <div className="flex justify-between text-muted"><span>Taxable value</span><span>{formatPaise(taxable)}</span></div>
-              <div className="flex justify-between text-muted"><span>CGST @1.5%</span><span>{formatPaise(cgst)}</span></div>
-              <div className="flex justify-between text-muted"><span>SGST @1.5%</span><span>{formatPaise(sgst)}</span></div>
-              <div className="flex justify-between font-semibold text-ink border-t border-sand pt-2 text-base"><span>Total</span><span>{formatPaise(total)}</span></div>
+          {/* Totals + words */}
+          <div className="grid sm:grid-cols-2 gap-4 mt-4">
+            <div className="text-xs">
+              <p className="text-muted mb-1">Amount in words</p>
+              <p className="text-ink font-medium">{amountInWords(roundedTotal)}</p>
+              {!isCash && (
+                <div className="mt-4">
+                  <p className="text-muted mb-1">Bank details</p>
+                  <p className="text-ink">{BUSINESS.bank.name} · A/C {BUSINESS.bank.account}</p>
+                  <p className="text-ink">IFSC {BUSINESS.bank.ifsc} · {BUSINESS.bank.branch}</p>
+                </div>
+              )}
+            </div>
+            <div className="text-sm space-y-1">
+              <div className="flex justify-between text-muted"><span>{isCash ? "Sub-total" : "Taxable value"}</span><span>{formatPaise(isCash ? total : g.taxable)}</span></div>
+              {!isCash && !g.interState && <>
+                <div className="flex justify-between text-muted"><span>CGST @{GST_RATE / 2}%</span><span>{formatPaise(g.cgst)}</span></div>
+                <div className="flex justify-between text-muted"><span>SGST @{GST_RATE / 2}%</span><span>{formatPaise(g.sgst)}</span></div>
+              </>}
+              {!isCash && g.interState && <div className="flex justify-between text-muted"><span>IGST @{GST_RATE}%</span><span>{formatPaise(g.igst)}</span></div>}
+              {roundOff !== 0 && <div className="flex justify-between text-muted"><span>Round off</span><span>{formatPaise(roundOff)}</span></div>}
+              <div className="flex justify-between font-semibold text-ink border-t border-sand pt-2 text-base"><span>Grand Total</span><span>{formatPaise(roundedTotal)}</span></div>
             </div>
           </div>
 
-          <p className="text-center text-xs text-muted mt-8 border-t border-sand pt-4">Thank you for shopping with Blythe Diva ✦ Goods once sold are subject to our return policy. This is a computer-generated invoice.</p>
+          {/* Terms + signature */}
+          <div className="grid sm:grid-cols-2 gap-4 mt-6 pt-4 border-t border-sand">
+            <div className="text-[11px] text-muted">
+              <p className="font-medium text-ink/70 mb-1">Terms &amp; conditions</p>
+              <ol className="list-decimal ml-4 space-y-0.5">
+                {BUSINESS.terms.map((t, i) => <li key={i}>{t}</li>)}
+              </ol>
+            </div>
+            <div className="text-right text-xs flex flex-col justify-end">
+              <p className="text-muted">For <b className="text-ink">{BUSINESS.legalName}</b></p>
+              <div className="h-12" />
+              <p className="text-ink border-t border-sand pt-1 inline-block ml-auto">Authorised Signatory</p>
+            </div>
+          </div>
+
+          <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {isCash ? "cash memo" : "tax invoice"} and does not require a physical signature.</p>
         </div>
       </div>
     </main>

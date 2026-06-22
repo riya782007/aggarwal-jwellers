@@ -24,14 +24,33 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<{ ok: bo
   return { ok: true, orderId, total };
 }
 
-export async function posSaleAction(input: { items: { sku: string; qty: number }[]; customer: { name?: string; phone?: string }; payment: string }): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
+export async function posSaleAction(input: {
+  items: { sku: string; qty: number }[];
+  customer: { name?: string; phone?: string };
+  payment: string;
+  billType?: "gst" | "cash";
+  buyerGstin?: string;
+  buyerAddress?: string;
+}): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
   if (!input.items?.length) return { ok: false, error: "Add at least one item" };
+  for (const it of input.items) if (!Number.isFinite(it.qty) || it.qty < 1) return { ok: false, error: "Every line needs a quantity of 1 or more" };
   const sb = supabaseServer();
   const { data, error } = await sb.rpc("place_order", {
     p_items: input.items, p_customer: input.customer ?? {}, p_channel: "pos", p_payment: input.payment || "cash",
   });
   if (error) return { ok: false, error: error.message };
   const orderId = (data as any)?.order_id, total = (data as any)?.total;
+
+  // Persist B2B bill metadata on the order so the invoice/cash-memo renders correctly.
+  const billType = input.billType === "cash" ? "cash" : "gst";
+  const buyerState = input.buyerGstin && /^\d{2}/.test(input.buyerGstin.trim()) ? input.buyerGstin.trim().slice(0, 2) : null;
+  await sb.from("orders").update({
+    bill_type: billType,
+    buyer_gstin: input.buyerGstin?.trim() || null,
+    buyer_address: input.buyerAddress?.trim() || null,
+    buyer_state: buyerState,
+  }).eq("id", orderId);
+
   await sendPurchase({ orderId, valuePaise: total, channel: "retail", items: input.items.map((i) => ({ sku: i.sku, qty: i.qty })) });
   return { ok: true, orderId, total };
 }
