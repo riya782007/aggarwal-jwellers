@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
 import { Pager } from "@/components/admin/Pager";
+import { StockAdjust } from "@/components/admin/StockAdjust";
 
 const BADGE: Record<string, string> = {
   dead: "bg-rose/15 text-rose", low: "bg-gold/15 text-gold-dark",
@@ -31,6 +32,8 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
     <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Inventory Intelligence</h1>
       <p className="text-sm text-muted mb-5">Rule: no movement in <b>{deadDays}</b> days OR ≤ <b>{lowQty}</b> pcs. Change it and the classification updates live.</p>
+
+      <StockAdjust />
 
       <form className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-2xl p-4 shadow-card border border-sand">
         <label className="text-sm text-muted">Dead after (days)

@@ -261,6 +261,27 @@ export async function getDashboardAnalytics(fromISO: string, toISO: string): Pro
   return { weekly: wk, channels, categories, topProducts };
 }
 
+/** Per-channel report for a date range: totals + sample order rows for the expandable view. */
+export async function getChannelReport(fromISO: string, toISO: string) {
+  const sb = supabaseServer();
+  const { data } = await sb.from("orders")
+    .select("id,total,channel,customer_name,created_at,bill_type,payment_mode")
+    .gte("created_at", fromISO).lte("created_at", toISO)
+    .order("created_at", { ascending: false }).limit(1000);
+  const rows = (data as any[]) ?? [];
+  const channels = ["retail", "wholesale", "pos"].map((ch) => {
+    const list = rows.filter((r) => r.channel === ch);
+    return {
+      channel: ch,
+      revenue: list.reduce((s, r) => s + (r.total ?? 0), 0),
+      count: list.length,
+      orders: list.slice(0, 50),
+    };
+  });
+  const grand = rows.reduce((s, r) => s + (r.total ?? 0), 0);
+  return { channels, grand, count: rows.length };
+}
+
 export async function getOrder(id: string) {
   const sb = supabaseServer();
   const { data: order } = await sb.from("orders").select("*").eq("id", id).maybeSingle();

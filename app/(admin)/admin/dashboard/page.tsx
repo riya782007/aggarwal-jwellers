@@ -1,13 +1,15 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getDashboardData, getDashboardAnalytics } from "@/lib/supabase/queries";
+import { getDashboardData, getDashboardAnalytics, getChannelReport } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { AnimatedNumber } from "@/components/admin/AnimatedNumber";
 import { BarChart } from "@/components/admin/BarChart";
 import { Donut } from "@/components/admin/Donut";
+import { ExpandableReport } from "@/components/admin/ExpandableReport";
 
 function isoDaysAgo(d: number) { return new Date(Date.now() - d * 86400000).toISOString(); }
 const RANGES = [{ key: "30", days: 30 }, { key: "60", days: 60 }, { key: "90", days: 90 }];
+const CH_LABEL: Record<string, string> = { retail: "Online retail", wholesale: "Wholesale", pos: "Counter (POS)" };
 
 function Tile({ label, children, sub, accent }: { label: string; children: React.ReactNode; sub?: string; accent?: string }) {
   return (
@@ -19,23 +21,40 @@ function Tile({ label, children, sub, accent }: { label: string; children: React
   );
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: { range?: string } }) {
+export default async function Dashboard({ searchParams }: { searchParams: { range?: string; from?: string; to?: string } }) {
+  // Custom date range wins; otherwise a preset (default 90d).
+  const custom = !!(searchParams.from && searchParams.to);
   const range = RANGES.find((r) => r.key === searchParams.range) ?? RANGES[2];
-  const from = isoDaysAgo(range.days), to = new Date().toISOString();
-  const [d, a] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to)]);
+  const from = custom ? new Date(searchParams.from + "T00:00:00").toISOString() : isoDaysAgo(range.days);
+  const to = custom ? new Date(searchParams.to + "T23:59:59").toISOString() : new Date().toISOString();
+  const fromDate = searchParams.from ?? "";
+  const toDate = searchParams.to ?? "";
+  const [d, a, report] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to)]);
+  const label = custom
+    ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+    : `Last ${range.days} days`;
+  const sel = "rounded-lg border border-sand bg-white px-2.5 py-1.5 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-8 bg-cream/40 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-display text-4xl text-ink">Good day, Yogendra</h1>
-          <p className="text-sm text-muted">Last {range.days} days · live from your catalogue &amp; orders</p>
+          <p className="text-sm text-muted">{label} · live from your catalogue &amp; orders</p>
         </div>
-        <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
-          {RANGES.map((r) => (
-            <a key={r.key} href={`/admin/dashboard?range=${r.key}`}
-              className={`px-4 py-1.5 rounded-full text-sm transition-colors ${r.key === range.key ? "bg-ink text-white" : "text-muted hover:text-ink"}`}>{r.days}d</a>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
+            {RANGES.map((r) => (
+              <a key={r.key} href={`/admin/dashboard?range=${r.key}`}
+                className={`px-4 py-1.5 rounded-full text-sm transition-colors ${!custom && r.key === range.key ? "bg-ink text-white" : "text-muted hover:text-ink"}`}>{r.days}d</a>
+            ))}
+          </div>
+          <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white rounded-full p-1.5 shadow-card">
+            <input type="date" name="from" defaultValue={fromDate} className={sel} />
+            <span className="text-muted text-xs">→</span>
+            <input type="date" name="to" defaultValue={toDate} className={sel} />
+            <button className="px-3 py-1.5 rounded-full bg-ink text-white text-sm">Apply</button>
+          </form>
         </div>
       </div>
 
@@ -44,6 +63,18 @@ export default async function Dashboard({ searchParams }: { searchParams: { rang
         <Tile label="Orders" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
         <Tile label="Approved Retailers" sub={`${d.pendingApprovals} pending`}><AnimatedNumber value={d.retailers} /></Tile>
         <Tile label="Pending Approvals" accent={d.pendingApprovals ? "text-gold-dark" : undefined} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
+      </div>
+
+      {/* Expandable channel reports — headline number, click to see the full report for the range */}
+      <div className="mb-5">
+        <p className="text-sm text-muted mb-2">Sales by channel — <span className="text-ink">tap any card to expand the full report for {label.toLowerCase()}</span></p>
+        <div className="grid md:grid-cols-3 gap-4">
+          {report.channels.map((c) => (
+            <ExpandableReport key={c.channel} title={CH_LABEL[c.channel] ?? c.channel} channelKey={c.channel}
+              revenue={c.revenue} count={c.count} orders={c.orders} from={fromDate} to={toDate}
+              accent={c.channel === "pos" ? "text-emerald" : undefined} />
+          ))}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4 mb-5">
