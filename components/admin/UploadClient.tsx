@@ -19,7 +19,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
   const [newCat, setNewCat] = useState(""); const [showNewCat, setShowNewCat] = useState(false);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ name: "", price: "", qty: "", type: "simple" as "simple" | "configurable", colors: "" });
+  const [form, setForm] = useState({ name: "", price: "", qty: "", type: "simple" as "simple" | "configurable", colors: "", sku: "" });
   const [csv, setCsv] = useState("");
   const [writeAi, setWriteAi] = useState(true);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -54,6 +54,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
       const fd = new FormData();
       fd.set("categoryId", catId); fd.set("name", form.name.trim()); fd.set("price", form.price);
       fd.set("qty", form.qty); fd.set("type", form.type); fd.set("colors", form.colors);
+      if (form.sku.trim()) fd.set("sku", form.sku.trim());
       let file = fileRef.current?.files?.[0] ?? null;
       if (file) { push({ text: "Optimising photo…", status: "run" }); file = await compressImage(file); fd.set("image", file); patchLast("ok", "Photo optimised ✓"); }
       push({ text: `Creating ${form.name.trim()}…`, status: "run" });
@@ -63,7 +64,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
       setProgress({ done: 1, total: writeAi ? 2 : 1 });
       if (writeAi && res.sku) { await writeAiPage(res.sku, form.name.trim()); setProgress({ done: 2, total: 2 }); }
       toast(`${res.sku} added`);
-      setForm({ name: "", price: "", qty: "", type: "simple", colors: "" });
+      setForm({ name: "", price: "", qty: "", type: "simple", colors: "", sku: "" });
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
       patchLast("err", e instanceof Error ? e.message : "Upload failed");
@@ -143,6 +144,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
               <input className={input} placeholder="Base wholesale ₹" inputMode="numeric" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               <input className={input} placeholder="Stock qty" inputMode="numeric" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
             </div>
+            <input className={`${input} font-mono`} placeholder="SKU (optional — leave blank to auto-generate BD####)" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <select className={input} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as any })}>
                 <option value="simple">Simple (one item)</option>

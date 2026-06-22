@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getProductBySku, getCategories, getPricingFormula } from "@/lib/supabase/queries";
 import { ProductEditor, type EditorProduct } from "@/components/admin/ProductEditor";
 import { requirePerm } from "@/lib/auth";
+import { addVariantAction, updateVariantAction, deleteVariantAction } from "@/app/actions/variants";
 
 export const metadata = { title: "Owner Console · Edit product" };
 
@@ -55,6 +56,36 @@ export default async function EditProduct({ params }: { params: { sku: string } 
           wholesaleMarkupPct: formula.wholesaleMarkupPct,
         }}
       />
+
+      {/* Variants — colours/sizes with their own SKU & stock */}
+      <section className="max-w-3xl mt-6 bg-white rounded-2xl border border-sand p-5 shadow-card">
+        <h2 className="font-display text-xl text-ink mb-1">Variants</h2>
+        <p className="text-xs text-muted mb-4">Add colour/size options — each gets its own SKU and stock count. Variant stock totals: <b className="text-ink">{(p.variants ?? []).reduce((s: number, v: any) => s + (v.qty ?? 0), 0)}</b> pcs.</p>
+
+        <div className="space-y-2 mb-4">
+          {(p.variants ?? []).length === 0 && <p className="text-sm text-muted">No variants yet — this is a simple product.</p>}
+          {(p.variants ?? []).map((v: any) => (
+            <form key={v.id} action={updateVariantAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="id" value={v.id} />
+              <input type="hidden" name="product_sku" value={p.sku} />
+              <input name="color" defaultValue={v.color ?? ""} placeholder="Colour / size" className="rounded-xl border border-sand px-3 py-2 text-sm w-36 outline-none focus:border-emerald" />
+              <input name="sku" defaultValue={v.sku ?? ""} placeholder="Variant SKU" className="rounded-xl border border-sand px-3 py-2 text-sm w-40 outline-none focus:border-emerald font-mono" />
+              <label className="text-xs text-muted flex items-center gap-1">Stock <input name="qty" type="number" min={0} defaultValue={v.qty ?? 0} className="rounded-xl border border-sand px-2 py-2 text-sm w-20 text-center outline-none focus:border-emerald" /></label>
+              <button className="px-3 py-2 rounded-xl bg-ink/5 text-ink text-xs hover:bg-ink/10">Save</button>
+              <span />
+              <button formAction={deleteVariantAction} className="text-muted hover:text-rose text-xs">Delete</button>
+            </form>
+          ))}
+        </div>
+
+        <form action={addVariantAction} className="flex flex-wrap items-center gap-2 border-t border-sand/60 pt-4">
+          <input type="hidden" name="product_sku" value={p.sku} />
+          <input name="color" placeholder="New colour / size *" className="rounded-xl border border-sand px-3 py-2 text-sm w-44 outline-none focus:border-emerald" required />
+          <input name="sku" placeholder="SKU (blank = auto)" className="rounded-xl border border-sand px-3 py-2 text-sm w-44 outline-none focus:border-emerald font-mono" />
+          <label className="text-xs text-muted flex items-center gap-1">Stock <input name="qty" type="number" min={0} defaultValue={0} className="rounded-xl border border-sand px-2 py-2 text-sm w-20 text-center outline-none focus:border-emerald" /></label>
+          <button className="btn-primary px-4 py-2 text-sm font-medium">+ Add variant</button>
+        </form>
+      </section>
     </main>
   );
 }

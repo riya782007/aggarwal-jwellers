@@ -35,7 +35,7 @@ async function nextSku(sb: ReturnType<typeof supabaseServer>): Promise<number> {
   return max + 1;
 }
 
-export type NewProduct = { categoryId: string; name: string; basePriceRupees: number; qty: number; type: "simple" | "configurable"; colors: string[] };
+export type NewProduct = { categoryId: string; name: string; basePriceRupees: number; qty: number; type: "simple" | "configurable"; colors: string[]; manualSku?: string };
 export type RowResult = { row: number; ok: boolean; sku?: string; error?: string };
 
 async function insertOne(sb: ReturnType<typeof supabaseServer>, formula: any, n: NewProduct, skuNum: number, publish = false): Promise<RowResult> {
@@ -44,7 +44,13 @@ async function insertOne(sb: ReturnType<typeof supabaseServer>, formula: any, n:
   if (!n.categoryId) return { row: skuNum, ok: false, error: "Missing category" };
   const prices = computePrices(n.basePriceRupees * 100, formula);
   if (!isValidPriceSet(prices)) return { row: skuNum, ok: false, error: "Computed price invalid — flagged" };
-  const sku = `BD${skuNum}`;
+  // Use a manually-entered SKU if provided, else auto-generate BD####.
+  const manual = n.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
+  const sku = manual || `BD${skuNum}`;
+  if (manual) {
+    const { data: dup } = await sb.from("products").select("id").eq("sku", manual).maybeSingle();
+    if (dup) return { row: skuNum, ok: false, error: `SKU ${manual} already exists` };
+  }
   // Incomplete products (no photo yet) stay DRAFT so they never appear on the storefront
   // looking unfinished. They publish automatically once a photo is added, or via Show.
   const { data: prod, error } = await sb.from("products").insert({
@@ -100,6 +106,7 @@ export async function createProductWithImageAction(formData: FormData): Promise<
     qty: Number(formData.get("qty")) || 0,
     type: String(formData.get("type")) === "configurable" ? "configurable" : "simple",
     colors: String(formData.get("colors") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    manualSku: String(formData.get("sku") ?? "").trim() || undefined,
   };
   const [formula, skuNum] = await Promise.all([getPricingFormula(), nextSku(sb)]);
   const file = formData.get("image") as File | null;
