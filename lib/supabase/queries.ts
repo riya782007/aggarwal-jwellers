@@ -152,14 +152,15 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   };
 }
 
-export type ClassifiedRow = { sku: string; name: string; category: string; qty: number; lastMovementAt: string | null; cls: string };
+export type ClassifiedRow = { sku: string; name: string; category: string; categorySlug: string; status: string; qty: number; lastMovementAt: string | null; cls: string };
 
 export async function getInventoryClassified(rule: InventoryRule = DEFAULT_RULE): Promise<ClassifiedRow[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("sku,name,qty,last_movement_at,category:categories(name)").order("sku");
+  const { data } = await sb.from("products").select("sku,name,qty,status,last_movement_at,category:categories(name,slug)").order("sku");
   const now = new Date();
   return ((data as any[]) ?? []).map((p) => ({
-    sku: p.sku, name: p.name, category: p.category?.name ?? "—", qty: p.qty, lastMovementAt: p.last_movement_at,
+    sku: p.sku, name: p.name, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
+    status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at,
     cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now),
   }));
 }

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
 import { Pager } from "@/components/admin/Pager";
 import { StockAdjust } from "@/components/admin/StockAdjust";
+import { getSession, can } from "@/lib/auth";
+import { setProductVisibilityAction } from "@/app/actions/catalog";
+import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
 
 const BADGE: Record<string, string> = {
   dead: "bg-rose/15 text-rose", low: "bg-gold/15 text-gold-dark",
@@ -23,6 +26,7 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
   const rows = await getInventoryClassified({ deadDays, lowQty });
+  const session = getSession();
   const counts = rows.reduce((a, r) => { a[r.cls] = (a[r.cls] ?? 0) + 1; return a; }, {} as Record<string, number>);
   const filtered = rows.filter((r) => (!cls || r.cls === cls) && (!q || (r.name + r.sku).toLowerCase().includes(q)));
   const total = filtered.length;
@@ -57,17 +61,32 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-left">
-            <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Last movement</th><th className="p-3">Status</th></tr>
+            <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Last movement</th><th className="p-3">Health</th><th className="p-3">Visibility</th><th className="p-3 text-right">Actions</th></tr>
           </thead>
           <tbody>
-            {shown.length === 0 && <tr><td colSpan={5} className="p-4 text-muted">No items match.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={7} className="p-4 text-muted">No items match.</td></tr>}
             {shown.map((r) => (
-              <tr key={r.sku} className="border-t border-sand/60 hover:bg-cream/40">
+              <tr key={r.sku} className="border-t border-sand/60 hover:bg-cream/40 align-middle">
                 <td className="p-3 text-ink">{r.name} <span className="text-muted">· {r.sku}</span></td>
                 <td className="p-3 text-muted">{r.category}</td>
                 <td className="p-3"><span className={r.qty <= lowQty ? "text-rose font-medium" : ""}>{r.qty}</span></td>
                 <td className="p-3 text-muted">{daysSince(r.lastMovementAt)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${BADGE[r.cls]}`}>{r.cls}</span></td>
+                <td className="p-3"><span className={`text-xs ${r.status === "published" ? "text-emerald-dark" : "text-gold-dark"}`}>{r.status === "published" ? "Visible" : "Hidden"}</span></td>
+                <td className="p-3">
+                  <div className="flex flex-wrap gap-1.5 justify-end items-center">
+                    <Link href={`/admin/product/${r.sku}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">360°</Link>
+                    <Link href={`/shop/${r.categorySlug}/${r.sku}`} target="_blank" className="text-xs text-emerald nav-link">view ↗</Link>
+                    {can(session, "catalog.publish") && (
+                      <form action={setProductVisibilityAction}>
+                        <input type="hidden" name="sku" value={r.sku} />
+                        <input type="hidden" name="status" value={r.status === "published" ? "draft" : "published"} />
+                        <button className="px-2.5 py-1 rounded-full bg-gold/15 text-gold-dark text-xs hover:bg-gold/25">{r.status === "published" ? "Hide" : "Show"}</button>
+                      </form>
+                    )}
+                    {can(session, "catalog.delete") && <DeleteProductButton sku={r.sku} className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label="🗑" />}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

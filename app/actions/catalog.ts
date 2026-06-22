@@ -151,6 +151,36 @@ export async function createOneRowAction(categoryId: string, row: ParsedRow): Pr
   return { ...res, name: row.name };
 }
 
+/** Hide (draft) or show (publish) a product on the storefront. */
+export async function setProductVisibilityAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.publish"))) return;
+  const sku = String(formData.get("sku") ?? "").trim();
+  const status = String(formData.get("status") ?? "") === "published" ? "published" : "draft";
+  if (!sku) return;
+  await supabaseServer().from("products").update({ status }).eq("sku", sku);
+  revalidatePath("/admin/inventory"); revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+}
+
+/** Delete a product (or hide it if it has past orders, to keep the books intact). */
+export async function deleteProductAction(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  if (!(await requirePerm("catalog.delete"))) return { ok: false, message: "Your role can't delete products." };
+  const sku = String(formData.get("sku") ?? "").trim();
+  if (!sku) return { ok: false, message: "Missing SKU" };
+  const sb = supabaseServer();
+  const { data: p } = await sb.from("products").select("id,name").eq("sku", sku).maybeSingle();
+  if (!p) return { ok: false, message: "Product not found" };
+  const pid = (p as any).id;
+  await sb.from("product_images").delete().eq("product_id", pid);
+  await sb.from("variants").delete().eq("product_id", pid);
+  const { error } = await sb.from("products").delete().eq("id", pid);
+  revalidatePath("/admin/inventory"); revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+  if (error) {
+    await sb.from("products").update({ status: "draft" }).eq("id", pid);
+    return { ok: true, message: `${sku} has past orders — hidden from the store instead of deleted.` };
+  }
+  return { ok: true, message: `Deleted ${(p as any).name} (${sku}).` };
+}
+
 export async function createCategoryJsonAction(name: string): Promise<{ id: string; name: string } | null> {
   const nm = name.trim(); if (!nm) return null;
   const sb = supabaseServer();
