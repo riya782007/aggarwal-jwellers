@@ -7,7 +7,7 @@ export default function Login({ searchParams }: { searchParams: { error?: string
     <main className="min-h-screen grid place-items-center bg-gradient-to-b from-cream to-ivory px-5">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <p className="font-display text-4xl text-ink">Blythe Diva</p>
+          <p className="font-display text-4xl text-ink">Aggarwal Jwellers</p>
           <p className="text-[10px] tracking-[0.3em] uppercase text-gold-dark mt-1">Owner Console</p>
         </div>
         <form action={loginAction} className="bg-white rounded-2xl shadow-luxe p-7">

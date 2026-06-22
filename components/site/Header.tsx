@@ -17,7 +17,7 @@ export function Header({ categories }: { categories: Cat[] }) {
           <div className="flex items-center gap-3">
             <MobileMenu categories={categories} />
             <Link href="/shop" className="leading-none">
-              <span className="block font-display text-2xl md:text-3xl text-ink tracking-tight">Blythe Diva</span>
+              <span className="block font-display text-2xl md:text-3xl text-ink tracking-tight">Aggarwal Jwellers</span>
               <span className="hidden md:block text-[9px] tracking-[0.3em] uppercase text-gold-dark -mt-1">Artificial Jewellery</span>
             </Link>
           </div>

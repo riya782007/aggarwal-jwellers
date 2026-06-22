@@ -39,7 +39,7 @@ export async function divaPlan(command: string): Promise<DivaPlan> {
 
   const catalog = DIVA_TOOLS.map((t) => `- ${t.name}(${t.params.map((p) => p.name + (p.required ? "*" : "")).join(", ")}) [${t.kind}] — ${t.desc}`).join("\n");
   const system =
-    `You are DIVA, the operations agent inside the Blythe Diva artificial-jewellery admin console (Yogendra Industries, Sadar Bazar, Delhi). ` +
+    `You are DIVA, the operations agent inside the Aggarwal Jwellers artificial-jewellery admin console (Yogendra Industries, Sadar Bazar, Delhi). ` +
     `The console manages a catalogue of products (each has a SKU like BD1000, a price, stock, status published/draft, AI page, photos), ` +
     `online + wholesale + counter(POS) sales, estimates, purchases, suppliers, inventory health, staff roles, and analytics. ` +
     `Turn the owner's command into an ordered plan using ONLY these tools:\n${catalog}\n\n` +

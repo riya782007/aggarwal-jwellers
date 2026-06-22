@@ -8,7 +8,7 @@
  * or IGST 3% inter-state). Change GST_RATE / HSN if the product mix differs.
  */
 export const BUSINESS = {
-  brand: "Blythe Diva",
+  brand: "Aggarwal Jwellers",
   legalName: "Yogendra Industries",
   address: "Sadar Bazar, Rui Mandi, Delhi 110006",
   stateName: "Delhi",
@@ -16,7 +16,7 @@ export const BUSINESS = {
   gstin: "07ABCDE1234F1Z5", // ← replace with the real GSTIN
   pan: "ABCDE1234F",        // ← replace with the real PAN
   phone: "+91 98731 51767",
-  email: "hello@blythediva.in",
+  email: "hello@aggarwaljwellers.in",
   bank: {
     name: "HDFC Bank",
     account: "50200000000000",

@@ -45,7 +45,7 @@ describe("demo smoke: seeded happy path", () => {
       expect(c.title.length).toBeGreaterThan(0);
       expect(c.description.length).toBeGreaterThan(40);
       expect(c.seo.keywords.length).toBeGreaterThan(0);
-      expect(c.seo.metaTitle).toContain("Blythe Diva");
+      expect(c.seo.metaTitle).toContain("Aggarwal Jwellers");
     }
   });
 

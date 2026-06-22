@@ -10,7 +10,7 @@ import { ReelsSection } from "@/components/site/ReelsSection";
 
 export const metadata = {
   title: "Premium Artificial Jewellery — Kundan, Meena, Temple",
-  description: "Shop handcrafted artificial jewellery from Blythe Diva, Sadar Bazar Delhi. Necklaces, earrings, bracelets, anklets & rings at retail and wholesale.",
+  description: "Shop handcrafted artificial jewellery from Aggarwal Jwellers, Sadar Bazar Delhi. Necklaces, earrings, bracelets, anklets & rings at retail and wholesale.",
 };
 
 export default async function Shop() {

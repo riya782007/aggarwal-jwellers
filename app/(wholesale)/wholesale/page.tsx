@@ -37,7 +37,7 @@ export default async function Wholesale({ searchParams }: { searchParams: { erro
       <section className="rounded-3xl bg-ink text-cream px-8 py-12 relative overflow-hidden mb-8">
         <div className="absolute inset-0 opacity-25" style={{ background: "radial-gradient(circle at 15% 20%, #C8A24C, transparent 38%), radial-gradient(circle at 85% 90%, #0F5C4D, transparent 42%)" }} />
         <div className="relative max-w-2xl">
-          <p className="text-gold-light tracking-[0.3em] uppercase text-xs">Blythe Diva · Trade</p>
+          <p className="text-gold-light tracking-[0.3em] uppercase text-xs">Aggarwal Jwellers · Trade</p>
           <h1 className="font-display text-5xl mt-2">Wholesale Portal</h1>
           <p className="text-cream/70 mt-3">Factory-direct rates from Sadar Bazar. {products.length} designs live · {formatPaise(totalValue)} stock on hand. Approved retailers sign in to see trade prices and order.</p>
         </div>

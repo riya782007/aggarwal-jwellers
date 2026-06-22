@@ -3,10 +3,10 @@ export type Page = { title: string; intro: string; sections: Section[] };
 
 export const PAGES: Record<string, Page> = {
   about: {
-    title: "About Blythe Diva",
+    title: "About Aggarwal Jwellers",
     intro: "Where elegance meets empowerment — handcrafted artificial jewellery from the heart of Sadar Bazar, Delhi.",
     sections: [
-      { h: "Our story", p: "Blythe Diva, by Yogendra Industries, began in the bustling lanes of Rui Mandi, Sadar Bazar — one of India's largest jewellery wholesale hubs. What started as a family trade has grown into a brand trusted by retailers across the country and loved by thousands of customers." },
+      { h: "Our story", p: "Aggarwal Jwellers, by Yogendra Industries, began in the bustling lanes of Rui Mandi, Sadar Bazar — one of India's largest jewellery wholesale hubs. What started as a family trade has grown into a brand trusted by retailers across the country and loved by thousands of customers." },
       { h: "Our craft", p: "Every piece blends traditional artistry — Kundan, Meenakari, Temple and Polki work — with modern, trend-ready design. We use premium brass alloys with anti-tarnish plating so your jewellery stays beautiful, lightweight, and comfortable for daily and festive wear." },
       { h: "Retail & wholesale", p: "We serve both the customer who wants one perfect piece and the retailer sourcing in bulk. Approved retailers unlock factory-direct trade pricing with minimum order quantities, while every shopper enjoys honest pricing, real reviews, and easy returns." },
     ],
@@ -17,7 +17,7 @@ export const PAGES: Record<string, Page> = {
     sections: [
       { h: "WhatsApp & Orders", p: "Message us on WhatsApp at +91 98731 51767 for orders, stock checks, and wholesale enquiries — it's the fastest way to reach us." },
       { h: "Call", p: "Phone: +91 95820 02623, Monday to Saturday, 10:00 AM – 8:00 PM IST." },
-      { h: "Visit", p: "Blythe Diva · Yogendra Industries, Sadar Bazar, Rui Mandi, Delhi 110006, India." },
+      { h: "Visit", p: "Aggarwal Jwellers · Yogendra Industries, Sadar Bazar, Rui Mandi, Delhi 110006, India." },
       { h: "Wholesale", p: "Retailers can apply for a trade account from the Wholesale page; the owner approves each account before trade pricing is unlocked." },
     ],
   },
@@ -43,7 +43,7 @@ export const PAGES: Record<string, Page> = {
     title: "Frequently Asked Questions",
     intro: "Quick answers to common questions.",
     sections: [
-      { h: "Is the jewellery real gold?", p: "No — Blythe Diva specialises in premium artificial (imitation) jewellery: brass alloy with anti-tarnish gold/silver plating. It looks luxurious, is lightweight, and is a fraction of the cost of fine jewellery." },
+      { h: "Is the jewellery real gold?", p: "No — Aggarwal Jwellers specialises in premium artificial (imitation) jewellery: brass alloy with anti-tarnish gold/silver plating. It looks luxurious, is lightweight, and is a fraction of the cost of fine jewellery." },
       { h: "Will it tarnish or turn my skin green?", p: "Our anti-tarnish plating resists discolouration with normal care. Keep pieces away from water, perfume, and sweat, and store them dry to keep them looking their best for longer." },
       { h: "Do you offer Cash on Delivery?", p: "Yes, COD is available across serviceable pincodes, alongside online payment options." },
       { h: "Can I order in bulk for my shop?", p: "Absolutely. Apply for a wholesale account on the Wholesale page; once approved by the owner, you'll see factory-direct trade rates and minimum order quantities." },

@@ -19,7 +19,7 @@ const schema = z.object({
 function prompt(p: ProductLike) {
   const colors = (p.colors ?? []).join(", ");
   return [
-    `You are a senior e-commerce copywriter for "Blythe Diva", a premium artificial-jewellery brand in Sadar Bazar, Rui Mandi, Delhi (retail + wholesale).`,
+    `You are a senior e-commerce copywriter for "Aggarwal Jwellers", a premium artificial-jewellery brand in Sadar Bazar, Rui Mandi, Delhi (retail + wholesale).`,
     `Write a high-converting product page as STRICT JSON with keys: title, description, specs (object of label->value), tags (array), seo (object: metaTitle, metaDescription, keywords array).`,
     `Product name: ${p.name}. SKU: ${p.sku}. Category: ${p.categoryName ?? "Jewellery"}.${colors ? ` Available colours: ${colors}.` : ""}`,
     `Rules: description 70-110 words, warm and aspirational; naturally weave in Google-friendly search terms (the category, the style e.g. Kundan/Meenakari/Temple/Polki/Pearl/Oxidised if applicable, occasions like wedding/festive/party/daily wear, and location terms "Sadar Bazar", "Delhi", "artificial jewellery online India"). Mention craftsmanship, brass alloy + anti-tarnish plating, lightweight comfort, COD and easy returns.`,

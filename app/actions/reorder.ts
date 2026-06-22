@@ -16,7 +16,7 @@ export async function generateReorderPlanAction(): Promise<{ ok: boolean; provid
   if (cands.length === 0) return { ok: true, provider: "none", recs: [] };
 
   const list = cands.map((c) => `${c.sku} | ${c.name} | ${c.category} | qty:${c.qty} | dayssince:${c.daysSince ?? "never"} | cost:${Math.round(c.base_wholesale / 100)}`).join("\n");
-  const system = `You are an inventory planner for "Blythe Diva", an artificial-jewellery store. For each item below, decide: action ("reorder" for fast-movers running low, "clear" for stale dead stock), qty (integer reorder quantity; 0 if clearing), urgency ("high"|"medium"|"low"), and rationale (<=14 words). Return STRICT JSON: {"recommendations":[{"sku","action","qty","urgency","rationale"}]}. Items:\n${list}`;
+  const system = `You are an inventory planner for "Aggarwal Jwellers", an artificial-jewellery store. For each item below, decide: action ("reorder" for fast-movers running low, "clear" for stale dead stock), qty (integer reorder quantity; 0 if clearing), urgency ("high"|"medium"|"low"), and rationale (<=14 words). Return STRICT JSON: {"recommendations":[{"sku","action","qty","urgency","rationale"}]}. Items:\n${list}`;
 
   try {
     let raw: string;

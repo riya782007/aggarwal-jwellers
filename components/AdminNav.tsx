@@ -107,7 +107,7 @@ export function AdminNav({ perms = "*", roleName = "Owner" }: { perms?: Perms; r
         <button onClick={() => setOpen(true)} aria-label="Open menu" className="flex flex-col gap-[5px] p-1">
           <span className="block h-0.5 w-6 bg-cream rounded" /><span className="block h-0.5 w-6 bg-cream rounded" /><span className="block h-0.5 w-6 bg-cream rounded" />
         </button>
-        <p className="font-display text-xl text-ivory leading-none">Blythe Diva</p>
+        <p className="font-display text-xl text-ivory leading-none">Aggarwal Jwellers</p>
         <span className="ml-auto text-[10px] tracking-widest uppercase text-gold-light">{roleName}</span>
       </header>
 
@@ -116,7 +116,7 @@ export function AdminNav({ perms = "*", roleName = "Owner" }: { perms?: Perms; r
       <aside className={`no-print lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-ink text-cream/90 z-50 px-4 py-6 overflow-y-auto transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between mb-6 px-2">
           <div>
-            <p className="font-display text-2xl text-ivory leading-none">Blythe Diva</p>
+            <p className="font-display text-2xl text-ivory leading-none">Aggarwal Jwellers</p>
             <p className="text-[10px] tracking-[0.25em] uppercase text-gold-light mt-1">Owner Console</p>
           </div>
           <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-cream/70 text-xl px-2">✕</button>
@@ -128,7 +128,7 @@ export function AdminNav({ perms = "*", roleName = "Owner" }: { perms?: Perms; r
       <aside className={`no-print hidden lg:flex shrink-0 lg:sticky lg:top-0 h-screen bg-ink text-cream/90 px-3 py-6 flex-col transition-[width] duration-200 ${collapsed ? "w-[4.75rem]" : "w-60"}`}>
         <div className={`mb-6 flex items-center ${collapsed ? "justify-center" : "justify-between px-2"}`}>
           {!collapsed && <div>
-            <p className="font-display text-2xl text-ivory leading-none">Blythe Diva</p>
+            <p className="font-display text-2xl text-ivory leading-none">Aggarwal Jwellers</p>
             <p className="text-[10px] tracking-[0.25em] uppercase text-gold-light mt-1">{roleName === "Owner" ? "Owner Console" : roleName}</p>
           </div>}
           <button onClick={toggleCollapsed} aria-label="Collapse menu" className="text-cream/60 hover:text-white text-lg px-1">{collapsed ? "»" : "«"}</button>

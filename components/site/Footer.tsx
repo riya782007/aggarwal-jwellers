@@ -5,7 +5,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
     <footer className="bg-ink text-cream/80 mt-20">
       <div className="max-w-7xl mx-auto px-5 py-14 grid md:grid-cols-4 gap-10">
         <div>
-          <p className="font-display text-3xl text-ivory">Blythe Diva</p>
+          <p className="font-display text-3xl text-ivory">Aggarwal Jwellers</p>
           <p className="text-sm mt-3 text-cream/60 leading-relaxed">Where elegance meets empowerment. Handcrafted artificial jewellery from Sadar Bazar, Delhi — for retail &amp; wholesale.</p>
           <div className="flex gap-3 mt-5">
             <a href="https://wa.me/919873151767" target="_blank" rel="noopener" aria-label="WhatsApp" title="WhatsApp"
@@ -55,7 +55,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
       </div>
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-5 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-cream/50">
-          <span>© 2026 Blythe Diva · Yogendra Industries. All rights reserved.</span>
+          <span>© 2026 Aggarwal Jwellers · Yogendra Industries. All rights reserved.</span>
           <span className="flex gap-2 text-cream/40">Visa · Mastercard · UPI · Paytm · COD</span>
         </div>
       </div>
