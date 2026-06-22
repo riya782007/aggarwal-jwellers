@@ -16,6 +16,7 @@ export function POSClient({ products }: { products: P[] }) {
   const [billType, setBillType] = useState<"gst" | "cash">("gst");
   const [gstin, setGstin] = useState("");
   const [addr, setAddr] = useState("");
+  const [received, setReceived] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -36,6 +37,7 @@ export function POSClient({ products }: { products: P[] }) {
       items: lines.map((l) => ({ sku: l.sku, qty: l.qty })),
       customer: cust, payment: pay,
       billType, buyerGstin: billType === "gst" ? gstin : "", buyerAddress: addr,
+      amountPaidRupees: received.trim() ? Number(received) : undefined,
     });
     setBusy(false);
     if (!res.ok) { setErr(res.error ?? "Failed"); return; }
@@ -108,6 +110,15 @@ export function POSClient({ products }: { products: P[] }) {
         <div className="mt-5 border-t border-sand pt-4 flex justify-between items-baseline">
           <span className="text-muted">Total</span><span className="text-3xl font-semibold text-ink">{formatPaise(total)}</span>
         </div>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="text-sm text-muted">Amount received</span>
+          <input value={received} onChange={(e) => setReceived(e.target.value)} inputMode="numeric"
+            placeholder={`${Math.round(total / 100)} (full)`}
+            className="rounded-xl border border-sand px-3 py-1.5 text-sm w-36 text-right outline-none focus:border-emerald" />
+        </div>
+        {received.trim() && Number(received) * 100 < total && (
+          <p className="text-xs text-rose mt-1 text-right">Partial — balance due {formatPaise(total - Number(received) * 100)}</p>
+        )}
         {err && <p className="text-sm text-rose mt-2">{err}</p>}
         <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-4 py-3.5 text-sm font-medium disabled:opacity-50">
           {busy ? "Completing…" : billType === "gst" ? "Complete sale & print tax invoice" : "Complete sale & print cash memo"}

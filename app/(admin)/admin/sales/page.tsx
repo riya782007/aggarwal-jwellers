@@ -44,18 +44,18 @@ export default async function SalesRecords({ searchParams }: { searchParams: { p
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-left"><tr>
-            <th className="p-3">Order ID</th><th className="p-3">Date</th><th className="p-3">Customer</th><th className="p-3">Channel</th><th className="p-3">Bill</th><th className="p-3">Payment</th><th className="p-3 text-right">Amount</th>
+            <th className="p-3">Invoice / Order</th><th className="p-3">Date</th><th className="p-3">Customer</th><th className="p-3">Channel</th><th className="p-3">Bill</th><th className="p-3">Status</th><th className="p-3 text-right">Amount</th>
           </tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={7} className="p-4 text-muted">No sales match these filters.</td></tr>}
             {rows.map((r: any) => (
               <tr key={r.id} className="border-t border-sand/60 hover:bg-cream/40">
-                <td className="p-3"><Link href={`/admin/invoice/${r.id}`} className="text-emerald nav-link font-medium">{String(r.id).slice(0, 8).toUpperCase()} ↗</Link>{r.source_tag && <span className="block text-[10px] text-muted">via {r.source_tag}</span>}</td>
+                <td className="p-3"><Link href={`/admin/invoice/${r.id}`} className="text-emerald nav-link font-medium">{r.invoice_no || String(r.id).slice(0, 8).toUpperCase()} ↗</Link>{r.source_tag && <span className="block text-[10px] text-muted">via {r.source_tag}</span>}</td>
                 <td className="p-3 text-muted whitespace-nowrap">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
                 <td className="p-3 text-ink">{r.customer_name || "Walk-in"}{r.customer_phone && <span className="block text-xs text-muted">{r.customer_phone}</span>}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${CH_STYLE[r.channel] ?? "bg-cream text-muted"}`}>{r.channel}</span></td>
                 <td className="p-3 text-xs uppercase text-muted">{r.bill_type === "cash" ? "Cash memo" : "GST"}</td>
-                <td className="p-3 text-xs uppercase text-muted">{r.payment_mode}</td>
+                <td className="p-3">{(() => { const paid = r.amount_paid ?? 0; const st = paid <= 0 ? "Unpaid" : paid >= r.total ? "Paid" : "Partial"; const cls: Record<string, string> = { Paid: "bg-emerald-mist text-emerald-dark", Partial: "bg-gold/15 text-gold-dark", Unpaid: "bg-rose/10 text-rose" }; return <span className={`px-2 py-0.5 rounded-full text-xs ${cls[st]}`}>{st}</span>; })()}</td>
                 <td className="p-3 text-right font-medium">{formatPaise(r.total)}</td>
               </tr>
             ))}

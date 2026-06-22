@@ -31,6 +31,7 @@ export async function posSaleAction(input: {
   billType?: "gst" | "cash";
   buyerGstin?: string;
   buyerAddress?: string;
+  amountPaidRupees?: number; // partial/advance; defaults to full
 }): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
   if (!input.items?.length) return { ok: false, error: "Add at least one item" };
   for (const it of input.items) if (!Number.isFinite(it.qty) || it.qty < 1) return { ok: false, error: "Every line needs a quantity of 1 or more" };
@@ -62,13 +63,20 @@ export async function posSaleAction(input: {
     }
   }
 
+  // Amount received now (defaults to full payment at the counter).
+  const amountPaid = input.amountPaidRupees != null
+    ? Math.min(total as number, Math.max(0, Math.round(input.amountPaidRupees * 100)))
+    : (total as number);
+
   await sb.from("orders").update({
     bill_type: billType,
     buyer_gstin: input.buyerGstin?.trim() || null,
     buyer_address: input.buyerAddress?.trim() || null,
     buyer_state: buyerState,
     customer_id: customerId,
+    amount_paid: amountPaid,
   }).eq("id", orderId);
+  await sb.rpc("assign_invoice_no", { p_order: orderId });
 
   await sendPurchase({ orderId, valuePaise: total, channel: "retail", items: input.items.map((i) => ({ sku: i.sku, qty: i.qty })) });
   return { ok: true, orderId, total };

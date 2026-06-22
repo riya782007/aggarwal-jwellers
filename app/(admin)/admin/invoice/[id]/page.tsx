@@ -5,6 +5,8 @@ import { getOrder } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, stateCodeFromGstin, amountInWords } from "@/lib/business";
+import { getSession, can } from "@/lib/auth";
+import { recordPaymentAction, setDocTypeAction } from "@/app/actions/payments";
 
 export const metadata = { title: "Invoice" };
 
@@ -14,16 +16,22 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const { order, items } = data;
 
   const isCash = order.bill_type === "cash";
+  const isProforma = order.doc_type === "proforma";
   const total = order.total as number;
+  const paid = order.amount_paid ?? 0;
+  const balanceDue = Math.max(0, total - paid);
+  const payStatus = paid <= 0 ? "Unpaid" : paid >= total ? "Paid" : "Partial";
   const buyerStateCode = order.buyer_state || stateCodeFromGstin(order.buyer_gstin);
   const g = gstSplit(total, buyerStateCode);
   const roundedTotal = Math.round(total / 100) * 100;
   const roundOff = roundedTotal - total;
 
-  const prefix = isCash ? "CM-" : "INV-";
-  const invNo = prefix + String(order.id).slice(0, 8).toUpperCase();
+  const docTitle = isCash ? "CASH MEMO" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
+  const invNo = order.invoice_no || ((isCash ? "CM-" : "INV-") + String(order.id).slice(0, 8).toUpperCase());
   const date = new Date(order.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const qtyTotal = items.reduce((s: number, it: any) => s + it.qty, 0);
+  const session = getSession();
+  const PAY_STYLE: Record<string, string> = { Paid: "bg-emerald-mist text-emerald-dark", Partial: "bg-gold/15 text-gold-dark", Unpaid: "bg-rose/10 text-rose" };
 
   const th = "py-2 px-2 text-xs font-semibold text-ink/70";
   const td = "py-2 px-2 align-top";
@@ -38,9 +46,11 @@ export default async function Invoice({ params }: { params: { id: string } }) {
 
         <div className="print-area bg-white rounded-2xl shadow-card p-5 sm:p-8 text-[13px]" id="invoice">
           {/* Title bar */}
-          <div className="text-center pb-3 mb-3 border-b-2 border-ink/80">
-            <p className="text-[15px] font-bold tracking-wide text-ink">{isCash ? "CASH MEMO" : "TAX INVOICE"}</p>
-            {!isCash && <p className="text-[10px] text-muted">(Original for Recipient)</p>}
+          <div className="text-center pb-3 mb-3 border-b-2 border-ink/80 relative">
+            <p className="text-[15px] font-bold tracking-wide text-ink">{docTitle}</p>
+            {!isCash && !isProforma && <p className="text-[10px] text-muted">(Original for Recipient)</p>}
+            {isProforma && <p className="text-[10px] text-muted">Not a tax invoice — for quotation/advance only.</p>}
+            <span className={`absolute right-0 top-0 text-[11px] px-2 py-0.5 rounded-full ${PAY_STYLE[payStatus]}`}>{payStatus}</span>
           </div>
 
           {/* Seller + meta */}
@@ -128,6 +138,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               {!isCash && g.interState && <div className="flex justify-between text-muted"><span>IGST @{GST_RATE}%</span><span>{formatPaise(g.igst)}</span></div>}
               {roundOff !== 0 && <div className="flex justify-between text-muted"><span>Round off</span><span>{formatPaise(roundOff)}</span></div>}
               <div className="flex justify-between font-semibold text-ink border-t border-sand pt-2 text-base"><span>Grand Total</span><span>{formatPaise(roundedTotal)}</span></div>
+              <div className="flex justify-between text-emerald-dark"><span>Amount paid</span><span>{formatPaise(paid)}</span></div>
+              {balanceDue > 0 && <div className="flex justify-between font-semibold text-rose"><span>Balance due</span><span>{formatPaise(balanceDue)}</span></div>}
             </div>
           </div>
 
@@ -146,8 +158,37 @@ export default async function Invoice({ params }: { params: { id: string } }) {
             </div>
           </div>
 
-          <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {isCash ? "cash memo" : "tax invoice"} and does not require a physical signature.</p>
+          <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {docTitle.toLowerCase()} and does not require a physical signature.</p>
         </div>
+
+        {/* Admin controls (never printed) */}
+        {(can(session, "billing.sell") || can(session, "billing.gst")) && (
+          <div className="no-print grid sm:grid-cols-2 gap-4 mt-5">
+            {can(session, "billing.sell") && balanceDue > 0 && (
+              <div className="bg-white rounded-2xl p-5 shadow-card">
+                <h2 className="font-medium text-ink mb-1">Record a payment</h2>
+                <p className="text-xs text-muted mb-3">Balance due {formatPaise(balanceDue)}. Log an advance or part-payment.</p>
+                <form action={recordPaymentAction} className="flex items-center gap-2">
+                  <input type="hidden" name="order_id" value={order.id} />
+                  <span className="text-muted">₹</span>
+                  <input name="amount" type="number" min={1} placeholder={String(Math.round(balanceDue / 100))} className="rounded-xl border border-sand px-3 py-2 text-sm w-32 outline-none focus:border-emerald" />
+                  <button className="btn-primary px-4 py-2 text-sm font-medium">Record</button>
+                </form>
+              </div>
+            )}
+            {can(session, "billing.gst") && !isCash && (
+              <div className="bg-white rounded-2xl p-5 shadow-card">
+                <h2 className="font-medium text-ink mb-1">Document type</h2>
+                <p className="text-xs text-muted mb-3">Currently a <b>{isProforma ? "Proforma" : "Tax Invoice"}</b>. {isProforma ? "Finalise to issue a numbered tax invoice." : ""}</p>
+                <form action={setDocTypeAction}>
+                  <input type="hidden" name="order_id" value={order.id} />
+                  <input type="hidden" name="doc_type" value={isProforma ? "invoice" : "proforma"} />
+                  <button className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">{isProforma ? "Finalise as Tax Invoice →" : "Mark as Proforma"}</button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

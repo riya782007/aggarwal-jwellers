@@ -64,8 +64,11 @@ export async function placeWholesaleOrderAction(items: { sku: string; qty: numbe
   if (!sess) return { ok: false, error: "Please log in as an approved wholesale customer." };
   const clean = (items ?? []).filter((i) => i.sku && i.qty > 0).map((i) => ({ sku: i.sku, qty: Math.floor(i.qty) }));
   if (!clean.length) return { ok: false, error: "Enter quantities for at least one product." };
-  const { data, error } = await supabaseServer().rpc("place_wholesale_order", { p_customer: sess.id, p_items: clean });
+  const sb = supabaseServer();
+  const { data, error } = await sb.rpc("place_wholesale_order", { p_customer: sess.id, p_items: clean });
   if (error) return { ok: false, error: error.message };
+  const orderId = (data as any)?.order_id;
+  if (orderId) await sb.rpc("assign_invoice_no", { p_order: orderId });
   revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
-  return { ok: true, orderId: (data as any)?.order_id, total: (data as any)?.total };
+  return { ok: true, orderId, total: (data as any)?.total };
 }

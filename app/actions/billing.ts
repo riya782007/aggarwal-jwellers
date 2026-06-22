@@ -30,10 +30,12 @@ export async function billEstimateAction(formData: FormData) {
   if (!(await requirePerm("estimates.bill"))) redirect("/admin/estimates");
   const id = String(formData.get("id"));
   const billType = String(formData.get("bill_type") ?? "gst") === "cash" ? "cash" : "gst";
-  const { data, error } = await supabaseServer().rpc("convert_estimate_v2", { p_estimate_id: id, p_bill_type: billType });
+  const sb = supabaseServer();
+  const { data, error } = await sb.rpc("convert_estimate_v2", { p_estimate_id: id, p_bill_type: billType });
   if (error) throw new Error(error.message);
-  revalidatePath("/admin/estimates"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/sales");
   const orderId = (data as any)?.order_id;
+  if (orderId) await sb.rpc("assign_invoice_no", { p_order: orderId });
+  revalidatePath("/admin/estimates"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/sales");
   if (orderId) redirect(`/admin/invoice/${orderId}`);
   redirect("/admin/estimates");
 }
