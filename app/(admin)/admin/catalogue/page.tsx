@@ -54,7 +54,7 @@ export default async function AdminCatalogue() {
           <thead className="bg-cream text-muted text-left">
             <tr>
               <th className="p-3">Photo</th><th className="p-3">Product</th><th className="p-3">Category · No.</th>
-              <th className="p-3">Price (live)</th><th className="p-3">Page</th><th className="p-3">AI page</th><th className="p-3">AI photo</th>
+              <th className="p-3">Price (live)</th><th className="p-3">Edit</th><th className="p-3">Page</th><th className="p-3">AI page</th><th className="p-3">AI photo</th>
             </tr>
           </thead>
           <tbody>
@@ -67,6 +67,7 @@ export default async function AdminCatalogue() {
                   <td className="p-3 font-medium text-ink">{p.name}</td>
                   <td className="p-3 text-muted">{p.category.name} · {p.sku}</td>
                   <td className="p-3"><span className="font-semibold">{formatPaise(o.price)}</span>{o.hasOffer && <span className="text-xs text-rose ml-1">{o.offerPct}% off</span>}</td>
+                  <td className="p-3"><Link className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs font-medium hover:bg-ink/10 transition-colors" href={`/admin/catalogue/${p.sku}`}>✎ Edit</Link></td>
                   <td className="p-3"><Link className="text-emerald nav-link" href={`/shop/${p.category.slug}/${p.sku}`}>view ↗</Link></td>
                   <td className="p-3">
                     <form action={genContent} className="flex items-center gap-2">
