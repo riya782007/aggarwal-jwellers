@@ -1,67 +1,76 @@
 export const dynamic = "force-dynamic";
+import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
+import { Pager } from "@/components/admin/Pager";
 
 const BADGE: Record<string, string> = {
-  dead: "bg-red-100 text-red-700", low: "bg-amber-100 text-amber-700",
-  inactive: "bg-slate-200 text-slate-700", healthy: "bg-green-100 text-green-700",
+  dead: "bg-rose/15 text-rose", low: "bg-gold/15 text-gold-dark",
+  inactive: "bg-cream text-muted", healthy: "bg-emerald-mist text-emerald-dark",
 };
+const PAGE_SIZE = 25;
 
 function daysSince(iso: string | null) {
   if (!iso) return "never";
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) + "d ago";
 }
 
-export default async function Inventory({ searchParams }: { searchParams: { deadDays?: string; lowQty?: string; cls?: string } }) {
+export default async function Inventory({ searchParams }: { searchParams: { deadDays?: string; lowQty?: string; cls?: string; q?: string; page?: string } }) {
   const deadDays = Math.max(1, parseInt(searchParams.deadDays ?? "30", 10) || 30);
   const lowQty = Math.max(0, parseInt(searchParams.lowQty ?? "2", 10) || 2);
+  const cls = searchParams.cls ?? "";
+  const q = (searchParams.q ?? "").toLowerCase().trim();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+
   const rows = await getInventoryClassified({ deadDays, lowQty });
-  const filter = searchParams.cls;
-  const shown = filter ? rows.filter((r) => r.cls === filter) : rows;
   const counts = rows.reduce((a, r) => { a[r.cls] = (a[r.cls] ?? 0) + 1; return a; }, {} as Record<string, number>);
+  const filtered = rows.filter((r) => (!cls || r.cls === cls) && (!q || (r.name + r.sku).toLowerCase().includes(q)));
+  const total = filtered.length;
+  const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <main className="p-8">
-      <h1 className="font-serif text-3xl text-diva-ink mb-1">Inventory Intelligence</h1>
-      <p className="text-sm text-diva-ink/60 mb-5">Rule: no movement in <b>{deadDays}</b> days OR ≤ <b>{lowQty}</b> pcs. Change it and the classification updates live.</p>
+    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+      <h1 className="font-display text-4xl text-ink mb-1">Inventory Intelligence</h1>
+      <p className="text-sm text-muted mb-5">Rule: no movement in <b>{deadDays}</b> days OR ≤ <b>{lowQty}</b> pcs. Change it and the classification updates live.</p>
 
-      <form className="flex flex-wrap items-end gap-3 mb-5 bg-white rounded-xl p-4 shadow-sm">
-        <label className="text-sm">Dead after (days)
-          <input name="deadDays" defaultValue={deadDays} type="number" className="mt-1 block w-28 rounded border border-diva-ink/15 px-2 py-1" />
+      <form className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-2xl p-4 shadow-card border border-sand">
+        <label className="text-sm text-muted">Dead after (days)
+          <input name="deadDays" defaultValue={deadDays} type="number" className="mt-1 block w-28 rounded-xl border border-sand px-3 py-2 text-ink" />
         </label>
-        <label className="text-sm">Low at or below (pcs)
-          <input name="lowQty" defaultValue={lowQty} type="number" className="mt-1 block w-28 rounded border border-diva-ink/15 px-2 py-1" />
+        <label className="text-sm text-muted">Low at or below (pcs)
+          <input name="lowQty" defaultValue={lowQty} type="number" className="mt-1 block w-28 rounded-xl border border-sand px-3 py-2 text-ink" />
         </label>
-        <button className="px-4 py-2 rounded-full bg-diva-ink text-white text-sm">Apply rule</button>
+        <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search name or SKU…" className="flex-1 min-w-[160px] rounded-xl border border-sand px-4 py-2 text-sm outline-none focus:border-emerald" />
+        <button className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Apply</button>
       </form>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         {["dead", "low", "inactive", "healthy"].map((c) => (
-          <a key={c} href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}&cls=${c}`}
-            className={`px-3 py-1.5 rounded-full text-sm capitalize ${BADGE[c]} ${filter === c ? "ring-2 ring-diva-ink/30" : ""}`}>
-            {c} · {counts[c] ?? 0}
-          </a>
+          <Link key={c} href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}&cls=${c}`}
+            className={`px-3 py-1.5 rounded-full text-sm capitalize ${BADGE[c]} ${cls === c ? "ring-2 ring-ink/20" : ""}`}>{c} · {counts[c] ?? 0}</Link>
         ))}
-        <a href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}`} className="px-3 py-1.5 rounded-full text-sm bg-white text-diva-ink/60">All · {rows.length}</a>
+        <Link href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}`} className="px-3 py-1.5 rounded-full text-sm bg-white border border-sand text-muted">All · {rows.length}</Link>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-diva-ink/10 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
-          <thead className="bg-diva-cream text-diva-ink/60 text-left">
+          <thead className="bg-cream text-muted text-left">
             <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Last movement</th><th className="p-3">Status</th></tr>
           </thead>
           <tbody>
+            {shown.length === 0 && <tr><td colSpan={5} className="p-4 text-muted">No items match.</td></tr>}
             {shown.map((r) => (
-              <tr key={r.sku} className="border-t border-diva-ink/5">
-                <td className="p-3 text-diva-ink">{r.name} <span className="text-diva-ink/40">· {r.sku}</span></td>
-                <td className="p-3 text-diva-ink/60">{r.category}</td>
-                <td className="p-3">{r.qty}</td>
-                <td className="p-3 text-diva-ink/60">{daysSince(r.lastMovementAt)}</td>
+              <tr key={r.sku} className="border-t border-sand/60 hover:bg-cream/40">
+                <td className="p-3 text-ink">{r.name} <span className="text-muted">· {r.sku}</span></td>
+                <td className="p-3 text-muted">{r.category}</td>
+                <td className="p-3"><span className={r.qty <= lowQty ? "text-rose font-medium" : ""}>{r.qty}</span></td>
+                <td className="p-3 text-muted">{daysSince(r.lastMovementAt)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${BADGE[r.cls]}`}>{r.cls}</span></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <Pager basePath="/admin/inventory" params={{ deadDays: String(deadDays), lowQty: String(lowQty), cls, q: searchParams.q }} page={page} pageSize={PAGE_SIZE} total={total} />
     </main>
   );
 }

@@ -4,7 +4,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen bg-diva-cream">
       <AdminNav />
-      <div className="flex-1 min-w-0">{children}</div>
+      {/* pt-14 clears the fixed mobile top bar; lg has the in-flow sidebar instead */}
+      <div className="flex-1 min-w-0 pt-14 lg:pt-0">{children}</div>
     </div>
   );
 }

@@ -29,6 +29,52 @@ export async function getCategories(): Promise<DbCategory[]> {
   return data ?? [];
 }
 
+// ---------- efficient, paginated lists (for 10k+ SKUs) ----------
+export async function getProductsPage(opts: { page?: number; pageSize?: number; q?: string; category?: string; status?: string }) {
+  const sb = supabaseServer();
+  const pageSize = opts.pageSize ?? 25;
+  const page = Math.max(1, opts.page ?? 1);
+  let query = sb.from("products").select("id,sku,name,qty,base_wholesale,type,status,generated_content,category:categories(id,name,slug)", { count: "exact" });
+  if (opts.q?.trim()) { const s = opts.q.trim(); query = query.or(`name.ilike.%${s}%,sku.ilike.%${s}%`); }
+  if (opts.category && opts.category !== "all") {
+    const { data: cat } = await sb.from("categories").select("id").eq("slug", opts.category).maybeSingle();
+    if (cat) query = query.eq("category_id", (cat as any).id);
+  }
+  if (opts.status && opts.status !== "all") query = query.eq("status", opts.status);
+  const fromIdx = (page - 1) * pageSize;
+  const { data, count } = await query.order("sku").range(fromIdx, fromIdx + pageSize - 1);
+  return { rows: (data as any[]) ?? [], total: count ?? 0, page, pageSize };
+}
+
+export async function getSuppliersList(opts: { q?: string; kind?: string; city?: string }) {
+  const sb = supabaseServer();
+  let query = sb.from("suppliers").select("id,name,kind,city,state,phone,gstin,address,notes,created_at");
+  if (opts.q?.trim()) { const s = opts.q.trim(); query = query.or(`name.ilike.%${s}%,phone.ilike.%${s}%,gstin.ilike.%${s}%`); }
+  if (opts.kind && opts.kind !== "all") query = query.eq("kind", opts.kind);
+  if (opts.city && opts.city !== "all") query = query.eq("city", opts.city);
+  const { data } = await query.order("name");
+  return (data as any[]) ?? [];
+}
+export async function getSupplierCities() {
+  const sb = supabaseServer();
+  const { data } = await sb.from("suppliers").select("city").not("city", "is", null);
+  return Array.from(new Set(((data as any[]) ?? []).map((r) => r.city).filter(Boolean))).sort();
+}
+
+export async function getOrdersPage(opts: { page?: number; pageSize?: number; q?: string; channel?: string; from?: string; to?: string }) {
+  const sb = supabaseServer();
+  const pageSize = opts.pageSize ?? 25;
+  const page = Math.max(1, opts.page ?? 1);
+  let query = sb.from("orders").select("id,total,channel,status,payment_mode,bill_type,customer_name,customer_phone,source_tag,created_at", { count: "exact" });
+  if (opts.q?.trim()) { const s = opts.q.trim(); query = query.or(`customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%`); }
+  if (opts.channel && opts.channel !== "all") query = query.eq("channel", opts.channel);
+  if (opts.from) query = query.gte("created_at", opts.from);
+  if (opts.to) query = query.lte("created_at", opts.to);
+  const fromIdx = (page - 1) * pageSize;
+  const { data, count } = await query.order("created_at", { ascending: false }).range(fromIdx, fromIdx + pageSize - 1);
+  return { rows: (data as any[]) ?? [], total: count ?? 0, page, pageSize };
+}
+
 export async function getPublishedProducts(): Promise<(DbProduct & { category: DbCategory })[]> {
   const sb = supabaseServer();
   const { data } = await sb
