@@ -7,62 +7,84 @@ import { BarChart } from "@/components/admin/BarChart";
 import { Donut } from "@/components/admin/Donut";
 import { ExpandableReport } from "@/components/admin/ExpandableReport";
 
-function isoDaysAgo(d: number) { return new Date(Date.now() - d * 86400000).toISOString(); }
-const RANGES = [{ key: "30", days: 30 }, { key: "60", days: 60 }, { key: "90", days: 90 }];
 const CH_LABEL: Record<string, string> = { retail: "Online retail", wholesale: "Wholesale", pos: "Counter (POS)" };
+const PRESETS = [{ key: "today", label: "Today" }, { key: "week", label: "This week" }, { key: "month", label: "This month" }];
 
-function Tile({ label, children, sub, accent }: { label: string; children: React.ReactNode; sub?: string; accent?: string }) {
+function presetRange(preset: string): { from: string; to: string } {
+  const now = new Date();
+  const start = new Date(now);
+  if (preset === "today") start.setHours(0, 0, 0, 0);
+  else if (preset === "week") { const day = (now.getDay() + 6) % 7; start.setDate(now.getDate() - day); start.setHours(0, 0, 0, 0); }
+  else { start.setDate(1); start.setHours(0, 0, 0, 0); } // month
+  return { from: start.toISOString(), to: now.toISOString() };
+}
+
+function Tile({ label, children, sub, accent, icon, bar }: { label: string; children: React.ReactNode; sub?: string; accent?: string; icon?: string; bar?: string }) {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe transition-shadow">
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+    <div className="relative bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe transition-all hover:-translate-y-0.5 overflow-hidden">
+      <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar ?? "bg-emerald"}`} />
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+        {icon && <span className="text-gold-dark/70 text-lg">{icon}</span>}
+      </div>
       <p className={`text-2xl font-semibold mt-1 ${accent ?? "text-ink"}`}>{children}</p>
       {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
     </div>
   );
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: { range?: string; from?: string; to?: string } }) {
-  // Custom date range wins; otherwise a preset (default 90d).
+export default async function Dashboard({ searchParams }: { searchParams: { preset?: string; from?: string; to?: string } }) {
   const custom = !!(searchParams.from && searchParams.to);
-  const range = RANGES.find((r) => r.key === searchParams.range) ?? RANGES[2];
-  const from = custom ? new Date(searchParams.from + "T00:00:00").toISOString() : isoDaysAgo(range.days);
-  const to = custom ? new Date(searchParams.to + "T23:59:59").toISOString() : new Date().toISOString();
+  const preset = PRESETS.find((p) => p.key === searchParams.preset)?.key ?? (custom ? "custom" : "month");
+  const r = custom
+    ? { from: new Date(searchParams.from + "T00:00:00").toISOString(), to: new Date(searchParams.to + "T23:59:59").toISOString() }
+    : presetRange(preset);
+  const { from, to } = r;
   const fromDate = searchParams.from ?? "";
   const toDate = searchParams.to ?? "";
   const [d, a, report] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to)]);
   const label = custom
     ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
-    : `Last ${range.days} days`;
+    : (PRESETS.find((p) => p.key === preset)?.label ?? "This month");
   const sel = "rounded-lg border border-sand bg-white px-2.5 py-1.5 text-sm outline-none focus:border-emerald";
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-4xl text-ink">Good day, Yogendra</h1>
-          <p className="text-sm text-muted">{label} · live from your catalogue &amp; orders</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 bg-white rounded-full p-1 shadow-card">
-            {RANGES.map((r) => (
-              <a key={r.key} href={`/admin/dashboard?range=${r.key}`}
-                className={`px-4 py-1.5 rounded-full text-sm transition-colors ${!custom && r.key === range.key ? "bg-ink text-white" : "text-muted hover:text-ink"}`}>{r.days}d</a>
-            ))}
+      {/* Hero */}
+      <div className="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-ink via-[#2c2238] to-emerald-dark text-cream p-6 sm:p-8 shadow-luxe">
+        <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-gold/20 blur-2xl" />
+        <div className="absolute right-20 bottom-0 w-32 h-32 rounded-full bg-emerald/30 blur-2xl" />
+        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">Owner Console</p>
+            <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Yogendra</h1>
+            <p className="text-sm text-cream/70 mt-1">Showing <b className="text-ivory">{label}</b> · live from your catalogue &amp; orders</p>
+            <p className="text-2xl font-semibold text-ivory mt-3">{formatPaise(d.revenue)} <span className="text-sm font-normal text-cream/60">in revenue · {d.orders} orders</span></p>
           </div>
-          <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white rounded-full p-1.5 shadow-card">
-            <input type="date" name="from" defaultValue={fromDate} className={sel} />
-            <span className="text-muted text-xs">→</span>
-            <input type="date" name="to" defaultValue={toDate} className={sel} />
-            <button className="px-3 py-1.5 rounded-full bg-ink text-white text-sm">Apply</button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 bg-white/10 rounded-full p-1">
+              {PRESETS.map((p) => (
+                <a key={p.key} href={`/admin/dashboard?preset=${p.key}`}
+                  className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${!custom && preset === p.key ? "bg-ivory text-ink" : "text-cream/80 hover:text-white"}`}>{p.label}</a>
+              ))}
+            </div>
+            <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white/10 rounded-full p-1.5">
+              <input type="date" name="from" defaultValue={fromDate} className={`${sel} bg-white/90`} />
+              <span className="text-cream/60 text-xs">→</span>
+              <input type="date" name="to" defaultValue={toDate} className={`${sel} bg-white/90`} />
+              <button className="px-3 py-1.5 rounded-full bg-gold text-ink text-sm font-medium">Apply</button>
+            </form>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <Tile label="Revenue" accent="text-emerald" sub={`${d.orders} orders`}><AnimatedNumber value={d.revenue / 100} prefix="₹" /></Tile>
-        <Tile label="Orders" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
-        <Tile label="Approved Retailers" sub={`${d.pendingApprovals} pending`}><AnimatedNumber value={d.retailers} /></Tile>
-        <Tile label="Pending Approvals" accent={d.pendingApprovals ? "text-gold-dark" : undefined} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
+        <Tile label="Revenue" icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} orders`}><AnimatedNumber value={d.revenue / 100} prefix="₹" /></Tile>
+        <Tile label="Orders" icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
+        <Tile label="Approved Retailers" icon="♚" bar="bg-wine" sub={`${d.pendingApprovals} pending`}><AnimatedNumber value={d.retailers} /></Tile>
+        <Tile label="Pending Approvals" icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
       </div>
 
       {/* Expandable channel reports — headline number, click to see the full report for the range */}

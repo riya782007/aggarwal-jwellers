@@ -119,8 +119,8 @@ export function AdminNav() {
         <NavInner collapsed={false} onNavigate={() => setOpen(false)} />
       </aside>
 
-      {/* Desktop sidebar */}
-      <aside className={`no-print hidden lg:flex shrink-0 min-h-screen bg-ink text-cream/90 px-3 py-6 flex-col transition-[width] duration-200 ${collapsed ? "w-[4.75rem]" : "w-60"}`}>
+      {/* Desktop sidebar — sticky & self-scrolling, independent of the page scroll */}
+      <aside className={`no-print hidden lg:flex shrink-0 lg:sticky lg:top-0 h-screen bg-ink text-cream/90 px-3 py-6 flex-col transition-[width] duration-200 ${collapsed ? "w-[4.75rem]" : "w-60"}`}>
         <div className={`mb-6 flex items-center ${collapsed ? "justify-center" : "justify-between px-2"}`}>
           {!collapsed && <div>
             <p className="font-display text-2xl text-ivory leading-none">Blythe Diva</p>

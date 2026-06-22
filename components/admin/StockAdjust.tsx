@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { adjustStockAction } from "@/app/actions/stock";
+import { QtyField } from "@/components/admin/QtyField";
 
 const SOURCES = [
   "Returned from cart (in-store)",
@@ -49,8 +50,7 @@ function QtyInput({ sign }: { sign: 1 | -1 }) {
   return (
     <>
       <input type="hidden" name="delta" value={sign * Math.max(1, Math.abs(n))} />
-      <input type="number" min={1} value={n} onChange={(e) => setN(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
-        className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full mt-1" />
+      <QtyField value={n} onChange={setN} className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full mt-1" />
     </>
   );
 }

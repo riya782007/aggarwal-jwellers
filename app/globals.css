@@ -72,4 +72,27 @@ body {
   .no-print { display: none !important; }
   body { background: #fff !important; }
   .print-area { box-shadow: none !important; }
+
+  /* Barcode labels: exactly 64 per A4 (8 columns × 8 rows) */
+  @page { size: A4; margin: 6mm; }
+  .barcode-grid {
+    display: grid !important;
+    grid-template-columns: repeat(8, 1fr) !important;
+    gap: 1mm !important;
+  }
+  .barcode-label {
+    padding: 1mm !important;
+    border-radius: 2px !important;
+    page-break-inside: avoid;
+    height: 33mm;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .barcode-label .bc-name { font-size: 6pt; line-height: 1.1; }
+  .barcode-label .bc-sku { font-size: 6pt; margin-top: 0.5mm; }
+  .barcode-label .bc-price { font-size: 7pt; }
+  .barcode-label svg { height: 12mm !important; }
 }
+/* on-screen label sizing */
+.barcode-label .bc-name { font-size: 10px; }
+.barcode-label .bc-sku { font-size: 10px; margin-top: 2px; }
+.barcode-label .bc-price { font-size: 11px; }

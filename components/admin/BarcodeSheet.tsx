@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { Barcode } from "@/components/admin/Barcode";
+import { QtyField } from "@/components/admin/QtyField";
 
 type P = { sku: string; name: string; price: number };
 
@@ -37,26 +38,29 @@ export function BarcodeSheet({ products }: { products: P[] }) {
           <div key={it.sku} className="flex items-center gap-3 border-b border-sand/60 py-2 text-sm">
             <span className="flex-1">{it.name} <span className="text-muted">· {it.sku}</span></span>
             <label className="text-xs text-muted flex items-center gap-1"># labels
-              <input type="number" min={1} value={it.count} onChange={(e) => setCount(it.sku, Number(e.target.value))} className="w-16 rounded-lg border border-sand px-2 py-1 text-center" />
+              <QtyField value={it.count} onChange={(n) => setCount(it.sku, n)} className="w-16 rounded-lg border border-sand px-2 py-1 text-center" />
             </label>
             <button onClick={() => rm(it.sku)} className="text-muted hover:text-rose">✕</button>
           </div>
         ))}
         {labels.length > 0 && (
-          <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium mt-4">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
+          <div className="flex items-center gap-3 mt-4">
+            <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
+            <span className="text-xs text-muted">{labels.length} labels · ~{Math.ceil(labels.length / 64)} A4 sheet{Math.ceil(labels.length / 64) === 1 ? "" : "s"} (64 per sheet)</span>
+          </div>
         )}
       </div>
 
-      {/* Printable label grid */}
+      {/* Printable label grid — 8 × 8 = 64 labels per A4 sheet */}
       {labels.length > 0 && (
         <div className="print-area">
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <div className="barcode-grid grid grid-cols-4 sm:grid-cols-6">
             {labels.map((it, i) => (
-              <div key={i} className="border border-sand rounded-lg p-2 text-center bg-white break-inside-avoid">
-                <p className="text-[10px] font-semibold text-ink truncate">{it.name}</p>
-                <Barcode value={it.sku} height={38} />
-                <p className="text-[10px] tracking-widest text-ink mt-0.5">{it.sku}</p>
-                <p className="text-[11px] font-medium text-ink">{formatPaise(it.price)}</p>
+              <div key={i} className="barcode-label border border-sand text-center bg-white break-inside-avoid">
+                <p className="bc-name font-semibold text-ink truncate">{it.name}</p>
+                <Barcode value={it.sku} height={30} unit={1.1} />
+                <p className="bc-sku tracking-widest text-ink">{it.sku}</p>
+                <p className="bc-price font-medium text-ink">{formatPaise(it.price)}</p>
               </div>
             ))}
           </div>

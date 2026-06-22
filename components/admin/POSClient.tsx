@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { posSaleAction } from "@/app/actions/orders";
+import { QtyField } from "@/components/admin/QtyField";
 
 type P = { sku: string; name: string; price: number; category: string; qty: number };
 
@@ -65,11 +66,7 @@ export function POSClient({ products }: { products: P[] }) {
               <div className="flex-1"><p className="text-sm text-ink">{l.name}</p><p className="text-xs text-muted">{l.sku} · {formatPaise(l.price)}</p></div>
               <div className="inline-flex items-center rounded-full border border-sand text-sm overflow-hidden">
                 <button onClick={() => setQty(l.sku, l.qty - 1)} className="px-2.5 py-1 hover:bg-cream" aria-label="decrease">−</button>
-                <input
-                  type="number" min={1} value={l.qty}
-                  onChange={(e) => setQty(l.sku, parseInt(e.target.value, 10))}
-                  className="w-14 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+                <QtyField value={l.qty} onChange={(n) => setQty(l.sku, n)} className="w-14 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist" />
                 <button onClick={() => setQty(l.sku, l.qty + 1)} className="px-2.5 py-1 hover:bg-cream" aria-label="increase">+</button>
               </div>
               <span className="text-sm font-medium w-20 text-right">{formatPaise(l.price * l.qty)}</span>

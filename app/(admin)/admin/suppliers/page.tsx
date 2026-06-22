@@ -2,16 +2,20 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getSuppliersList, getSupplierCities } from "@/lib/supabase/queries";
 import { upsertSupplierAction, deleteSupplierAction } from "@/app/actions/suppliers";
+import { Pager } from "@/components/admin/Pager";
 
 export const metadata = { title: "Owner Console · Suppliers & Vendors" };
+const PAGE_SIZE = 25;
 
 const KIND_STYLE: Record<string, string> = { supplier: "bg-emerald-mist text-emerald-dark", vendor: "bg-gold/15 text-gold-dark" };
 
-export default async function Suppliers({ searchParams }: { searchParams: { q?: string; kind?: string; city?: string } }) {
+export default async function Suppliers({ searchParams }: { searchParams: { q?: string; kind?: string; city?: string; page?: string } }) {
   const q = searchParams.q ?? "";
   const kind = searchParams.kind ?? "all";
   const city = searchParams.city ?? "all";
-  const [rows, cities] = await Promise.all([getSuppliersList({ q, kind, city }), getSupplierCities()]);
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const [all, cities] = await Promise.all([getSuppliersList({ q, kind, city }), getSupplierCities()]);
+  const rows = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const sel = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
@@ -65,7 +69,8 @@ export default async function Suppliers({ searchParams }: { searchParams: { q?: 
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-2">{rows.length} record{rows.length === 1 ? "" : "s"}</p>
+      <Pager basePath="/admin/suppliers" params={{ q, kind, city }} page={page} pageSize={PAGE_SIZE} total={all.length} />
+      <p className="text-xs text-muted mt-2">{all.length} record{all.length === 1 ? "" : "s"}</p>
     </main>
   );
 }

@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction } from "@/app/actions/billing";
+import { QtyField } from "@/components/admin/QtyField";
 
 type P = { sku: string; name: string; price: number };
 export function EstimateClient({ products }: { products: P[] }) {
@@ -38,7 +39,7 @@ export function EstimateClient({ products }: { products: P[] }) {
           <span className="flex-1">{l.name}</span>
           <div className="inline-flex items-center rounded-full border border-sand overflow-hidden">
             <button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: Math.max(1, x.qty - 1) } : x))} className="px-2.5 py-1 hover:bg-cream">−</button>
-            <input type="number" min={1} value={l.qty} onChange={(e) => { const v = Math.max(1, Math.floor(parseInt(e.target.value, 10) || 1)); setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: v } : x)); }} className="w-14 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            <QtyField value={l.qty} onChange={(v) => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: v } : x))} className="w-14 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist" />
             <button onClick={() => setLines((p) => p.map((x) => x.sku === l.sku ? { ...x, qty: x.qty + 1 } : x))} className="px-2.5 py-1 hover:bg-cream">+</button>
           </div>
           <span className="w-20 text-right font-medium">{formatPaise(l.price * l.qty)}</span>
