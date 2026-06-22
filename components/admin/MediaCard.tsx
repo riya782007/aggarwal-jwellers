@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { uploadProductImageAction, deleteProductImageAction, setHeroImageAction } from "@/app/actions/media";
 import { generateOneAction } from "@/app/actions/images";
+import { compressImage } from "@/lib/image";
 
 type Img = { id: string; path: string; kind: string | null; sort: number };
 type P = { id: string; sku: string; name: string; category: string; images: Img[] };
@@ -26,10 +27,16 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
   async function upload(file: File | undefined, kind: string) {
     if (!file) return;
     setBusy(kind);
-    const fd = new FormData(); fd.set("sku", p.sku); fd.set("kind", kind); fd.set("image", file);
-    const res = await uploadProductImageAction(fd);
-    setBusy("");
-    if (res.ok) { toast(`Photo uploaded for ${p.sku}`); router.refresh(); } else toast(res.error ?? "Upload failed", "error");
+    try {
+      const small = await compressImage(file);
+      const fd = new FormData(); fd.set("sku", p.sku); fd.set("kind", kind); fd.set("image", small);
+      const res = await uploadProductImageAction(fd);
+      if (res.ok) { toast(`Photo uploaded for ${p.sku}`); router.refresh(); } else toast(res.error ?? "Upload failed", "error");
+    } catch {
+      toast("Upload failed — try a smaller photo", "error");
+    } finally {
+      setBusy("");
+    }
   }
   async function generate() {
     setBusy("gen");

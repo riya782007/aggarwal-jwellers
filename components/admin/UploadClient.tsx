@@ -2,6 +2,7 @@
 import { useState, useRef } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { createProductWithImageAction, bulkUploadAction, aiBulkUploadAction, createCategoryJsonAction, type RowResult } from "@/app/actions/catalog";
+import { compressImage } from "@/lib/image";
 
 type Cat = { id: string; name: string };
 
@@ -31,15 +32,28 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
   }
 
   async function addSingle() {
+    if (!form.name.trim() || !(Number(form.price) > 0)) { toast("Add a name and a base price first", "error"); return; }
     setBusy(true); setMsg(""); setResults([]);
-    const fd = new FormData();
-    fd.set("categoryId", catId); fd.set("name", form.name.trim()); fd.set("price", form.price);
-    fd.set("qty", form.qty); fd.set("type", form.type); fd.set("colors", form.colors);
-    const file = fileRef.current?.files?.[0]; if (file) fd.set("image", file);
-    const res = await createProductWithImageAction(fd);
-    setBusy(false);
-    if (res.ok) { setMsg(`✓ Added ${res.sku} to ${catName}${file ? " · photo uploaded — generate the model shot in Catalogue" : ""}`); setForm({ name: "", price: "", qty: "", type: "simple", colors: "" }); if (fileRef.current) fileRef.current.value = ""; toast(`${res.sku} added`); }
-    else setMsg(`✕ ${res.error}`);
+    try {
+      const fd = new FormData();
+      fd.set("categoryId", catId); fd.set("name", form.name.trim()); fd.set("price", form.price);
+      fd.set("qty", form.qty); fd.set("type", form.type); fd.set("colors", form.colors);
+      let file = fileRef.current?.files?.[0] ?? null;
+      if (file) { setMsg("Optimising photo…"); file = await compressImage(file); fd.set("image", file); }
+      setMsg("Saving…");
+      const res = await createProductWithImageAction(fd);
+      if (res.ok) {
+        setMsg(`✓ Added ${res.sku} to ${catName}${file ? " · photo uploaded — generate the model shot in Catalogue" : ""}`);
+        setForm({ name: "", price: "", qty: "", type: "simple", colors: "" });
+        if (fileRef.current) fileRef.current.value = "";
+        toast(`${res.sku} added`);
+      } else { setMsg(`✕ ${res.error}`); toast(res.error ?? "Could not add", "error"); }
+    } catch (e) {
+      setMsg(`✕ ${e instanceof Error ? e.message : "Upload failed — try a smaller photo or add without one."}`);
+      toast("Upload failed — try again", "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function addBulkAi() {
