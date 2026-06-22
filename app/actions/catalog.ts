@@ -107,6 +107,50 @@ export async function createProductWithImageAction(formData: FormData): Promise<
   return res;
 }
 
+// ---- Live-progress inventory build: parse first, then insert one row at a time ----
+export type ParsedRow = Omit<NewProduct, "categoryId">;
+
+/** AI/naive parse a messy list into clean rows WITHOUT inserting (so the client can show progress). */
+export async function aiParseRowsAction(rawText: string): Promise<{ rows: ParsedRow[]; usedAi: boolean }> {
+  if (!(await requirePerm("catalog.create"))) return { rows: [], usedAi: false };
+  const text = (rawText ?? "").trim().slice(0, 8000);
+  let rows: ParsedRow[] = [];
+  let usedAi = false;
+  if (text && (groqConfigured() || openaiConfigured())) {
+    const system = `You convert a messy product list into clean JSON for a jewellery store. Output STRICT JSON: {"rows":[{"name":string,"base_price":number,"qty":number,"type":"simple"|"configurable","colors":string[]}]}. The input may be CSV, tab-separated, or freeform, with columns in any order or with different header names (price/cost/wholesale -> base_price in rupees as a number; quantity/stock/pcs -> qty integer; colours/variants -> colors array; if multiple colours are present set type to "configurable" else "simple"). Ignore header rows and currency symbols. Infer sensibly. Return ONLY JSON.`;
+    try {
+      const out = groqConfigured() ? await groqChat({ system, user: text, json: true }) : await openaiChat({ system, user: text, json: true });
+      const parsed = JSON.parse(out);
+      rows = (parsed.rows ?? []).map((r: any) => ({
+        name: String(r.name ?? "").trim(),
+        basePriceRupees: Number(r.base_price) || 0,
+        qty: parseInt(r.qty, 10) || 0,
+        type: (r.type === "configurable" || (Array.isArray(r.colors) && r.colors.length > 1) ? "configurable" : "simple") as "simple" | "configurable",
+        colors: Array.isArray(r.colors) ? r.colors.map((c: any) => String(c).trim()).filter(Boolean) : [],
+      })).filter((r: any) => r.name);
+      usedAi = rows.length > 0;
+    } catch { /* fall through */ }
+  }
+  if (!usedAi) {
+    rows = text.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^name\s*,/i.test(l)).map((l) => {
+      const [name, price, qty, type, colors] = l.split(",").map((s) => s?.trim() ?? "");
+      return { name, basePriceRupees: Number(price) || 0, qty: Number(qty) || 0, type: (type === "configurable" ? "configurable" : "simple") as "simple" | "configurable", colors: (colors ?? "").split("|").map((s) => s.trim()).filter(Boolean) };
+    }).filter((r) => r.name);
+  }
+  return { rows, usedAi };
+}
+
+/** Insert ONE product row. The client calls this per row so it can render live progress. */
+export async function createOneRowAction(categoryId: string, row: ParsedRow): Promise<RowResult & { name?: string }> {
+  if (!(await requirePerm("catalog.create"))) return { row: 0, ok: false, error: "Your role can't add products." };
+  const sb = supabaseServer();
+  const formula = await getPricingFormula();
+  const skuNum = await nextSku(sb);
+  const res = await insertOne(sb, formula, { ...row, categoryId }, skuNum);
+  revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+  return { ...res, name: row.name };
+}
+
 export async function createCategoryJsonAction(name: string): Promise<{ id: string; name: string } | null> {
   const nm = name.trim(); if (!nm) return null;
   const sb = supabaseServer();

@@ -1,10 +1,16 @@
 "use client";
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
-import { createProductWithImageAction, bulkUploadAction, aiBulkUploadAction, createCategoryJsonAction, type RowResult } from "@/app/actions/catalog";
+import {
+  createProductWithImageAction, createOneRowAction, aiParseRowsAction,
+  createCategoryJsonAction,
+} from "@/app/actions/catalog";
+import { generateContentAction } from "@/app/actions/aiContent";
 import { compressImage } from "@/lib/image";
 
 type Cat = { id: string; name: string };
+type LogLine = { text: string; status: "run" | "ok" | "err" };
 
 export function UploadClient({ categories }: { categories: Cat[] }) {
   const { toast } = useToast();
@@ -13,14 +19,17 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
   const [newCat, setNewCat] = useState(""); const [showNewCat, setShowNewCat] = useState(false);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [results, setResults] = useState<RowResult[]>([]);
   const [form, setForm] = useState({ name: "", price: "", qty: "", type: "simple" as "simple" | "configurable", colors: "" });
   const [csv, setCsv] = useState("");
+  const [writeAi, setWriteAi] = useState(true);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [log, setLog] = useState<LogLine[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors";
   const catName = cats.find((c) => c.id === catId)?.name;
+  const push = (line: LogLine) => setLog((l) => [...l, line]);
+  const patchLast = (status: "ok" | "err", text?: string) => setLog((l) => l.map((x, i) => i === l.length - 1 ? { text: text ?? x.text, status } : x));
 
   async function createCat() {
     const nm = newCat.trim(); if (!nm) return;
@@ -31,47 +40,66 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
     else toast("Couldn't create category", "error");
   }
 
+  /** Generate the AI page for a sku, with a visible log line. */
+  async function writeAiPage(sku: string, name: string) {
+    push({ text: `Writing AI page for ${name} (${sku})…`, status: "run" });
+    const r = await generateContentAction(sku);
+    patchLast(r.ok ? "ok" : "err", r.ok ? `AI page written for ${sku} ✓` : `AI page skipped for ${sku}`);
+  }
+
   async function addSingle() {
     if (!form.name.trim() || !(Number(form.price) > 0)) { toast("Add a name and a base price first", "error"); return; }
-    setBusy(true); setMsg(""); setResults([]);
+    setBusy(true); setLog([]); setProgress({ done: 0, total: writeAi ? 2 : 1 });
     try {
       const fd = new FormData();
       fd.set("categoryId", catId); fd.set("name", form.name.trim()); fd.set("price", form.price);
       fd.set("qty", form.qty); fd.set("type", form.type); fd.set("colors", form.colors);
       let file = fileRef.current?.files?.[0] ?? null;
-      if (file) { setMsg("Optimising photo…"); file = await compressImage(file); fd.set("image", file); }
-      setMsg("Saving…");
+      if (file) { push({ text: "Optimising photo…", status: "run" }); file = await compressImage(file); fd.set("image", file); patchLast("ok", "Photo optimised ✓"); }
+      push({ text: `Creating ${form.name.trim()}…`, status: "run" });
       const res = await createProductWithImageAction(fd);
-      if (res.ok) {
-        setMsg(`✓ Added ${res.sku} to ${catName}${file ? " · photo uploaded — generate the model shot in Catalogue" : ""}`);
-        setForm({ name: "", price: "", qty: "", type: "simple", colors: "" });
-        if (fileRef.current) fileRef.current.value = "";
-        toast(`${res.sku} added`);
-      } else { setMsg(`✕ ${res.error}`); toast(res.error ?? "Could not add", "error"); }
+      if (!res.ok) { patchLast("err", `Failed: ${res.error}`); toast(res.error ?? "Could not add", "error"); return; }
+      patchLast("ok", `Created ${res.sku} ✓`);
+      setProgress({ done: 1, total: writeAi ? 2 : 1 });
+      if (writeAi && res.sku) { await writeAiPage(res.sku, form.name.trim()); setProgress({ done: 2, total: 2 }); }
+      toast(`${res.sku} added`);
+      setForm({ name: "", price: "", qty: "", type: "simple", colors: "" });
+      if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
-      setMsg(`✕ ${e instanceof Error ? e.message : "Upload failed — try a smaller photo or add without one."}`);
-      toast("Upload failed — try again", "error");
-    } finally {
-      setBusy(false);
-    }
+      patchLast("err", e instanceof Error ? e.message : "Upload failed");
+      toast("Something went wrong", "error");
+    } finally { setBusy(false); }
   }
 
-  async function addBulkAi() {
-    setBusy(true); setMsg(""); setResults([]);
-    const res = await aiBulkUploadAction(catId, csv);
-    setBusy(false); setResults(res.results);
-    setMsg(`${res.created} of ${res.results.length} imported into ${catName}${res.usedAi ? " · AI mapped your columns" : ""}`);
-    toast(res.usedAi ? "AI processed your spreadsheet" : `${res.created} rows imported`);
+  async function buildFromList() {
+    if (!csv.trim()) { toast("Paste or upload your list first", "error"); return; }
+    setBusy(true); setLog([]); setProgress(null);
+    try {
+      push({ text: "Reading your list with AI…", status: "run" });
+      const { rows, usedAi } = await aiParseRowsAction(csv);
+      if (rows.length === 0) { patchLast("err", "Couldn't read any products from that list."); toast("Nothing to import", "error"); return; }
+      patchLast("ok", `Found ${rows.length} product${rows.length === 1 ? "" : "s"}${usedAi ? " · AI mapped your columns" : ""}`);
+      setProgress({ done: 0, total: rows.length });
+
+      let created = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        push({ text: `Creating ${i + 1} of ${rows.length}: ${r.name}…`, status: "run" });
+        const res = await createOneRowAction(catId, r);
+        if (res.ok) { created++; patchLast("ok", `Created ${res.sku} — ${r.name} ✓`); if (writeAi && res.sku) await writeAiPage(res.sku, r.name); }
+        else patchLast("err", `Skipped ${r.name}: ${res.error}`);
+        setProgress({ done: i + 1, total: rows.length });
+      }
+      push({ text: `Done — ${created} of ${rows.length} products are live in ${catName} ✓`, status: "ok" });
+      toast(`${created} products added`);
+      setCsv("");
+    } catch (e) {
+      patchLast("err", e instanceof Error ? e.message : "Import failed");
+      toast("Import failed", "error");
+    } finally { setBusy(false); }
   }
-  async function addBulk() {
-    setBusy(true); setMsg(""); setResults([]);
-    const rows = csv.split("\n").map((l) => l.trim()).filter(Boolean).filter((l) => !/^name\s*,/i.test(l)).map((l) => {
-      const [name, price, qty, type, colors] = l.split(",").map((s) => s?.trim() ?? "");
-      return { name, basePriceRupees: Number(price), qty: Number(qty) || 0, type: (type === "configurable" ? "configurable" : "simple") as "simple" | "configurable", colors: (colors ?? "").split("|").map((s) => s.trim()).filter(Boolean) };
-    });
-    const res = await bulkUploadAction(catId, rows);
-    setBusy(false); setResults(res.results); setMsg(`${res.created} of ${rows.length} rows imported into ${catName}`);
-  }
+
+  const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="max-w-3xl">
@@ -98,10 +126,15 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
           <label className="text-sm font-medium text-ink">Step 2 · Add designs</label>
           <div className="flex gap-1 bg-cream rounded-full p-1">
             {(["single", "bulk"] as const).map((m) => (
-              <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-xs ${mode === m ? "bg-ink text-white" : "text-muted"}`}>{m === "single" ? "Single" : "Bulk CSV"}</button>
+              <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-xs ${mode === m ? "bg-ink text-white" : "text-muted"}`}>{m === "single" ? "Single" : "List / Sheet"}</button>
             ))}
           </div>
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-ink mb-4 cursor-pointer">
+          <input type="checkbox" checked={writeAi} onChange={(e) => setWriteAi(e.target.checked)} className="accent-emerald" />
+          Let AI write each product page (description, tags, SEO) as it creates them
+        </label>
 
         {mode === "single" ? (
           <div className="space-y-3">
@@ -118,30 +151,41 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
               <input className={input} placeholder="Colours, comma separated" value={form.colors} onChange={(e) => setForm({ ...form, colors: e.target.value })} disabled={form.type !== "configurable"} />
             </div>
             <div>
-              <label className="text-sm font-medium text-ink">Raw product photo <span className="text-muted font-normal">(the design as shot — AI turns it into a model photo)</span></label>
+              <label className="text-sm font-medium text-ink">Raw product photo <span className="text-muted font-normal">(optional — AI turns it into a model photo later)</span></label>
               <input ref={fileRef} type="file" accept="image/*" className="mt-1 block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
             </div>
-            <button onClick={addSingle} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Adding…" : "Add design"}</button>
+            <button onClick={addSingle} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Working…" : "✨ Add design"}</button>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted">Format per line: <code className="bg-cream px-1 rounded">name, base_price, qty, type, colours|pipe|separated</code></p>
-            <label className="text-sm font-medium text-ink">Upload a .csv file <span className="text-muted font-normal">or paste below</span></label>
+            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock and colours. Or use the strict format: <code className="bg-cream px-1 rounded">name, base_price, qty, type, colours|pipe</code></p>
             <input type="file" accept=".csv,text/csv,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setCsv(String(r.result || "")); r.readAsText(f); } }}
               className="block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
-            <textarea className={`${input} font-mono text-xs`} rows={6} placeholder={"Kundan Choker, 850, 12, configurable, Red|Green|Blue\nPearl Studs, 160, 40, simple,"} value={csv} onChange={(e) => setCsv(e.target.value)} />
-            <div className="flex flex-wrap gap-2 items-center">
-              <button onClick={addBulkAi} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Processing…" : "✨ Import with AI"}</button>
-              <button onClick={addBulk} disabled={busy} className="px-6 py-2.5 text-sm font-medium rounded-full border border-sand text-ink hover:border-emerald transition-colors disabled:opacity-60">Import (strict format)</button>
-            </div>
-            <p className="text-xs text-muted">Messy spreadsheet, different column order or headers? Use <b>Import with AI</b> — it figures out which value goes where.</p>
+            <textarea className={`${input} font-mono text-xs`} rows={6} placeholder={"Kundan Choker, 850, 12, configurable, Red|Green|Blue\nPearl Studs 160 rs 40pcs\nMeena bangles - 540 - 25 - red,green"} value={csv} onChange={(e) => setCsv(e.target.value)} />
+            <button onClick={buildFromList} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Building…" : "✨ Build inventory with AI"}</button>
           </div>
         )}
 
-        {msg && <p className="text-sm mt-3 text-ink">{msg}</p>}
-        {results.length > 0 && (
-          <div className="mt-3 max-h-44 overflow-y-auto text-xs space-y-1">
-            {results.map((r) => <div key={r.row} className={r.ok ? "text-emerald-dark" : "text-rose"}>Row {r.row}: {r.ok ? `✓ added ${r.sku}` : `✕ ${r.error}`}</div>)}
+        {/* Live progress */}
+        {(progress || log.length > 0) && (
+          <div className="mt-5 rounded-2xl border border-sand bg-cream/40 p-4">
+            {progress && (
+              <div className="mb-3">
+                <div className="flex justify-between text-xs text-muted mb-1"><span>Progress</span><span>{progress.done}/{progress.total} · {pct}%</span></div>
+                <div className="h-2 rounded-full bg-sand overflow-hidden"><div className="h-full bg-gradient-to-r from-emerald to-gold transition-all duration-300" style={{ width: `${pct}%` }} /></div>
+              </div>
+            )}
+            <div className="max-h-56 overflow-y-auto space-y-1 text-sm">
+              {log.map((l, i) => (
+                <div key={i} className={`flex items-start gap-2 ${l.status === "err" ? "text-rose" : l.status === "ok" ? "text-emerald-dark" : "text-muted"}`}>
+                  <span className="w-4 text-center shrink-0">{l.status === "ok" ? "✓" : l.status === "err" ? "✕" : "◔"}</span>
+                  <span>{l.text}</span>
+                </div>
+              ))}
+            </div>
+            {!busy && progress && progress.done === progress.total && (
+              <Link href="/admin/catalogue" className="inline-block mt-3 text-sm text-emerald nav-link">View in catalogue →</Link>
+            )}
           </div>
         )}
       </div>

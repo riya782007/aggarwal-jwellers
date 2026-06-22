@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getProductBySku, getPublishedProducts } from "@/lib/supabase/queries";
 import { generateProductContent } from "@/lib/ai/listingAgent";
+import { requirePerm } from "@/lib/auth";
 
 export type ContentResult = { ok: boolean; sku: string; provider?: string; fallbackUsed?: boolean; title?: string; error?: string };
 
 export async function generateContentAction(sku: string): Promise<ContentResult> {
+  if (!(await requirePerm("catalog.ai"))) return { ok: false, sku, error: "not permitted" };
   const p = await getProductBySku(sku);
   if (!p) return { ok: false, sku, error: "not found" };
   const colors = (p.variants ?? []).map((v) => v.color ?? "").filter(Boolean);
