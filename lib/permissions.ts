@@ -42,6 +42,7 @@ export const PERMISSION_GROUPS: PermGroup[] = [
     { key: "sales.view", label: "View sales records" },
     { key: "sales.export", label: "Export sales data" },
     { key: "customers.view", label: "View customers (CRM)" },
+    { key: "customers.manage", label: "Add / edit customers" },
   ]},
   { key: "growth", label: "Growth", perms: [
     { key: "analytics.view", label: "View analytics & SEO" },

@@ -1,56 +1,93 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getCustomers, getRetailers } from "@/lib/supabase/queries";
+import { getCustomersDb, getCustomers } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { Pager } from "@/components/admin/Pager";
+import { getSession, can } from "@/lib/auth";
+import { upsertCustomerAction } from "@/app/actions/customers";
 
-export const metadata = { title: "Owner Console · Customers (CRM)" };
+export const metadata = { title: "Owner Console · Customers" };
 const PAGE_SIZE = 20;
+const TYPE_STYLE: Record<string, string> = { wholesale: "bg-gold/15 text-gold-dark", retail: "bg-emerald-mist text-emerald-dark" };
 
-export default async function Customers({ searchParams }: { searchParams: { q?: string; page?: string } }) {
-  const [customers, retailers] = await Promise.all([getCustomers(), getRetailers()]);
-  const q = (searchParams.q ?? "").toLowerCase().trim();
+export default async function Customers({ searchParams }: { searchParams: { q?: string; type?: string; page?: string } }) {
+  const q = searchParams.q ?? "";
+  const type = searchParams.type ?? "all";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const filtered = customers.filter((c: any) => !q || (c.name ?? "").toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q));
-  const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [all, topSpenders] = await Promise.all([getCustomersDb({ q, type }), getCustomers()]);
+  const rows = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const canManage = can(getSession(), "customers.manage");
+  const sel = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
+  const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-5xl">
       <h1 className="font-display text-4xl text-ink mb-1">Customers</h1>
-      <p className="text-sm text-muted mb-6">Your buyers, ranked by spend — built automatically from orders. Reach top customers first.</p>
+      <p className="text-sm text-muted mb-5">Your customer directory — retail &amp; wholesale, with GST details and credit balance. Click a customer for full history.</p>
 
-      <div className="bg-white rounded-2xl p-6 shadow-card mb-6">
-        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <h2 className="font-medium text-ink">Top customers <span className="text-muted text-sm">({filtered.length})</span></h2>
-          <form action="/admin/customers"><input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search name / phone…" className="rounded-full border border-sand px-4 py-1.5 text-sm outline-none focus:border-emerald w-56" /></form>
-        </div>
+      {/* Add */}
+      {canManage && (
+        <form action={upsertCustomerAction} className="bg-white rounded-2xl p-5 shadow-card mb-5 border border-sand">
+          <h2 className="font-medium text-ink mb-3">Add customer</h2>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <input name="name" placeholder="Name / firm *" className={fld} required />
+            <select name="type" defaultValue="retail" className={fld}><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
+            <input name="phone" placeholder="Phone" className={fld} />
+            <input name="gstin" placeholder="GSTIN (for B2B)" className={fld} />
+            <input name="city" placeholder="City" className={fld} />
+            <input name="credit_balance" type="number" placeholder="Outstanding due ₹" className={fld} />
+            <input name="address" placeholder="Address" className={`${fld} sm:col-span-2`} />
+            <input name="email" placeholder="Email" className={fld} />
+          </div>
+          <button className="btn-primary px-5 py-2.5 text-sm font-medium mt-3">Save customer</button>
+        </form>
+      )}
+
+      {/* Filters */}
+      <form action="/admin/customers" className="flex flex-wrap gap-2 mb-4">
+        <input name="q" defaultValue={q} placeholder="Search name / phone / GSTIN…" className="rounded-xl border border-sand bg-white px-4 py-2 text-sm outline-none focus:border-emerald flex-1 min-w-[160px]" />
+        <select name="type" defaultValue={type} className={sel}><option value="all">All types</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
+        <button className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Filter</button>
+        {(q || type !== "all") && <Link href="/admin/customers" className="px-3 py-2 text-sm text-muted hover:text-ink">Clear</Link>}
+      </form>
+
+      <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
-          <thead className="text-muted text-left"><tr><th className="py-1">Name</th><th className="py-1">Phone</th><th className="py-1 text-right">Orders</th><th className="py-1 text-right">Spent</th></tr></thead>
+          <thead className="bg-cream text-muted text-left"><tr>
+            <th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Phone</th><th className="p-3">GSTIN</th><th className="p-3">City</th><th className="p-3 text-right">Outstanding</th>
+          </tr></thead>
           <tbody>
-            {shown.length === 0 && <tr><td colSpan={4} className="py-3 text-muted">No customers match.</td></tr>}
-            {shown.map((c: any) => (
-              <tr key={c.name} className="border-t border-sand/50">
-                <td className="py-2 text-ink font-medium">{c.name}</td>
-                <td className="py-2 text-muted">{c.phone ?? "—"}</td>
-                <td className="py-2 text-right">{c.orders}</td>
-                <td className="py-2 text-right font-medium text-emerald">{formatPaise(c.spent)}</td>
+            {rows.length === 0 && <tr><td colSpan={6} className="p-4 text-muted">No customers yet. Add one above, or they'll appear here as you bill them.</td></tr>}
+            {rows.map((c: any) => (
+              <tr key={c.id} className="border-t border-sand/60 hover:bg-cream/40">
+                <td className="p-3"><Link href={`/admin/customer/${c.id}`} className="text-emerald nav-link font-medium">{c.name}</Link></td>
+                <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${TYPE_STYLE[c.type] ?? "bg-cream text-muted"}`}>{c.type}</span></td>
+                <td className="p-3 text-muted">{c.phone || "—"}</td>
+                <td className="p-3 text-muted text-xs">{c.gstin || "—"}</td>
+                <td className="p-3 text-muted">{c.city || "—"}</td>
+                <td className="p-3 text-right">{c.credit_balance ? <span className="text-rose font-medium">{formatPaise(c.credit_balance)}</span> : <span className="text-muted">—</span>}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <Pager basePath="/admin/customers" params={{ q: searchParams.q }} page={page} pageSize={PAGE_SIZE} total={filtered.length} />
       </div>
+      <Pager basePath="/admin/customers" params={{ q, type }} page={page} pageSize={PAGE_SIZE} total={all.length} />
 
-      <div className="bg-white rounded-2xl p-6 shadow-card">
-        <h2 className="font-medium text-ink mb-3">Wholesale retailers</h2>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {retailers.map((r: any) => (
-            <div key={r.id} className="flex justify-between border-b border-sand/50 py-2 text-sm">
-              <span className="text-ink">{r.name} <span className="text-muted text-xs">· {r.city}</span></span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${r.approved ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>{r.approved ? "approved" : "pending"}</span>
-            </div>
-          ))}
-        </div>
+      {/* Top spenders (analytics, derived from orders) */}
+      <div className="bg-white rounded-2xl p-6 shadow-card mt-6">
+        <h2 className="font-medium text-ink mb-3">Top customers by spend</h2>
+        <table className="w-full text-sm">
+          <thead className="text-muted text-left"><tr><th className="py-1">Name</th><th className="py-1">Phone</th><th className="py-1 text-right">Orders</th><th className="py-1 text-right">Spent</th></tr></thead>
+          <tbody>
+            {topSpenders.length === 0 && <tr><td colSpan={4} className="py-3 text-muted">No sales yet.</td></tr>}
+            {topSpenders.slice(0, 10).map((c: any) => (
+              <tr key={c.name} className="border-t border-sand/50">
+                <td className="py-2 text-ink">{c.name}</td><td className="py-2 text-muted">{c.phone ?? "—"}</td>
+                <td className="py-2 text-right">{c.orders}</td><td className="py-2 text-right font-medium text-emerald">{formatPaise(c.spent)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </main>
   );

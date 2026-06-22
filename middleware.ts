@@ -19,6 +19,8 @@ const ROUTE_PERM: [string, string][] = [
   ["/admin/returns", "billing.refund"],
   ["/admin/purchases", "purchases.view"],
   ["/admin/customers", "customers.view"],
+  ["/admin/customer", "customers.view"],
+  ["/admin/product", "catalog.view"],
   ["/admin/suppliers", "suppliers.manage"],
   ["/admin/reviews", "reviews.respond"],
   ["/admin/abandoned", "marketing.manage"],

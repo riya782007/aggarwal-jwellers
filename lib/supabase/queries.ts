@@ -46,6 +46,35 @@ export async function getProductsPage(opts: { page?: number; pageSize?: number; 
   return { rows: (data as any[]) ?? [], total: count ?? 0, page, pageSize };
 }
 
+// ---------- customer directory (real customers table) ----------
+export async function getCustomersDb(opts: { q?: string; type?: string }) {
+  const sb = supabaseServer();
+  let query = sb.from("customers").select("id,name,phone,type,gstin,city,credit_balance,created_at");
+  if (opts.q?.trim()) { const s = opts.q.trim(); query = query.or(`name.ilike.%${s}%,phone.ilike.%${s}%,gstin.ilike.%${s}%`); }
+  if (opts.type && opts.type !== "all") query = query.eq("type", opts.type);
+  const { data } = await query.order("name");
+  return (data as any[]) ?? [];
+}
+
+export async function getCustomerById(id: string) {
+  const sb = supabaseServer();
+  const { data: c } = await sb.from("customers").select("*").eq("id", id).maybeSingle();
+  if (!c) return null;
+  // Order history: by linked customer_id OR matching phone (covers POS sales saved with a phone).
+  const phone = (c as any).phone;
+  let q = sb.from("orders").select("id,total,channel,bill_type,payment_mode,status,created_at,customer_id,customer_phone").order("created_at", { ascending: false }).limit(100);
+  const { data: orders } = phone
+    ? await q.or(`customer_id.eq.${id},customer_phone.eq.${phone}`)
+    : await q.eq("customer_id", id);
+  const list = (orders as any[]) ?? [];
+  return {
+    customer: c,
+    orders: list,
+    totalSpent: list.reduce((s, o) => s + (o.total ?? 0), 0),
+    orderCount: list.length,
+  };
+}
+
 export async function getSuppliersList(opts: { q?: string; kind?: string; city?: string }) {
   const sb = supabaseServer();
   let query = sb.from("suppliers").select("id,name,kind,city,state,phone,gstin,address,notes,created_at");

@@ -44,11 +44,30 @@ export async function posSaleAction(input: {
   // Persist B2B bill metadata on the order so the invoice/cash-memo renders correctly.
   const billType = input.billType === "cash" ? "cash" : "gst";
   const buyerState = input.buyerGstin && /^\d{2}/.test(input.buyerGstin.trim()) ? input.buyerGstin.trim().slice(0, 2) : null;
+
+  // Upsert into the customer directory (by phone) and link the order to it.
+  let customerId: string | null = null;
+  const ph = input.customer?.phone?.trim();
+  const nm = input.customer?.name?.trim();
+  if (ph || nm) {
+    const { data: existing } = ph ? await sb.from("customers").select("id").eq("phone", ph).maybeSingle() : { data: null };
+    if (existing) {
+      customerId = (existing as any).id;
+      if (input.buyerGstin?.trim()) await sb.from("customers").update({ gstin: input.buyerGstin.trim() }).eq("id", customerId);
+    } else if (nm || ph) {
+      const { data: created } = await sb.from("customers")
+        .insert({ name: nm || ph || "Walk-in", phone: ph || null, gstin: input.buyerGstin?.trim() || null, address: input.buyerAddress?.trim() || null, type: "retail" })
+        .select("id").maybeSingle();
+      customerId = (created as any)?.id ?? null;
+    }
+  }
+
   await sb.from("orders").update({
     bill_type: billType,
     buyer_gstin: input.buyerGstin?.trim() || null,
     buyer_address: input.buyerAddress?.trim() || null,
     buyer_state: buyerState,
+    customer_id: customerId,
   }).eq("id", orderId);
 
   await sendPurchase({ orderId, valuePaise: total, channel: "retail", items: input.items.map((i) => ({ sku: i.sku, qty: i.qty })) });
