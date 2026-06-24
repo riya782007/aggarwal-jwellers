@@ -1,9 +1,9 @@
 const MESSAGES = [
-  "✦ Flat 20% OFF on everything",
-  "✦ Free shipping over ₹999",
-  "✦ Cash on Delivery available",
-  "✦ Handcrafted in Sadar Bazar, Delhi",
-  "✦ Wholesale rates for retailers",
+  "✦ Wholesale rates for retailers — trade login",
+  "✦ Factory-direct from Sadar Bazar, Delhi",
+  "✦ Bulk orders · GST billing · pan-India dispatch",
+  "✦ Flat 20% OFF for retail shoppers",
+  "✦ Free shipping over ₹999 · COD available",
 ];
 export function PromoBar() {
   const strip = [...MESSAGES, ...MESSAGES];

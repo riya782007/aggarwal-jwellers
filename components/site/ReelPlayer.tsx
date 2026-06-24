@@ -64,7 +64,7 @@ export function ReelPlayer({ videoUrl, caption }: { videoUrl: string | null; cap
   }
 
   return (
-    <div className="relative w-full h-full" style={{ background: "linear-gradient(160deg,#241B2E,#0F5C4D,#C8A24C)" }}>
+    <div className="relative w-full h-full" style={{ background: "linear-gradient(160deg,#1C1622,#0E5446,#B68A34)" }}>
       <div className="absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
       <span className="absolute top-3 left-3 h-9 w-9 rounded-full bg-white/85 grid place-items-center text-ink">▶</span>
       <p className="absolute bottom-3 left-3 right-3 text-cream text-sm font-medium drop-shadow">{caption}</p>

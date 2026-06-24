@@ -35,7 +35,7 @@ export default async function Wholesale({ searchParams }: { searchParams: { erro
     <div className="max-w-5xl mx-auto px-5 py-8">
       <div className="mb-3"><Back label="Back to store" /></div>
       <section className="rounded-3xl bg-ink text-cream px-8 py-12 relative overflow-hidden mb-8">
-        <div className="absolute inset-0 opacity-25" style={{ background: "radial-gradient(circle at 15% 20%, #C8A24C, transparent 38%), radial-gradient(circle at 85% 90%, #0F5C4D, transparent 42%)" }} />
+        <div className="absolute inset-0 opacity-25" style={{ background: "radial-gradient(circle at 15% 20%, #B68A34, transparent 38%), radial-gradient(circle at 85% 90%, #0E5446, transparent 42%)" }} />
         <div className="relative max-w-2xl">
           <p className="text-gold-light tracking-[0.3em] uppercase text-xs">Aggarwal Jewellers · Trade</p>
           <h1 className="font-display text-5xl mt-2">Wholesale Portal</h1>

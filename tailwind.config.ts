@@ -5,25 +5,31 @@ export default {
   theme: {
     extend: {
       colors: {
-        ivory: "#FAF6EF",
-        cream: "#F2EADA",
-        sand: "#E7DBC6",
-        ink: "#241B2E",
+        // ── Aggarwal Jewellers "Royal Jeweller" palette ──────────────────────
+        // Token names are kept stable (used across all components); only the
+        // values are tuned for the Aggarwal identity: imperial green + antique
+        // gold + royal wine on warm ivory. Swap values here to retheme the whole app.
+        ivory: "#FBF8F1",
+        cream: "#F2E9D7",
+        sand: "#E5D6B8",
+        ink: "#1C1622",
         muted: "#6B6175",
-        emerald: { DEFAULT: "#0F5C4D", dark: "#0A4034", light: "#2E8573", mist: "#E6F0ED" },
-        gold: { DEFAULT: "#C8A24C", light: "#E2C887", dark: "#A07E2E" },
-        rose: { DEFAULT: "#B0506A", light: "#E7C9D2" },
-        wine: "#6E2238",
-        diva: { rose: "#B0506A", gold: "#C8A24C", ink: "#241B2E", cream: "#FAF6EF" },
+        emerald: { DEFAULT: "#0E5446", dark: "#073328", light: "#2C8472", mist: "#E7F1ED" },
+        gold: { DEFAULT: "#B68A34", light: "#E3C079", dark: "#8A6620" },
+        rose: { DEFAULT: "#7E2B3E", light: "#E7CCD2" },
+        wine: "#5C1E2E",
+        // Convenience aliases for new work (map to the same brand hues).
+        royal: { DEFAULT: "#0E5446", gold: "#B68A34", wine: "#7E2B3E", ink: "#1C1622" },
+        diva: { rose: "#7E2B3E", gold: "#B68A34", ink: "#1C1622", cream: "#FBF8F1" },
       },
       fontFamily: {
         display: ['"Cormorant Garamond"', "Georgia", "serif"],
         body: ['"Plus Jakarta Sans"', "system-ui", "sans-serif"],
       },
       boxShadow: {
-        luxe: "0 10px 40px -12px rgba(36,27,46,0.18)",
-        card: "0 6px 24px -10px rgba(36,27,46,0.16)",
-        gold: "0 8px 30px -8px rgba(200,162,76,0.35)",
+        luxe: "0 10px 40px -12px rgba(28,22,34,0.18)",
+        card: "0 6px 24px -10px rgba(28,22,34,0.16)",
+        gold: "0 8px 30px -8px rgba(182,138,52,0.35)",
       },
       keyframes: {
         fadeUp: { "0%": { opacity: "0", transform: "translateY(18px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
