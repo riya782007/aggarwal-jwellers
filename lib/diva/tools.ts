@@ -85,6 +85,11 @@ export const DIVA_TOOLS: DivaTool[] = [
   { name: "create_subcategory", kind: "mutate", permission: "catalog.edit", confirm: true, desc: "Create a subcategory under a parent category.", params: [{ name: "name", type: "string", required: true, desc: "subcategory name" }, { name: "parent", type: "string", desc: "parent category name" }] },
   { name: "share_catalog", kind: "read", permission: "catalog.view", desc: "Build a shareable catalogue link, optionally filtered to a category/subcategory, ready for WhatsApp.", params: [{ name: "facet", type: "string", desc: "category/subcategory/keywords" }, { name: "whatsapp", type: "number", desc: "1 to format for WhatsApp" }] },
   { name: "convert_invoice", kind: "mutate", permission: "billing.gst", confirm: true, desc: "Convert a cash memo into a GST invoice (or open billing if no invoice given).", params: [{ name: "invoice", type: "string", desc: "invoice number" }, { name: "to", type: "string", desc: "target bill type (gst)" }] },
+
+  // ---- B2B / wholesale superpowers (Aggarwal Jewellers) ----
+  { name: "rate_list", kind: "read", permission: "catalog.view", desc: "Build a wholesale rate list (name + wholesale price + stock) for a category/keywords, ready to broadcast to retailers on WhatsApp.", params: [{ name: "facet", type: "string", desc: "category/subcategory/keywords; empty = whole catalogue" }, { name: "whatsapp", type: "number", desc: "1 to format for WhatsApp" }] },
+  { name: "pending_retailers", kind: "read", permission: "customers.view", desc: "List wholesale/trade accounts awaiting owner approval.", params: [] },
+  { name: "approve_retailer", kind: "mutate", permission: "customers.manage", confirm: true, desc: "Approve a wholesale/trade account by name so they unlock trade pricing.", params: [{ name: "name", type: "string", required: true, desc: "retailer/trade-account name" }] },
 ];
 
 export function toolByName(name: string): DivaTool | undefined {

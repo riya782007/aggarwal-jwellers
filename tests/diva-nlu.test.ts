@@ -175,3 +175,45 @@ describe("graceful fallback", () => {
     expect(p.confidence).toBeLessThan(0.45);
   });
 });
+
+describe("B2B / wholesale superpowers", () => {
+  it("bulk stock across several SKUs emits one step per SKU", () => {
+    const p = interpret("AJ1004 AJ1006 AJ1010 me 50 add karo");
+    expect(p.steps.length).toBe(3);
+    expect(p.steps.every((s) => s.tool === "add_stock")).toBe(true);
+    expect(p.steps.map((s) => s.args.sku)).toEqual(["AJ1004", "AJ1006", "AJ1010"]);
+    expect(p.steps[0].args.qty).toBe(50);
+  });
+  it("bulk remove across SKUs", () => {
+    const p = interpret("remove 5 from AJ1004 and AJ1006");
+    expect(p.steps.length).toBe(2);
+    expect(p.steps.every((s) => s.tool === "remove_stock")).toBe(true);
+  });
+  it("a single SKU add still uses the normal single-stock flow", () => {
+    expect(firstTool("add 20 to AJ1004")).toBe("add_stock");
+  });
+  it("wholesale rate list for a category, ready for WhatsApp", () => {
+    const p = interpret("oxidised necklace ka rate list retailers ko bhejo");
+    expect(p.steps[0].tool).toBe("rate_list");
+    expect(p.steps[0].args.facet).toContain("necklace");
+    expect(p.steps[0].args.whatsapp).toBe(1);
+  });
+  it("full rate list with no category", () => {
+    const p = interpret("send the full price list");
+    expect(p.steps[0].tool).toBe("rate_list");
+    expect(p.steps[0].args.facet).toBe("");
+  });
+  it("pending retailers / trade approvals", () => {
+    expect(firstTool("show pending retailers")).toBe("pending_retailers");
+    expect(firstTool("naye wholesale signups dikhao")).toBe("pending_retailers");
+  });
+  it("approve a retailer by name", () => {
+    const p = interpret("approve retailer Sharma Jewellers");
+    expect(p.steps[0].tool).toBe("approve_retailer");
+    expect(String(p.steps[0].args.name).toLowerCase()).toContain("sharma");
+  });
+  it("approve with no name asks which retailer", () => {
+    const p = interpret("approve the retailer account");
+    expect(p.ask?.slot).toBe("retailer_name");
+  });
+});
