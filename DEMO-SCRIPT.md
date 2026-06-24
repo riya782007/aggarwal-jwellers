@@ -1,8 +1,8 @@
-# Blythe Diva — Live Demo Script
-_A 12–15 minute guided walkthrough for presenting to Yogendra. Talking points in italics._
+# Aggarwal Jewellers — Live Demo Script
+_A 12–15 minute guided walkthrough for presenting to Aggarwal. Talking points in italics._
 
-**Live URL:** https://yogendra-ry342315-6737s-projects.vercel.app
-**Owner console passcode:** `blythe2026` · **Approval OTP:** `482913`
+**Live URL:** https://aggarwal-jewellers.vercel.app
+**Owner console passcode:** `aggarwal2026` · **Approval OTP:** `482913`
 
 > Open two browser tabs: one for the **storefront** (customer view), one for the **console** (owner view). Have your phone ready to show mobile.
 
@@ -12,7 +12,7 @@ _A 12–15 minute guided walkthrough for presenting to Yogendra. Talking points 
 
 1. **Home** → `/shop`
    - _"This replaces the WhatsApp-link site. Premium feel — emerald & gold, real motion, a promo bar, mega-menu."_
-   - Scroll: hero, trust badges, **Shop by Category**, **Bestsellers** with real star ratings, festive banner, **Happy Divas** testimonials.
+   - Scroll: hero, trust badges, **Shop by Category**, **Bestsellers** with real star ratings, festive banner, **Happy Customers** testimonials.
    - _"Those ratings are from 378 real seeded reviews — not the identical fake '4 Review' the old site shows on every product."_
 
 2. **Category + filters** → click **Necklace**
@@ -38,7 +38,7 @@ _A 12–15 minute guided walkthrough for presenting to Yogendra. Talking points 
 
 ## ACT 2 — The owner console (the "minutes not hours" story)  ~7 min
 
-6. **Sign in** → `/admin` → passcode `blythe2026`
+6. **Sign in** → `/admin` → passcode `aggarwal2026`
    - _"The console is locked — only the owner gets in."_
 
 7. **Dashboard** → animated revenue chart, channel donut, KPIs, **the order you just placed is reflected**, dead/low-stock action lists.
@@ -78,7 +78,7 @@ _A 12–15 minute guided walkthrough for presenting to Yogendra. Talking points 
 
 ## THE CLOSE — why this is worth 5× the spend (and 10× the value)
 
-| | Old site (BrainyBuzz) | Blythe Diva platform |
+| | Old site (BrainyBuzz) | Aggarwal Jewellers platform |
 |---|---|---|
 | Listing a design | 15–30 min manual | <60s, AI-drafted, one-tap |
 | Ordering | WhatsApp links only | Real store + cart + COD + AI assistant |

@@ -3,7 +3,7 @@ import { getShoppableReels } from "@/lib/supabase/queries";
 import { ReelsSection } from "@/components/site/ReelsSection";
 import { Back } from "@/components/site/Back";
 
-export const metadata = { title: "Reels — Watch & Shop", description: "Watch Aggarwal Jwellers reels and shop the looks — Kundan, Meenakari and more, tap to buy." };
+export const metadata = { title: "Reels — Watch & Shop", description: "Watch Aggarwal Jewellers reels and shop the looks — Kundan, Meenakari and more, tap to buy." };
 
 export default async function ReelsPage() {
   const reels = await getShoppableReels();

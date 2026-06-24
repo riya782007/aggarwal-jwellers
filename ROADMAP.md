@@ -1,5 +1,5 @@
-# Blythe Diva — Product Audit & Roadmap
-_Gap analysis against the master spec, yogendra.pdf, and best-in-class commerce sites (GIVA, Kalyan, Vyapar, Shopping Tree, Discord). Living document._
+# Aggarwal Jewellers — Product Audit & Roadmap
+_Gap analysis against the master spec, spec, and best-in-class commerce sites (GIVA, Kalyan, Vyapar, Shopping Tree, Discord). Living document._
 
 ## Verdict
 The platform already **meets or exceeds** the Phase-1 demo spec: premium storefront, AI-drafted product pages, dual storefronts, cart→checkout, POS + GST invoices, estimates, returns, purchases with SKU mapping, inventory intelligence, animated dashboard, RBAC, approvals/OTP, CRM, abandoned carts, search, reviews, SEO, GA4 — all live and verified.

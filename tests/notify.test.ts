@@ -4,7 +4,7 @@ import { resolveAssignee } from "../lib/notify/assignments";
 import { requireHuman, acknowledge, escalateIfBreached, type Notification, type NotifyDeps } from "../lib/notify/notifications";
 import { requestApproval, decideApproval, type Approval, type ApprovalDeps } from "../lib/notify/approvals";
 
-const owner: Contact = { id: "owner", name: "Yogendra" };
+const owner: Contact = { id: "owner", name: "Aggarwal" };
 const staff: Contact = { id: "c1", name: "Aman", whatsapp: "+9199..." };
 const backup: Contact = { id: "c2", name: "Backup" };
 

@@ -36,8 +36,11 @@ function Tile({ label, children, sub, accent, icon, bar }: { label: string; chil
 export default async function Dashboard({ searchParams }: { searchParams: { preset?: string; from?: string; to?: string; denied?: string } }) {
   const custom = !!(searchParams.from && searchParams.to);
   const preset = PRESETS.find((p) => p.key === searchParams.preset)?.key ?? (custom ? "custom" : "month");
+  // Interpret the picked dates as IST (the business runs in India). Without a fixed offset
+  // the server's own timezone shifted the day boundaries, so a selected range could miss a
+  // day's orders or appear empty. +05:30 pins the range to the Indian business day.
   const r = custom
-    ? { from: new Date(searchParams.from + "T00:00:00").toISOString(), to: new Date(searchParams.to + "T23:59:59").toISOString() }
+    ? { from: new Date(searchParams.from + "T00:00:00+05:30").toISOString(), to: new Date(searchParams.to + "T23:59:59+05:30").toISOString() }
     : presetRange(preset);
   const { from, to } = r;
   const fromDate = searchParams.from ?? "";
@@ -62,7 +65,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
             <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">Owner Console</p>
-            <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Yogendra</h1>
+            <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Aggarwal</h1>
             <p className="text-sm text-cream/70 mt-1">Showing <b className="text-ivory">{label}</b> · live from your catalogue &amp; orders</p>
             <p className="text-2xl font-semibold text-ivory mt-3">{formatPaise(d.revenue)} <span className="text-sm font-normal text-cream/60">in revenue · {d.orders} orders</span></p>
           </div>

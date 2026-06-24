@@ -1,7 +1,7 @@
 # Setup & Demo Notes
 
 ## Live infrastructure (already provisioned)
-- **Supabase project:** `blythe-diva` (ref `qfybzwiyhnnpqumtzkpf`), region ap-south-1 (Mumbai).
+- **Supabase project:** `aggarwal-diva` (ref `qfybzwiyhnnpqumtzkpf`), region ap-south-1 (Mumbai).
 - **API URL:** https://qfybzwiyhnnpqumtzkpf.supabase.co
 - **Schema:** applied (28 tables, enums, indexes, RLS). See `supabase/migrations/`.
 - **Seed:** loaded into the live DB — 24 SKUs, 19 variants, 5 retailers, 40 orders over ~8 weeks
@@ -11,7 +11,7 @@
 The public URL + anon key are already in `.env.local`. The admin dashboard reads RLS-protected
 operational tables from the server, which needs the **service_role** key:
 
-1. Open Supabase dashboard -> project **blythe-diva** -> Settings -> API.
+1. Open Supabase dashboard -> project **aggarwal-diva** -> Settings -> API.
 2. Copy the **service_role** secret.
 3. Paste it into `.env.local` as `SUPABASE_SERVICE_ROLE_KEY=...`
 

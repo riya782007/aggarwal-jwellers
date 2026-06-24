@@ -4,8 +4,8 @@ import { Analytics } from "@/components/Analytics";
 import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
-  title: { default: "Aggarwal Jwellers — Artificial Jewellery, Sadar Bazar Delhi", template: "%s | Aggarwal Jwellers" },
-  description: "Premium artificial jewellery — Kundan, Meenakari, Temple & more. Retail & wholesale from Aggarwal Jwellers, Sadar Bazar, Delhi.",
+  title: { default: "Aggarwal Jewellers — Artificial Jewellery, Sadar Bazar Delhi", template: "%s | Aggarwal Jewellers" },
+  description: "Premium artificial jewellery — Kundan, Meenakari, Temple & more. Retail & wholesale from Aggarwal Jewellers, Sadar Bazar, Delhi.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

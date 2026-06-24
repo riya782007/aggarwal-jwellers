@@ -44,9 +44,9 @@ async function insertOne(sb: ReturnType<typeof supabaseServer>, formula: any, n:
   if (!n.categoryId) return { row: skuNum, ok: false, error: "Missing category" };
   const prices = computePrices(n.basePriceRupees * 100, formula);
   if (!isValidPriceSet(prices)) return { row: skuNum, ok: false, error: "Computed price invalid — flagged" };
-  // Use a manually-entered SKU if provided, else auto-generate BD####.
+  // Use a manually-entered SKU if provided, else auto-generate AJ####.
   const manual = n.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
-  const sku = manual || `BD${skuNum}`;
+  const sku = manual || `AJ${skuNum}`;
   if (manual) {
     const { data: dup } = await sb.from("products").select("id").eq("sku", manual).maybeSingle();
     if (dup) return { row: skuNum, ok: false, error: `SKU ${manual} already exists` };
@@ -209,6 +209,114 @@ export async function createCategoryJsonAction(name: string): Promise<{ id: stri
   const { data } = await sb.from("categories").insert({ name: nm, slug: slugify(nm) }).select("id,name").single();
   revalidatePath("/admin/categories"); revalidatePath("/shop"); revalidatePath("/admin/upload");
   return data ? { id: (data as any).id, name: (data as any).name } : null;
+}
+
+// ---------------------------------------------------------------------------
+// Subcategories (category hierarchy) — backs the management UI + DIVA.
+// Requires migration 0002 (subcategories, product_subcategory_map).
+// ---------------------------------------------------------------------------
+
+/** Create a subcategory under a parent category (by id or name). */
+export async function createSubcategoryAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.edit"))) return;
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const sb = supabaseServer();
+  let categoryId = String(formData.get("category_id") ?? "").trim() || null;
+  const parentName = String(formData.get("parent") ?? "").trim();
+  if (!categoryId && parentName) {
+    const { data: pc } = await sb.from("categories").select("id").ilike("name", parentName).maybeSingle();
+    categoryId = (pc as any)?.id ?? null;
+  }
+  await sb.from("subcategories").insert({ name, slug: slugify(name), category_id: categoryId });
+  revalidatePath("/admin/categories"); revalidatePath("/shop");
+}
+
+/** Rename a subcategory. */
+export async function renameSubcategoryAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.edit"))) return;
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id || !name) return;
+  await supabaseServer().from("subcategories").update({ name, slug: slugify(name) }).eq("id", id);
+  revalidatePath("/admin/categories"); revalidatePath("/shop");
+}
+
+/** Delete a subcategory (products fall back to their parent category; map rows cascade). */
+export async function deleteSubcategoryAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.edit"))) return;
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  await supabaseServer().from("subcategories").delete().eq("id", id);
+  revalidatePath("/admin/categories"); revalidatePath("/shop");
+}
+
+/** Reorder subcategories: pass an ordered list of ids; sets their `sort` to match. */
+export async function reorderSubcategoriesAction(ids: string[]): Promise<void> {
+  if (!(await requirePerm("catalog.edit"))) return;
+  const sb = supabaseServer();
+  await Promise.all(ids.map((id, i) => sb.from("subcategories").update({ sort: i }).eq("id", id)));
+  revalidatePath("/admin/categories"); revalidatePath("/shop");
+}
+
+/** Move a product into a subcategory (sets the primary; trigger keeps the M2M map in sync). */
+export async function moveProductToSubcategoryAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.edit"))) return;
+  const sku = String(formData.get("sku") ?? "").trim();
+  const subcategoryId = String(formData.get("subcategory_id") ?? "").trim() || null;
+  if (!sku) return;
+  const sb = supabaseServer();
+  await sb.from("products").update({ subcategory_id: subcategoryId }).eq("sku", sku);
+  revalidatePath("/admin/categories"); revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+}
+
+// ---------------------------------------------------------------------------
+// Pricing overrides (Phase 4) — explicit per-product / per-variant tier prices.
+// Requires migration 0003. Blank/0 input clears the override (back to formula).
+// ---------------------------------------------------------------------------
+
+/** Rupees text → integer paise, or null when blank / non-positive (= inherit formula). */
+function rupeesToPaiseOrNull(raw: FormDataEntryValue | null): number | null {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100);
+}
+
+export async function savePricingAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.price_edit"))) return;
+  const sku = String(formData.get("sku") ?? "").trim();
+  if (!sku) return;
+  const sb = supabaseServer();
+  const { data: prod } = await sb.from("products").select("id").eq("sku", sku).maybeSingle();
+  if (!prod) return;
+
+  // Product-level overrides.
+  await sb.from("products").update({
+    wholesale_override: rupeesToPaiseOrNull(formData.get("p_wholesale")),
+    retail_override: rupeesToPaiseOrNull(formData.get("p_retail")),
+    mrp_override: rupeesToPaiseOrNull(formData.get("p_mrp")),
+  }).eq("id", (prod as any).id);
+
+  // Variant-level overrides — fields named v_<variantId>_(w|r|m).
+  const byVariant = new Map<string, { w: number | null; r: number | null; m: number | null }>();
+  for (const [key, val] of formData.entries()) {
+    const mm = /^v_(.+)_(w|r|m)$/.exec(key);
+    if (!mm) continue;
+    const [, id, tier] = mm;
+    const cur = byVariant.get(id) ?? { w: null, r: null, m: null };
+    (cur as any)[tier] = rupeesToPaiseOrNull(val);
+    byVariant.set(id, cur);
+  }
+  await Promise.all(
+    [...byVariant.entries()].map(([id, o]) =>
+      sb.from("variants").update({ wholesale_override: o.w, retail_override: o.r, mrp_override: o.m }).eq("id", id),
+    ),
+  );
+
+  revalidatePath(`/admin/catalogue/${sku}`);
+  revalidatePath(`/admin/product/${sku}`);
+  revalidatePath("/shop");
+  revalidatePath("/wholesale");
 }
 
 import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";

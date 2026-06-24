@@ -41,11 +41,11 @@ describe("demo smoke: seeded happy path", () => {
 
   it("product content resolves to non-empty title + description + SEO", () => {
     for (const [name, cat] of SEED) {
-      const c = resolveProductContent({ name, sku: "BD0000", categoryName: cat });
+      const c = resolveProductContent({ name, sku: "AJ0000", categoryName: cat });
       expect(c.title.length).toBeGreaterThan(0);
       expect(c.description.length).toBeGreaterThan(40);
       expect(c.seo.keywords.length).toBeGreaterThan(0);
-      expect(c.seo.metaTitle).toContain("Aggarwal Jwellers");
+      expect(c.seo.metaTitle).toContain("Aggarwal Jewellers");
     }
   });
 

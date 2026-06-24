@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
-import { divaPlan, divaRun } from "@/app/actions/diva";
+import { divaPlan, divaRun, getDivaSuggestions, type DivaSuggestion } from "@/app/actions/diva";
 
 type Msg = { who: "owner" | "diva"; text: string };
 type Step = { tool: string; args: Record<string, any>; label: string; kind: string; needsConfirm: boolean; status: "pending" | "running" | "done" | "error" | "skipped"; message?: string; confirmed?: boolean };
@@ -16,16 +16,22 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Yogendra, I'm DIVA. I can analyse, navigate, and act — e.g. “how is BD1004 selling?”, “hide the polki choker”, “add 20 to BD1010”, “generate a photo for BD1002”, “open inventory”, “delete BD1099”. Speak or type. You can Stop me or type a new instruction anytime." }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime." }]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [awaiting, setAwaiting] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<DivaSuggestion[] | null>(null);
   const recRef = useRef<any>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<Step[]>([]);
   const runIdRef = useRef(0);
+  const ctxRef = useRef<string | undefined>(undefined);
   const sync = (s: Step[]) => { stepsRef.current = s; setSteps([...s]); };
 
   useEffect(() => { logRef.current?.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, steps]);
+
+  // Load proactive suggestions when the panel first opens.
+  const loadSuggestions = () => { getDivaSuggestions().then(setSuggestions).catch(() => setSuggestions([])); };
+  useEffect(() => { if (open && suggestions === null) loadSuggestions(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasVoice = typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
@@ -45,8 +51,9 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
     if (!cmd) return;
     const myRun = ++runIdRef.current; // supersedes any in-flight run
     setInput(""); setMsgs((m) => [...m, { who: "owner", text: cmd }]); setBusy(true); setAwaiting(null); sync([]);
-    const plan = await divaPlan(cmd);
+    const plan = await divaPlan(cmd, ctxRef.current);
     if (myRun !== runIdRef.current) return;
+    ctxRef.current = plan.context; // carry conversational memory into the next turn
     setMsgs((m) => [...m, { who: "diva", text: plan.reply }]);
     if (plan.steps.length === 0) { setBusy(false); return; }
     sync(plan.steps.map((s) => ({ ...s, status: "pending" })));
@@ -56,7 +63,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   async function run(i: number, myRun: number) {
     if (myRun !== runIdRef.current) return;
     const s = stepsRef.current;
-    if (i >= s.length) { setBusy(false); toast("DIVA finished ✓"); setMsgs((m) => [...m, { who: "diva", text: "Done ✓" }]); return; }
+    if (i >= s.length) { setBusy(false); toast("DIVA finished ✓"); setMsgs((m) => [...m, { who: "diva", text: "Done ✓" }]); loadSuggestions(); return; }
     const step = s[i];
     if (step.needsConfirm && !step.confirmed) { setAwaiting(i); setBusy(false); return; }
     step.status = "running"; sync(s);
@@ -136,6 +143,17 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
           <div className="p-3 border-t border-sand bg-white">
             {busy && (
               <button onClick={stopRun} className="w-full mb-2 py-1.5 rounded-full bg-rose/10 text-rose text-xs font-medium hover:bg-rose/20 transition-colors">■ Stop</button>
+            )}
+            {!busy && steps.length === 0 && awaiting === null && suggestions && suggestions.length > 0 && (
+              <div className="mb-2 space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-muted px-1">DIVA suggests</p>
+                {suggestions.slice(0, 3).map((s) => (
+                  <button key={s.id} onClick={() => submit(s.command)}
+                    className="w-full text-left text-xs px-3 py-2 rounded-xl bg-cream hover:bg-emerald-mist/50 text-ink flex items-start gap-2 transition-colors">
+                    <span aria-hidden>{s.icon}</span><span className="flex-1">{s.text}</span>
+                  </button>
+                ))}
+              </div>
             )}
             <div className="flex items-center gap-2">
               <button onClick={toggleMic} title="Speak" className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${listening ? "bg-rose text-white animate-pulse" : "bg-cream text-ink hover:bg-emerald-mist"}`}>🎤</button>

@@ -1,4 +1,4 @@
-# Blythe Diva / Yogendra Industries — AI Commerce & Operations Platform
+# Aggarwal Jewellers — AI Commerce & Operations Platform
 
 Next.js (App Router, TS) + Tailwind + Supabase. Built phase-by-phase per `MASTER-BUILD-SPEC.md`.
 

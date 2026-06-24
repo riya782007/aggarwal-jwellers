@@ -1,22 +1,22 @@
 /**
  * lib/business.ts — Seller profile + GST/invoice helpers (B2B jewellery).
  *
- * EDIT THIS ONE FILE with Yogendra's real registration details and they flow into
+ * EDIT THIS ONE FILE with Aggarwal's real registration details and they flow into
  * every Tax Invoice, Cash Memo and Estimate/Quotation across the console.
  *
  * Imitation/artificial jewellery → HSN 7117, GST 3% (CGST 1.5 + SGST 1.5 intra-state,
  * or IGST 3% inter-state). Change GST_RATE / HSN if the product mix differs.
  */
 export const BUSINESS = {
-  brand: "Aggarwal Jwellers",
-  legalName: "Yogendra Industries",
+  brand: "Aggarwal Jewellers",
+  legalName: "Aggarwal Jewellers",
   address: "Sadar Bazar, Rui Mandi, Delhi 110006",
   stateName: "Delhi",
   stateCode: "07", // GST state code for Delhi
   gstin: "07ABCDE1234F1Z5", // ← replace with the real GSTIN
   pan: "ABCDE1234F",        // ← replace with the real PAN
   phone: "+91 98731 51767",
-  email: "hello@aggarwaljwellers.in",
+  email: "hello@aggarwaljewellers.in",
   bank: {
     name: "HDFC Bank",
     account: "50200000000000",
