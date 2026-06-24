@@ -40,7 +40,7 @@ export function Header({ categories }: { categories: Cat[] }) {
             <Link href="/shop?sort=new" className="nav-link py-2">New Arrivals</Link>
             <Link href="/shop?sort=bestseller" className="nav-link py-2">Bestsellers</Link>
             <Link href="/reels" className="nav-link py-2">Reels</Link>
-            <Link href="/wholesale" className="nav-link py-2">Wholesale</Link>
+            <Link href="/wholesale" className="ml-1 px-4 py-1.5 rounded-full bg-gold/15 text-gold-dark border border-gold/40 font-medium hover:bg-gold hover:text-ink transition-colors">Wholesale · Trade login</Link>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 text-ink">

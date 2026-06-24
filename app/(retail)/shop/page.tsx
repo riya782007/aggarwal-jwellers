@@ -25,19 +25,19 @@ export default async function Shop() {
       <section className="relative overflow-hidden bg-gradient-to-b from-cream to-ivory">
         <div className="max-w-7xl mx-auto px-5 py-14 md:py-20 grid md:grid-cols-2 gap-10 items-center">
           <div className="animate-fadeUp">
-            <p className="text-gold-dark tracking-[0.3em] uppercase text-xs mb-4">Aggarwal Jewellers · Since Sadar Bazar</p>
+            <p className="text-gold-dark tracking-[0.3em] uppercase text-xs mb-4">Aggarwal Jewellers · Wholesale &amp; Retail · Sadar Bazar, Delhi</p>
             <h1 className="font-display text-5xl md:text-6xl leading-[1.05] text-ink">
               Adorn your <span className="text-gold-gradient">every</span> moment.
             </h1>
             <p className="text-muted mt-5 max-w-md leading-relaxed">
-              Handcrafted Kundan, Meenakari & Temple jewellery — premium anti-tarnish finish, trend-ready, and priced for both retail and wholesale.
+              A trusted Sadar Bazar jewellery house — handcrafted Kundan, Meenakari &amp; Temple designs with a premium anti-tarnish finish. Factory-direct wholesale for retailers, and easy online shopping for everyone.
             </p>
             <div className="flex gap-3 mt-7">
-              <Link href="#bestsellers" className="btn-primary px-7 py-3 text-sm font-medium">Shop the collection</Link>
-              <Link href="/wholesale" className="px-7 py-3 text-sm font-medium rounded-full border border-ink/15 text-ink hover:border-emerald hover:text-emerald transition-colors">Wholesale enquiry</Link>
+              <Link href="/wholesale" className="btn-primary px-7 py-3 text-sm font-medium">Wholesale · Trade login</Link>
+              <Link href="#bestsellers" className="px-7 py-3 text-sm font-medium rounded-full border border-ink/15 text-ink hover:border-emerald hover:text-emerald transition-colors">Shop the collection</Link>
             </div>
             <div className="flex items-center gap-6 mt-8 text-sm text-muted">
-              <span>★ 4.8 avg rating</span><span>·</span><span>50,000+ customers</span><span>·</span><span>24 designs live</span>
+              <span>★ 4.8 avg rating</span><span>·</span><span>500+ retail partners</span><span>·</span><span>Pan-India dispatch</span>
             </div>
           </div>
           <div className="relative h-[360px] md:h-[440px]">
@@ -91,7 +91,7 @@ export default async function Shop() {
       <section className="max-w-7xl mx-auto px-5 py-12">
         <Reveal>
           <div className="rounded-3xl bg-ink text-cream px-8 py-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #C8A24C, transparent 40%), radial-gradient(circle at 80% 80%, #0F5C4D, transparent 40%)" }} />
+            <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #B68A34, transparent 40%), radial-gradient(circle at 80% 80%, #0E5446, transparent 40%)" }} />
             <p className="relative text-gold-light tracking-[0.3em] uppercase text-xs">Festive Edit</p>
             <h2 className="relative font-display text-4xl md:text-5xl mt-2">Flat 20% off, sitewide</h2>
             <p className="relative text-cream/70 mt-3">No code needed. Free shipping over ₹999. Cash on delivery available.</p>

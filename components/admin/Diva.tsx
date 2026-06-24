@@ -176,24 +176,24 @@ function DivaAvatar({ className = "" }: { className?: string }) {
     <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden>
       <defs>
         <linearGradient id="dv-bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#0F5C4D" /><stop offset="1" stopColor="#0A4034" />
+          <stop offset="0" stopColor="#0E5446" /><stop offset="1" stopColor="#073328" />
         </linearGradient>
         <linearGradient id="dv-gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#E2C887" /><stop offset="1" stopColor="#C8A24C" />
+          <stop offset="0" stopColor="#E3C079" /><stop offset="1" stopColor="#B68A34" />
         </linearGradient>
       </defs>
-      <circle cx="50" cy="50" r="48" fill="url(#dv-bg)" stroke="#C8A24C" strokeWidth="2.5" />
+      <circle cx="50" cy="50" r="48" fill="url(#dv-bg)" stroke="#B68A34" strokeWidth="2.5" />
       {/* hair */}
-      <path d="M30 48c0-15 9-25 20-25s20 10 20 25c0 6-2 12-4 16-1-10-2-20-8-24-3 6-18 6-22 0-4 5-5 14-6 22-1-4-0-9 0-14z" fill="#241B2E" />
+      <path d="M30 48c0-15 9-25 20-25s20 10 20 25c0 6-2 12-4 16-1-10-2-20-8-24-3 6-18 6-22 0-4 5-5 14-6 22-1-4-0-9 0-14z" fill="#1C1622" />
       {/* face */}
       <path d="M37 44c0 11 6 19 13 19s13-8 13-19c0-9-6-14-13-14s-13 5-13 14z" fill="#F2D7BE" />
       {/* eyes + smile */}
-      <circle cx="45" cy="45" r="1.6" fill="#241B2E" /><circle cx="55" cy="45" r="1.6" fill="#241B2E" />
-      <path d="M46 52c2 2 6 2 8 0" stroke="#A07E2E" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+      <circle cx="45" cy="45" r="1.6" fill="#1C1622" /><circle cx="55" cy="45" r="1.6" fill="#1C1622" />
+      <path d="M46 52c2 2 6 2 8 0" stroke="#8A6620" strokeWidth="1.4" fill="none" strokeLinecap="round" />
       {/* earrings */}
       <circle cx="37" cy="50" r="2.3" fill="url(#dv-gold)" /><circle cx="63" cy="50" r="2.3" fill="url(#dv-gold)" />
       {/* shoulders + necklace */}
-      <path d="M28 84c2-12 10-18 22-18s20 6 22 18z" fill="#6E2238" />
+      <path d="M28 84c2-12 10-18 22-18s20 6 22 18z" fill="#5C1E2E" />
       <path d="M42 70c3 5 13 5 16 0" stroke="url(#dv-gold)" strokeWidth="2" fill="none" strokeLinecap="round" />
       <circle cx="50" cy="74" r="2.4" fill="url(#dv-gold)" />
     </svg>
