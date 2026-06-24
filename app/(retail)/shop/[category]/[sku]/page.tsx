@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { getProductBySku, getPricingFormula, getProductReviews, getRecommendations } from "@/lib/supabase/queries";
 import { resolveProductContent } from "@/lib/content";
 import { liveOffer } from "@/lib/offers";
-import { formatPaise, computePrices } from "@/lib/pricing";
+import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
 import { Gallery } from "@/components/site/Gallery";
 import { BuyBox } from "@/components/site/BuyBox";
 import { Stars } from "@/components/site/Stars";
@@ -29,15 +29,15 @@ export default async function ProductPage({ params }: Params) {
 
   const colors = (p.variants ?? []).map((v) => v.color ?? "").filter(Boolean);
   const content = resolveProductContent({ name: p.name, sku: p.sku, categoryName: p.category?.name, colors, generated_content: p.generated_content });
-  const o = liveOffer(p.base_wholesale, formula);
-  const w = computePrices(p.base_wholesale, formula);
+  const o = liveOffer(p.base_wholesale, formula, overridesOf(p));
+  const w = resolvePrices(p.base_wholesale, formula, overridesOf(p));
   const waText = `Please place an order for ${p.name} (SKU:${p.sku})`;
   const waHref = `https://wa.me/919873151767?text=${encodeURIComponent(waText)}`;
   
 
   const jsonLd = {
     "@context": "https://schema.org", "@type": "Product", name: p.name, sku: p.sku, category: p.category?.name,
-    description: content.seo.metaDescription, keywords: content.seo.keywords.join(", "), brand: { "@type": "Brand", name: "Aggarwal Jwellers" },
+    description: content.seo.metaDescription, keywords: content.seo.keywords.join(", "), brand: { "@type": "Brand", name: "Aggarwal Jewellers" },
     aggregateRating: { "@type": "AggregateRating", ratingValue: reviews.avg, reviewCount: reviews.count },
     offers: { "@type": "Offer", priceCurrency: "INR", price: (o.price / 100).toFixed(2), availability: p.qty > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock" },
   };

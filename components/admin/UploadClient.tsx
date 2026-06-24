@@ -144,7 +144,7 @@ export function UploadClient({ categories }: { categories: Cat[] }) {
               <input className={input} placeholder="Base wholesale ₹" inputMode="numeric" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               <input className={input} placeholder="Stock qty" inputMode="numeric" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
             </div>
-            <input className={`${input} font-mono`} placeholder="SKU (optional — leave blank to auto-generate BD####)" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            <input className={`${input} font-mono`} placeholder="SKU (optional — leave blank to auto-generate AJ####)" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <select className={input} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as any })}>
                 <option value="simple">Simple (one item)</option>

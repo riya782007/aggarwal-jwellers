@@ -17,7 +17,7 @@ export default async function Abandoned() {
         {carts.length === 0 && <p className="text-sm text-muted">No abandoned carts.</p>}
         {carts.map((c: any) => {
           const items = (c.items ?? []) as { name: string; qty: number; price: number }[];
-          const wa = c.phone ? `https://wa.me/${String(c.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${c.customer_name || "there"}! You left some beautiful pieces in your Aggarwal Jwellers bag. Complete your order and enjoy 20% off ✨`)}` : null;
+          const wa = c.phone ? `https://wa.me/${String(c.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${c.customer_name || "there"}! You left some beautiful pieces in your Aggarwal Jewellers bag. Complete your order and enjoy 20% off ✨`)}` : null;
           return (
             <div key={c.id} className="bg-white rounded-2xl p-5 shadow-card flex items-center justify-between gap-4">
               <div className="min-w-0">

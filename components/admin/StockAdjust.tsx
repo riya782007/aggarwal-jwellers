@@ -25,7 +25,7 @@ export function StockAdjust() {
       </button>
       {open && (
         <form action={adjustStockAction} className="mt-3 bg-white rounded-2xl p-4 shadow-card border border-sand grid sm:grid-cols-5 gap-3 items-end">
-          <label className="text-xs text-muted sm:col-span-1">SKU<input name="sku" placeholder="BD1000" className={`${fld} w-full mt-1`} required /></label>
+          <label className="text-xs text-muted sm:col-span-1">SKU<input name="sku" placeholder="AJ1000" className={`${fld} w-full mt-1`} required /></label>
           <div className="text-xs text-muted">
             Direction
             <div className="flex gap-1 mt-1">

@@ -13,12 +13,14 @@ function escLike(s: string): string {
 }
 
 export type DbCategory = { id: string; name: string; slug: string };
-export type DbVariant = { id: string; color: string | null; sku: string; qty: number; image_paths: string[] };
+export type DbVariant = { id: string; color: string | null; sku: string; qty: number; image_paths: string[]; wholesale_override?: number | null; retail_override?: number | null; mrp_override?: number | null };
 export type DbImage = { id: string; path: string; kind: string | null; sort: number };
 export type DbProduct = {
   id: string; category_id: string; sku: string; name: string;
   type: "simple" | "configurable"; base_wholesale: number; qty: number;
   status: string; generated_content: any; last_movement_at: string | null;
+  subcategory_id?: string | null;
+  wholesale_override?: number | null; retail_override?: number | null; mrp_override?: number | null;
 };
 
 export async function getPricingFormula(): Promise<PricingFormula> {
@@ -36,6 +38,41 @@ export async function getCategories(): Promise<DbCategory[]> {
   const sb = supabaseServer();
   const { data } = await sb.from("categories").select("id,name,slug").order("name");
   return data ?? [];
+}
+
+// ---------- category hierarchy (subcategories) ----------
+export type DbSubcategory = { id: string; category_id: string | null; name: string; slug: string; sort: number };
+export type CategoryNode = DbCategory & { sort?: number; subcategories: DbSubcategory[]; productCount?: number };
+
+/** Parent categories, each with their ordered subcategories — for the management UI + filters. */
+export async function getCategoryTree(): Promise<CategoryNode[]> {
+  const sb = supabaseServer();
+  const [{ data: cats }, { data: subs }] = await Promise.all([
+    sb.from("categories").select("id,name,slug,sort,parent_id").order("sort").order("name"),
+    sb.from("subcategories").select("id,category_id,name,slug,sort").order("sort").order("name"),
+  ]);
+  const subList = (subs as DbSubcategory[]) ?? [];
+  // Only top-level categories (parent_id null) are roots; nested categories are ignored here.
+  return ((cats as any[]) ?? [])
+    .filter((c) => !c.parent_id)
+    .map((c) => ({
+      id: c.id, name: c.name, slug: c.slug, sort: c.sort ?? 0,
+      subcategories: subList.filter((s) => s.category_id === c.id),
+    }));
+}
+
+/** Flat list of subcategories, optionally scoped to one parent category slug or id. */
+export async function getSubcategories(opts: { categoryId?: string; categorySlug?: string } = {}): Promise<DbSubcategory[]> {
+  const sb = supabaseServer();
+  let categoryId = opts.categoryId;
+  if (!categoryId && opts.categorySlug && opts.categorySlug !== "all") {
+    const { data: cat } = await sb.from("categories").select("id").eq("slug", opts.categorySlug).maybeSingle();
+    categoryId = (cat as any)?.id;
+  }
+  let q = sb.from("subcategories").select("id,category_id,name,slug,sort").order("sort").order("name");
+  if (categoryId) q = q.eq("category_id", categoryId);
+  const { data } = await q;
+  return (data as DbSubcategory[]) ?? [];
 }
 
 // ---------- efficient, paginated lists (for 10k+ SKUs) ----------
@@ -56,24 +93,59 @@ export async function getProductsPage(opts: { page?: number; pageSize?: number; 
 }
 
 // ---------- shareable catalog ----------
-export async function getCatalogProducts(opts: { category?: string }) {
+export type CatalogCard = {
+  sku: string; name: string;
+  category: string; categorySlug: string;
+  subcategory: string | null; subcategorySlug: string | null;
+  qty: number; wholesale: number; price: number; mrp: number; offerPct: number; hasOffer: boolean;
+  image: string | null; tags: string[]; keywords: string[];
+};
+
+export async function getCatalogProducts(opts: { category?: string; subcategory?: string; q?: string; skus?: string[] }): Promise<CatalogCard[]> {
   const sb = supabaseServer();
   const formula = await getPricingFormula();
   let query = sb.from("products")
-    .select("sku,name,qty,base_wholesale,generated_content,category:categories(name,slug), images:product_images(path,kind,sort)")
+    .select("id,sku,name,qty,base_wholesale,wholesale_override,retail_override,mrp_override,generated_content,category:categories(name,slug),subcategory:subcategories(name,slug),images:product_images(path,kind,sort)")
     .eq("status", "published").order("sku");
+
   if (opts.category && opts.category !== "all") {
     const { data: cat } = await sb.from("categories").select("id").eq("slug", opts.category).maybeSingle();
     if (cat) query = query.eq("category_id", (cat as any).id);
   }
+  // Filter to a specific subcategory via the many-to-many map (covers primary + extra subcats).
+  if (opts.subcategory && opts.subcategory !== "all") {
+    const { data: sub } = await sb.from("subcategories").select("id").eq("slug", opts.subcategory).maybeSingle();
+    if (sub) {
+      const { data: maps } = await sb.from("product_subcategory_map").select("product_id").eq("subcategory_id", (sub as any).id);
+      const ids = ((maps as any[]) ?? []).map((m) => m.product_id);
+      query = query.in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+    }
+  }
+  // Explicit selected products → exact catalogue.
+  if (opts.skus && opts.skus.length) {
+    query = query.in("sku", opts.skus.map((s) => s.trim().toUpperCase()).filter(Boolean));
+  }
+  // Keyword search across name / SKU.
+  if (opts.q && opts.q.trim()) {
+    const esc = opts.q.trim().replace(/[%,()]/g, " ");
+    query = query.or(`name.ilike.%${esc}%,sku.ilike.%${esc}%`);
+  }
+
   const { data } = await query;
-  return ((data as any[]) ?? []).map((p) => {
-    const o = _liveOffer(p.base_wholesale, formula);
+  return ((data as any[]) ?? []).map((p): CatalogCard => {
+    const ov = overridesOf(p);
+    const o = _liveOffer(p.base_wholesale, formula, ov);
+    const set = _resolvePrices(p.base_wholesale, formula, ov);
     const imgs = (p.images ?? []).filter((i: any) => typeof i.path === "string" && i.path.startsWith("http")).sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
+    const seo = (p.generated_content as any)?.seo ?? {};
     return {
-      sku: p.sku, name: p.name, category: p.category?.name ?? "", categorySlug: p.category?.slug ?? "all",
-      qty: p.qty, price: o.price, mrp: o.mrp, offerPct: o.offerPct, hasOffer: o.hasOffer,
-      image: imgs[0]?.path ?? null, tags: ((p.generated_content as any)?.tags ?? []).slice(0, 4),
+      sku: p.sku, name: p.name,
+      category: p.category?.name ?? "", categorySlug: p.category?.slug ?? "all",
+      subcategory: p.subcategory?.name ?? null, subcategorySlug: p.subcategory?.slug ?? null,
+      qty: p.qty, wholesale: set.wholesaleRate, price: o.price, mrp: o.mrp, offerPct: o.offerPct, hasOffer: o.hasOffer,
+      image: imgs[0]?.path ?? null,
+      tags: ((p.generated_content as any)?.tags ?? []).slice(0, 6),
+      keywords: (seo.keywords ?? []).slice(0, 6),
     };
   });
 }
@@ -168,7 +240,20 @@ export async function getProductSkus(): Promise<{ sku: string; slug: string }[]>
   return (data ?? []).map((r: any) => ({ sku: r.sku, slug: r.category?.slug ?? "all" }));
 }
 
-// ---------- dashboard + inventory intelligence (Req 6, 7; yogendra.pdf §8) ----------
+/** Recent stock movements for one product — powers the Product workspace History tab. */
+export async function getStockHistory(productId: string, limit = 25): Promise<{ delta: number; source: string | null; reason: string | null; kind: string | null; created_at: string }[]> {
+  if (!productId) return [];
+  const sb = supabaseServer();
+  const { data } = await sb
+    .from("stock_adjustments")
+    .select("delta,source,reason,kind,created_at")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data as any[]) ?? [];
+}
+
+// ---------- dashboard + inventory intelligence (Req 6, 7; spec §8) ----------
 import { classify, type InventoryRule, DEFAULT_RULE } from "../inventory";
 import { computePrices, type PricingFormula as PF } from "../pricing";
 
@@ -527,6 +612,7 @@ export async function getReviewsForResponse() {
 
 // ---------- shoppable reels ----------
 import { liveOffer as _liveOffer } from "../offers";
+import { resolvePrices as _resolvePrices, overridesOf } from "../pricing";
 export type ReelProduct = { sku: string; name: string; price: number; categorySlug: string; category: string };
 export type ShopReel = { id: string; caption: string; video_url: string | null; products: ReelProduct[] };
 

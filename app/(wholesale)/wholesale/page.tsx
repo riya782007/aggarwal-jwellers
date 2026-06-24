@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { getStorefront } from "@/lib/supabase/queries";
-import { computePrices, formatPaise } from "@/lib/pricing";
+import { resolvePrices, overridesOf, formatPaise } from "@/lib/pricing";
 import { Back } from "@/components/site/Back";
 import { getWholesaleSession } from "@/lib/wholesale";
 import { wholesaleLoginAction } from "@/app/actions/wholesale";
@@ -16,7 +16,7 @@ export default async function Wholesale({ searchParams }: { searchParams: { erro
   if (session) {
     const list = products.map((p) => ({
       sku: p.sku, name: p.name, category: p.category.name, qty: p.qty,
-      price: computePrices(p.base_wholesale, formula).wholesaleRate,
+      price: resolvePrices(p.base_wholesale, formula, overridesOf(p)).wholesaleRate,
     }));
     return (
       <div className="max-w-7xl mx-auto px-5 py-8">
@@ -28,7 +28,7 @@ export default async function Wholesale({ searchParams }: { searchParams: { erro
     );
   }
 
-  const totalValue = products.reduce((s, p) => s + computePrices(p.base_wholesale, formula).wholesaleRate * p.qty, 0);
+  const totalValue = products.reduce((s, p) => s + resolvePrices(p.base_wholesale, formula, overridesOf(p)).wholesaleRate * p.qty, 0);
 
   // Not logged in → trade login + value prop.
   return (
@@ -37,7 +37,7 @@ export default async function Wholesale({ searchParams }: { searchParams: { erro
       <section className="rounded-3xl bg-ink text-cream px-8 py-12 relative overflow-hidden mb-8">
         <div className="absolute inset-0 opacity-25" style={{ background: "radial-gradient(circle at 15% 20%, #C8A24C, transparent 38%), radial-gradient(circle at 85% 90%, #0F5C4D, transparent 42%)" }} />
         <div className="relative max-w-2xl">
-          <p className="text-gold-light tracking-[0.3em] uppercase text-xs">Aggarwal Jwellers · Trade</p>
+          <p className="text-gold-light tracking-[0.3em] uppercase text-xs">Aggarwal Jewellers · Trade</p>
           <h1 className="font-display text-5xl mt-2">Wholesale Portal</h1>
           <p className="text-cream/70 mt-3">Factory-direct rates from Sadar Bazar. {products.length} designs live · {formatPaise(totalValue)} stock on hand. Approved retailers sign in to see trade prices and order.</p>
         </div>

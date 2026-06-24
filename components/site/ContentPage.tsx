@@ -7,7 +7,7 @@ export function ContentPage({ k }: { k: string }) {
   return (
     <div className="max-w-3xl mx-auto px-5 py-10">
       <div className="mb-5"><Back label="Back" /></div>
-      <p className="text-gold-dark tracking-[0.25em] uppercase text-xs">Aggarwal Jwellers</p>
+      <p className="text-gold-dark tracking-[0.25em] uppercase text-xs">Aggarwal Jewellers</p>
       <h1 className="font-display text-5xl text-ink mt-1">{page.title}</h1>
       <p className="text-muted mt-3 text-lg">{page.intro}</p>
       <div className="mt-8 space-y-7">

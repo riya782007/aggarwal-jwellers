@@ -3,8 +3,8 @@ import Link from "next/link";
 export default function Home() {
   return (
     <main className="max-w-3xl mx-auto px-6 py-20 text-center">
-      <p className="text-diva-gold tracking-[0.3em] text-xs uppercase mb-3">Yogendra Industries</p>
-      <h1 className="font-serif text-5xl text-diva-ink mb-4">Aggarwal Jwellers</h1>
+      <p className="text-diva-gold tracking-[0.3em] text-xs uppercase mb-3">Aggarwal Jewellers</p>
+      <h1 className="font-serif text-5xl text-diva-ink mb-4">Aggarwal Jewellers</h1>
       <p className="text-diva-ink/70 mb-10">Artificial jewellery — retail &amp; wholesale. Sadar Bazar, Delhi.</p>
       <div className="flex gap-4 justify-center">
         <Link href="/shop" className="px-6 py-3 rounded-full bg-diva-rose text-white font-medium">Shop the boutique</Link>

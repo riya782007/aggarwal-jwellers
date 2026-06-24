@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const name = params.slug.charAt(0).toUpperCase() + params.slug.slice(1);
   return {
     title: `${name} — Artificial Jewellery`,
-    description: `Shop ${name.toLowerCase()} from Aggarwal Jwellers, Sadar Bazar Delhi. Premium artificial ${name.toLowerCase()} at retail & wholesale, with COD and free shipping over ₹999.`,
+    description: `Shop ${name.toLowerCase()} from Aggarwal Jewellers, Sadar Bazar Delhi. Premium artificial ${name.toLowerCase()} at retail & wholesale, with COD and free shipping over ₹999.`,
     keywords: [name, "artificial jewellery", "Sadar Bazar", "Delhi", "wholesale"],
   };
 }

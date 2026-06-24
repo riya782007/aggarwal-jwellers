@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { OWNER_TOKEN, STAFF_TOKEN } from "@/lib/auth";
 
-const OWNER_PASSCODE = () => process.env.OWNER_PASSCODE ?? "blythe2026";
+const OWNER_PASSCODE = () => process.env.OWNER_PASSCODE ?? "aggarwal2026";
 const COOKIE = { httpOnly: true, sameSite: "lax" as const, secure: true, path: "/", maxAge: 60 * 60 * 12 };
 
 export async function loginAction(formData: FormData) {
