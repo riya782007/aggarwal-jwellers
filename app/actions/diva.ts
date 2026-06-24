@@ -142,10 +142,11 @@ export async function getDivaSuggestions(): Promise<DivaSuggestion[]> {
   const out: DivaSuggestion[] = [];
   try {
     const sb = supabaseServer();
-    const [classified, draftsRes, pendingRes] = await Promise.all([
+    const [classified, draftsRes, pendingRes, retailersRes] = await Promise.all([
       getInventoryClassified().catch(() => [] as any[]),
       getProductsPage({ status: "draft", pageSize: 3 }).catch(() => ({ rows: [] as any[] })),
       sb.from("orders").select("id", { count: "exact", head: true }).not("status", "in", "(completed,delivered,cancelled,refunded)"),
+      sb.from("retailers").select("name", { count: "exact" }).eq("approved", false).order("created_at", { ascending: false }).limit(1),
     ]);
 
     const rows = (classified as any[]) ?? [];
@@ -163,6 +164,12 @@ export async function getDivaSuggestions(): Promise<DivaSuggestion[]> {
     }
     const pending = (pendingRes as any)?.count ?? 0;
     if (pending > 0) out.push({ id: "pending", icon: "📦", text: `${pending} pending order${pending > 1 ? "s" : ""} to review.`, command: "pending orders dikhao" });
+
+    const pendingRetailers = (retailersRes as any)?.count ?? 0;
+    if (pendingRetailers > 0) {
+      const r = ((retailersRes as any)?.data ?? [])[0];
+      out.push({ id: "retailers", icon: "🤝", text: `${pendingRetailers} trade account${pendingRetailers > 1 ? "s" : ""} awaiting approval${r ? ` (e.g. ${r.name})` : ""}.`, command: "show pending retailers" });
+    }
 
     const drafts = ((draftsRes as any)?.rows ?? []) as any[];
     if (drafts.length) {
@@ -517,6 +524,44 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         if (error) return { ok: false, message: error.message };
         revalidatePath("/admin/sales"); revalidatePath(`/admin/invoice/${(o as any).id}`);
         return { ok: true, message: `Converted cash memo ${invoice} into a GST invoice.${warn}` };
+      }
+
+      // -------- B2B / wholesale superpowers (Aggarwal Jewellers) --------
+      case "rate_list": {
+        const facet = String(args.facet ?? "").trim();
+        const { rows } = await getProductsPage({ q: facet, pageSize: 40 });
+        if (rows.length === 0) return { ok: true, message: facet ? `No products matched "${facet}" for a rate list.` : "No products to list yet." };
+        const inStock = rows.filter((p: any) => (p.qty ?? 0) > 0);
+        const list = inStock.length ? inStock : rows;
+        const lines = list.map((p: any) => `${p.name} (${p.sku}) — ${formatPaise(p.base_wholesale)}${(p.qty ?? 0) > 0 ? "" : " (out of stock)"}`);
+        const heading = facet ? `Aggarwal Jewellers — ${facet} wholesale rates` : "Aggarwal Jewellers — wholesale rate list";
+        const text = `${heading}\n${lines.join("\n")}`;
+        const wa = Number(args.whatsapp) ? ` Send on WhatsApp: https://wa.me/?text=${encodeURIComponent(text)}` : "";
+        const preview = lines.slice(0, 12).join("\n");
+        return { ok: true, data: { count: list.length, items: list }, message: `${list.length}-item wholesale rate list ready:\n${preview}${lines.length > 12 ? `\n…and ${lines.length - 12} more` : ""}.${wa}` };
+      }
+      case "pending_retailers": {
+        const sb = supabaseServer();
+        const { data } = await sb.from("retailers").select("id,name,city,created_at").eq("approved", false).order("created_at", { ascending: false }).limit(20);
+        const rows = (data as any[]) ?? [];
+        if (rows.length === 0) return { ok: true, data: [], message: "No trade accounts are waiting — every retailer is approved 🎉" };
+        const list = rows.slice(0, 10).map((r) => `${r.name}${r.city ? ` · ${r.city}` : ""}`).join("; ");
+        return { ok: true, data: rows, message: `${rows.length} trade account${rows.length > 1 ? "s" : ""} awaiting approval: ${list}. Say “approve retailer <name>” to unlock trade pricing.` };
+      }
+      case "approve_retailer": {
+        const name = String(args.name ?? "").trim();
+        if (!name) return { ok: false, message: "Which retailer should I approve?" };
+        const sb = supabaseServer();
+        const { data: r } = await sb.from("retailers").select("id,name,approved").ilike("name", `%${name}%`).limit(2);
+        const matches = (r as any[]) ?? [];
+        if (matches.length === 0) return { ok: false, message: `No trade account matching "${name}". Check the spelling, or ask me for pending retailers.` };
+        if (matches.length > 1) return { ok: false, message: `More than one retailer matches "${name}" — please be more specific.` };
+        const ret = matches[0];
+        if (ret.approved) return { ok: true, message: `${ret.name} is already approved for trade pricing.` };
+        const { error } = await sb.from("retailers").update({ approved: true }).eq("id", ret.id);
+        if (error) return { ok: false, message: error.message };
+        revalidatePath("/admin/customers"); revalidatePath("/wholesale");
+        return { ok: true, message: `Approved ${ret.name} — they now unlock wholesale/trade pricing.` };
       }
 
       default:

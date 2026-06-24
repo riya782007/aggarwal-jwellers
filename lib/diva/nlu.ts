@@ -232,11 +232,63 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
 
   const sku = extractSku(command) || (/(\bye\b|\byeh\b|\bis\b|\bthis\b)\s*(product|item)?/.test(lower) ? ctx.lastSku : undefined);
   const subject = extractSubject(command);
-  const qty = extractQuantity(command);
-  const price = extractPriceRupees(command);
+  // Strip SKU tokens (e.g. "AJ1004") before reading quantity/price so a SKU's digits
+  // are never mistaken for a quantity or a price. (Reference build had this bug.)
+  const skuStripped = command.replace(/\b(?:sku\s*)?aj\s*-?\s*\d{3,6}\b/gi, " ");
+  const qty = extractQuantity(skuStripped);
+  const price = extractPriceRupees(skuStripped);
   const color = extractColor(command);
 
   const remember = (over: Partial<DivaContext>): DivaContext => ({ ...ctx, pending: undefined, ...over });
+
+  // All SKUs mentioned this turn (used for bulk operations).
+  const allSkus = (command.match(/\baj\s*-?\s*\d{3,6}\b/gi) ?? []).map((s) => s.replace(/[\s-]/g, "").toUpperCase());
+
+  // ===== B2B / WHOLESALE SUPERPOWERS (Aggarwal Jewellers) =====================
+  // These run before the generic intents so a wholesaler's bulk/trade commands win.
+
+  // B-1) Bulk stock across several SKUs: "AJ1004 AJ1006 AJ1010 me 50 add karo"
+  if ((hasAny(lower, ADD_WORDS) || hasAny(lower, REMOVE_WORDS)) && allSkus.length >= 2 && qty) {
+    const isRemove = hasAny(lower, REMOVE_WORDS) && !hasAny(lower, ADD_WORDS);
+    const tool = isRemove ? "remove_stock" : "add_stock";
+    const verb = isRemove ? "remove" : "add";
+    const steps = allSkus.map((s) => step(tool, { sku: s, qty, source: "DIVA bulk command" }, `${verb} ${qty} → ${s}`));
+    return mk(base, steps,
+      ack(lang, `I'll ${verb} ${qty} ${verb === "add" ? "to" : "from"} each of ${allSkus.join(", ")}.`,
+        `${allSkus.join(", ")} — sab me ${qty}-${qty} ${isRemove ? "kam" : "add"} kar rahi hun.`),
+      0.85, remember({ lastSku: allSkus[allSkus.length - 1] }));
+  }
+
+  // B-2) Approve a wholesale / trade account: "approve retailer Sharma Jewellers"
+  if (/(retailer|reseller|trade account|wholesale account|trade a\/?c)/.test(lower) &&
+      hasAny(lower, ["approve", "approved", "manjoor", "manzoor", "accept", "unlock"])) {
+    const rname = extractRetailerName(command);
+    if (!rname) return askFor(base, "retailer_name", "approve_retailer", {}, ack(lang, "Which retailer should I approve?", "Kis retailer ko approve karun?"), ctx);
+    return mk(base, [step("approve_retailer", { name: rname }, `Approve retailer ${rname}`)],
+      ack(lang, `I'll approve ${rname} for trade pricing.`, `${rname} ko trade rate ke liye approve kar rahi hun.`), 0.82, remember({}));
+  }
+
+  // B-3) Pending trade-account approvals: "pending retailers", "naye wholesale signups"
+  if (/(retailer|reseller|trade|wholesale)/.test(lower) &&
+      /(pending|approval|awaiting|sign[- ]?up|signup|request|naye|naya|new|kaun)/.test(lower) &&
+      !/(price|rate|daam|stock|order|product)/.test(lower)) {
+    return mk(base, [step("pending_retailers", {}, "Pending trade accounts")],
+      ack(lang, "Here are the trade accounts waiting for your approval.", "Ye rahe approval ke liye pending retailers."), 0.8, remember({}));
+  }
+
+  // B-4) Wholesale rate-list / price-list broadcast: "oxidised necklace ka rate list retailers ko bhejo"
+  if (/(rate\s*list|price\s*list|rate\s*card|daam\s*list|rate-?list|price-?list)/.test(lower) ||
+      (/(rate|price|daam|keemat)/.test(lower) && hasAny(lower, ["list", "broadcast", "saare", "sare", "sari", "sabhi"]))) {
+    // Only treat the subject as a real product facet (avoids junk like "retailers list").
+    const facet = subject && TAXONOMY_KEYWORDS.some((k) => subject.includes(k.trim())) ? subject : (color ?? "");
+    const viaWhatsapp = /whatsapp|\bwa\b|retailer|retailers|broadcast|bhej/.test(lower) ? 1 : 0;
+    return mk(base, [step("rate_list", { facet, whatsapp: viaWhatsapp }, facet ? `Rate list — ${facet}` : "Full rate list")],
+      ack(lang,
+        facet ? `I'll build the wholesale rate list for ${facet}${viaWhatsapp ? ", ready for WhatsApp" : ""}.` : "I'll build your full wholesale rate list.",
+        facet ? `${facet} ka wholesale rate list ${viaWhatsapp ? "WhatsApp ke liye " : ""}bana rahi hun.` : "Poora wholesale rate list bana rahi hun."),
+      0.8, remember({ lastSubject: facet || undefined }));
+  }
+  // ===========================================================================
 
   // ---- 1) Invoice conversion: "cash memo se GST invoice me convert karo" -------
   if (hasAny(lower, ["convert", "badal"]) && /gst/.test(lower) && /(cash memo|cash|memo|bill)/.test(lower)) {
@@ -503,6 +555,7 @@ function continuePending(command: string, lang: NluLang, ctx: DivaContext): NluP
   else if (slot === "name") slots.name = extractSubject(command) ?? command.trim();
   else if (slot === "category") slots.category = command.trim();
   else if (slot === "customer_name") slots.name = extractCustomerName(command) ?? command.trim();
+  else if (slot === "retailer_name") slots.name = extractRetailerName(command) ?? command.trim();
 
   if (p.intent === "create_product") return advanceCreateProduct(base, lang, slots, ctx);
 
@@ -520,7 +573,33 @@ function continuePending(command: string, lang: NluLang, ctx: DivaContext): NluP
     return mk(base, [step("set_customer_type", { name: slots.name, type: "wholesale" }, `Set ${slots.name} → wholesale`)],
       ack(lang, `I'll set ${slots.name} to wholesale.`, `${slots.name} ko wholesale bana rahi hun.`), 0.8, { ...ctx, pending: undefined, lastCustomer: slots.name });
   }
+  if (p.intent === "approve_retailer" && slots.name) {
+    return mk(base, [step("approve_retailer", { name: slots.name }, `Approve retailer ${slots.name}`)],
+      ack(lang, `I'll approve ${slots.name} for trade pricing.`, `${slots.name} ko trade rate ke liye approve kar rahi hun.`), 0.8, { ...ctx, pending: undefined });
+  }
   return null;
+}
+
+/** Pull a retailer / trade-account name out of a command (best-effort). */
+function extractRetailerName(textRaw: string): string | undefined {
+  const REJECT = new Set([
+    "account", "accounts", "trade", "retailer", "reseller", "shop", "store", "party",
+    "the", "now", "please", "it", "this", "that", "wholesale", "customer", "approve",
+  ]);
+  const ok = (s?: string): string | undefined => {
+    if (!s) return undefined;
+    const c = clean(s);
+    const head = c.toLowerCase().split(/\s+/)[0];
+    return head && !REJECT.has(head) ? c : undefined;
+  };
+  const text = textRaw.replace(/\s+/g, " ").trim();
+  let m = /(?:retailer|reseller|shop|store|party|account)\s+([A-Za-z][A-Za-z .&]{1,40}?)(?:\s+(?:ko|ka|ki|ke|approve|approved|manjoor|manzoor|accept|hai)|$)/i.exec(text);
+  let r = ok(m?.[1]); if (r) return r;
+  m = /approve\s+(?:retailer|reseller|the\s+)?([A-Za-z][A-Za-z .&]{1,40}?)(?:\s+(?:ko|account|now|please)|$)/i.exec(text);
+  r = ok(m?.[1]); if (r) return r;
+  m = /\b([A-Z][A-Za-z]{1,20}(?:\s+[A-Z][A-Za-z]{1,20})?)\s+ko\b/.exec(textRaw);
+  r = ok(m?.[1]); if (r) return r;
+  return undefined;
 }
 
 function extractCustomerName(textRaw: string): string | undefined {
