@@ -97,6 +97,13 @@ export const DIVA_TOOLS: DivaTool[] = [
   { name: "product_photos", kind: "read", permission: "catalog.view", desc: "Show how many photos a product has and their links.", params: [{ name: "sku", type: "string", desc: "product SKU" }, { name: "query", type: "string", desc: "name if no SKU" }] },
   { name: "recent_sales", kind: "read", permission: "sales.view", desc: "List the most recent bills/invoices (amount, customer, type, date).", params: [{ name: "limit", type: "number", desc: "how many (default 8)" }] },
   { name: "last_purchase", kind: "read", permission: "purchases.view", desc: "Show the most recent purchase cost & date recorded for a product.", params: [{ name: "sku", type: "string", desc: "product SKU" }, { name: "query", type: "string", desc: "name if no SKU" }] },
+
+  // ---- B2B / wholesale operator tools (Aggarwal Ji) ----
+  { name: "create_estimate", kind: "mutate", permission: "estimates.create", desc: "Create an estimate / quotation from item lines (non-binding quote). e.g. 'AJ1004 ka 5 aur AJ1006 ka 3 ka estimate Ravi ke liye banao'.", params: [{ name: "items", type: "string", required: true, desc: "array of {sku, qty}" }, { name: "customer", type: "string", desc: "customer/party name" }] },
+  { name: "outstanding", kind: "read", permission: "customers.view", desc: "Party ledger — who owes money and how much, highest first ('kis party ka kitna baaki hai').", params: [] },
+  { name: "rate_list", kind: "read", permission: "catalog.view", desc: "Build a wholesale rate list (name + wholesale price + stock) for a category/keywords, ready to broadcast to retailers on WhatsApp.", params: [{ name: "facet", type: "string", desc: "category/subcategory/keywords; empty = whole catalogue" }, { name: "whatsapp", type: "number", desc: "1 to format for WhatsApp" }] },
+  { name: "pending_retailers", kind: "read", permission: "customers.view", desc: "List wholesale/trade accounts awaiting owner approval.", params: [] },
+  { name: "approve_retailer", kind: "mutate", permission: "customers.manage", confirm: true, desc: "Approve a wholesale/trade account by name so they unlock trade pricing.", params: [{ name: "name", type: "string", required: true, desc: "retailer/trade-account name" }] },
 ];
 
 export function toolByName(name: string): DivaTool | undefined {

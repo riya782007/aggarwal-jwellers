@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   detectLanguage, extractSku, extractQuantity, extractPriceRupees, extractColor,
-  extractSubject, interpret, type DivaContext,
+  extractSubject, interpret, extractItemList, type DivaContext,
 } from "../lib/diva/nlu";
 
 // Helper: the tool of the first planned step.
@@ -173,5 +173,48 @@ describe("graceful fallback", () => {
     const p = interpret("asdfghjkl");
     expect(p.steps.length).toBe(0);
     expect(p.confidence).toBeLessThan(0.45);
+  });
+});
+
+
+describe("Step 4 — admin reach & B2B (Aggarwal Ji)", () => {
+  it("SKU digits are no longer mistaken for the price", () => {
+    const p = interpret("AJ1004 ka retail price 1500 kar do");
+    expect(p.steps[0]?.tool).toBe("set_price");
+    expect(p.steps[0]?.args.price).toBe(1500);
+  });
+  it("bulk stock across several SKUs emits one step each", () => {
+    const p = interpret("AJ1004 AJ1006 AJ1010 me 50 add karo");
+    expect(p.steps.length).toBe(3);
+    expect(p.steps.every((s) => s.tool === "add_stock")).toBe(true);
+    expect(p.steps.map((s) => s.args.sku)).toEqual(["AJ1004", "AJ1006", "AJ1010"]);
+    expect(p.steps[0].args.qty).toBe(50);
+  });
+  it("parses item lists for an estimate", () => {
+    expect(extractItemList("AJ1004 ka 5, AJ1006 ka 3")).toEqual([
+      { sku: "AJ1004", qty: 5 }, { sku: "AJ1006", qty: 3 },
+    ]);
+  });
+  it("builds an estimate from item lines + customer", () => {
+    const p = interpret("AJ1004 ka 5 aur AJ1006 ka 3 ka estimate Ravi ke liye banao");
+    expect(p.steps[0]?.tool).toBe("create_estimate");
+    expect(p.steps[0]?.args.items).toEqual([{ sku: "AJ1004", qty: 5 }, { sku: "AJ1006", qty: 3 }]);
+    expect(String(p.steps[0]?.args.customer).toLowerCase()).toContain("ravi");
+  });
+  it("a bare estimate request just opens the estimates page", () => {
+    expect(interpret("estimate banao").steps[0]?.tool).toBe("open_page");
+  });
+  it("party ledger / outstanding", () => {
+    expect(interpret("kis party ka kitna baaki hai").steps[0]?.tool).toBe("outstanding");
+    expect(interpret("show outstanding").steps[0]?.tool).toBe("outstanding");
+    expect(interpret("pending orders dikhao").steps[0]?.tool).toBe("pending_orders");
+  });
+  it("wholesale rate list, pending retailers, approve retailer", () => {
+    expect(interpret("oxidised necklace ka rate list retailers ko bhejo").steps[0]?.tool).toBe("rate_list");
+    expect(interpret("show pending retailers").steps[0]?.tool).toBe("pending_retailers");
+    const a = interpret("approve retailer Sharma Jewellers");
+    expect(a.steps[0]?.tool).toBe("approve_retailer");
+    expect(String(a.steps[0]?.args.name).toLowerCase()).toContain("sharma");
+    expect(interpret("approve the retailer account").ask?.slot).toBe("retailer_name");
   });
 });
