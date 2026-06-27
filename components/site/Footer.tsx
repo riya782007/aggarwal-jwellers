@@ -55,7 +55,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
       </div>
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-5 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-cream/50">
-          <span>© 2026 Aggarwal Jewellers. All rights reserved.</span>
+          <span>© 2026 Aggarwal Jewellers · Aggarwal Jewellers. All rights reserved.</span>
           <span className="flex gap-2 text-cream/40">Visa · Mastercard · UPI · Paytm · COD</span>
         </div>
       </div>
