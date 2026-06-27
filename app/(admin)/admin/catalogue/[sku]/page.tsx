@@ -262,7 +262,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
                   generate, so the owner can clear the SKU field above and save to align it. */}
               {needsNormalise && (
                 <p className="mt-2 text-[11px] text-gold-dark">
-                  Tip: this variant prints <span className="font-mono">{v.sku}</span>; the canonical barcode would be{" "}
+                  Tip: this variant prints <span className="font-mono">{v.sku}</span>; the canonical SKU would be{" "}
                   <span className="font-mono text-ink">{canonicalSku}</span> — clear the SKU field and Save to switch.
                 </p>
               )}

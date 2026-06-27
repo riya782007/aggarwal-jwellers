@@ -61,7 +61,7 @@ export function POSClient({ products, customers = [] }: { products: P[]; custome
   function setOverride(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, override: val } : l)); }
   function rm(sku: string) { setLines((p) => p.filter((l) => l.sku !== sku)); }
 
-  /** Barcode scanner sends "<SKU>\n" — match exactly and add, showing available stock. */
+  /** Scanner (QR camera or wedge) sends "<SKU>\n" — match exactly and add, showing available stock. */
   function onScan(raw: string) {
     const code = raw.trim();
     if (!code) return;
@@ -101,13 +101,13 @@ export function POSClient({ products, customers = [] }: { products: P[]; custome
       <div className="bg-white rounded-2xl p-6 shadow-card">
         <h2 className="font-medium text-ink mb-3">Add items</h2>
 
-        {/* Barcode scan */}
+        {/* QR / SKU scan */}
         <div className="mb-3">
           <div className="flex items-center gap-2 rounded-xl border-2 border-emerald/40 bg-emerald-mist/40 px-3 py-2">
-            <span className="text-emerald text-lg">▥</span>
+            <span className="text-emerald text-lg">▦</span>
             <input ref={scanRef} autoFocus value={scan} onChange={(e) => setScan(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onScan(scan); } }}
-              placeholder="Scan barcode or type SKU + Enter…"
+              placeholder="Scan QR or type SKU + Enter…"
               className="flex-1 bg-transparent outline-none text-sm placeholder:text-emerald-dark/50" />
             <button onClick={() => onScan(scan)} className="text-xs px-3 py-1 rounded-full bg-emerald text-white">Add</button>
           </div>
