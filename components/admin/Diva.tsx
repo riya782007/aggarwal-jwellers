@@ -17,7 +17,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const [busy, setBusy] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [listening, setListening] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime." }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Namaste! I'm Aggarwal Ji — your shop assistant. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime." }]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<DivaSuggestion[] | null>(null);
@@ -71,7 +71,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
       const errN = s.filter((x) => x.status === "error").length;
       const skipN = s.filter((x) => x.status === "skipped").length;
       const clean = errN === 0 && skipN === 0;
-      toast(clean ? "DIVA finished ✓" : "DIVA finished with issues", clean ? undefined : "error");
+      toast(clean ? "Aggarwal Ji finished ✓" : "Aggarwal Ji finished with issues", clean ? undefined : "error");
       // Honest summary — never claim "Done" when a step actually failed.
       setMsgs((m) => [...m, { who: "diva", text: clean ? (okN ? "All done ✓" : "Nothing to do.") : `Finished — ${okN} done${errN ? `, ${errN} couldn't run` : ""}${skipN ? `, ${skipN} skipped` : ""}. Check the lines marked ✕.` }]);
       loadSuggestions(); return;
@@ -103,7 +103,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
       {/* Floating avatar */}
       {!open && (
         <button onClick={() => setOpen(true)} className="no-print fixed bottom-5 right-5 z-50 group flex items-center gap-2">
-          <span className="hidden sm:block bg-ink text-cream text-xs px-3 py-1.5 rounded-full shadow-luxe opacity-0 group-hover:opacity-100 transition-opacity">Ask DIVA</span>
+          <span className="hidden sm:block bg-ink text-cream text-xs px-3 py-1.5 rounded-full shadow-luxe opacity-0 group-hover:opacity-100 transition-opacity">Ask Aggarwal Ji</span>
           <span className="relative block">
             <span className="absolute inset-0 rounded-full bg-emerald/40 animate-ping" />
             <DivaAvatar className="relative w-16 h-16 drop-shadow-xl" />
@@ -117,7 +117,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
           <div className="flex items-center gap-3 px-4 py-3 bg-ink text-cream">
             <DivaAvatar className="w-10 h-10" />
             <div className="flex-1">
-              <p className="font-display text-xl leading-none text-ivory">DIVA</p>
+              <p className="font-display text-xl leading-none text-ivory">Aggarwal Ji</p>
               <p className="text-[10px] tracking-widest uppercase text-gold-light">Operator · {roleName}</p>
             </div>
             <button onClick={() => setOpen(false)} className="text-cream/70 hover:text-white text-lg px-1">✕</button>
@@ -131,7 +131,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
             ))}
 
             {planning && (
-              <div className="flex justify-start"><div className="bg-white text-muted shadow-card rounded-2xl px-3.5 py-2 text-sm flex items-center gap-2"><span className="animate-pulse">●</span> DIVA is thinking…</div></div>
+              <div className="flex justify-start"><div className="bg-white text-muted shadow-card rounded-2xl px-3.5 py-2 text-sm flex items-center gap-2"><span className="animate-pulse">●</span> Aggarwal Ji is thinking…</div></div>
             )}
 
             {steps.length > 0 && (
@@ -162,7 +162,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
             )}
             {!busy && steps.length === 0 && awaiting === null && suggestions && suggestions.length > 0 && (
               <div className="mb-2 space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-muted px-1">DIVA suggests</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted px-1">Aggarwal Ji suggests</p>
                 {suggestions.slice(0, 3).map((s) => (
                   <button key={s.id} onClick={() => submit(s.command)}
                     className="w-full text-left text-xs px-3 py-2 rounded-xl bg-cream hover:bg-emerald-mist/50 text-ink flex items-start gap-2 transition-colors">
@@ -175,7 +175,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
               <button onClick={toggleMic} title="Speak" className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${listening ? "bg-rose text-white animate-pulse" : "bg-cream text-ink hover:bg-emerald-mist"}`}>🎤</button>
               <input
                 value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()}
-                placeholder={busy ? "Type to redirect DIVA…" : listening ? "Listening…" : "Tell DIVA what to do…"}
+                placeholder={busy ? "Type to redirect Aggarwal Ji…" : listening ? "Listening…" : "Tell Aggarwal Ji what to do…"}
                 className="flex-1 rounded-full border border-sand px-4 py-2.5 text-sm outline-none focus:border-emerald" />
               <button onClick={() => submit()} disabled={!input.trim()} className="btn-primary w-10 h-10 shrink-0 rounded-full flex items-center justify-center disabled:opacity-50">➤</button>
             </div>
@@ -186,7 +186,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   );
 }
 
-/** Stylised "DIVA" human-figure avatar (brand emerald/gold). */
+/** Stylised "Aggarwal Ji" human-figure avatar (brand emerald/gold). */
 function DivaAvatar({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden>

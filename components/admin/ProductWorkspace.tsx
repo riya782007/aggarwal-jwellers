@@ -7,7 +7,7 @@
  * so all the existing server actions keep working untouched. We keep every panel
  * mounted (toggling `hidden`) so in-progress form input is never lost when switching
  * tabs. The active tab is reflected in the URL (?tab=) so it's deep-linkable and
- * survives a refresh — handy for DIVA links like "open photos for AJ1001".
+ * survives a refresh — handy for Aggarwal Ji links like "open photos for AJ1001".
  */
 import { useState, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

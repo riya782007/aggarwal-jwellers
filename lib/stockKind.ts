@@ -1,7 +1,7 @@
 /**
  * lib/stockKind.ts — pure classification of a stock movement (Phase 6/9).
  *
- * Maps a free-text "source" label (chosen in the UI or typed by DIVA) to a typed
+ * Maps a free-text "source" label (chosen in the UI or typed by Aggarwal Ji) to a typed
  * movement KIND used for reporting and the audit trail. Pure & dependency-free so
  * it can be unit-tested without a backend.
  */

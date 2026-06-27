@@ -1,11 +1,11 @@
 "use server";
 /**
- * DIVA — the console operator. Two server actions:
+ * Aggarwal Ji — the console operator. Two server actions:
  *   divaPlan(command)      → LLM turns a voice/text command into an ordered list of steps.
  *   divaRun(tool, args)    → executes ONE step (read / navigate / mutate), permission-checked.
  *
- * Owner is logged in via the console passcode → DIVA gets ALL permissions. The granular
- * gate is wired so per-staff roles can scope DIVA later.
+ * Owner is logged in via the console passcode → Aggarwal Ji gets ALL permissions. The granular
+ * gate is wired so per-staff roles can scope Aggarwal Ji later.
  */
 import { groqChat, openaiChat, geminiChat, groqConfigured, openaiConfigured, geminiTextConfigured } from "@/lib/ai/providers";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -30,7 +30,7 @@ export type DivaPlan = {
   ok: boolean;
   reply: string;
   steps: DivaStep[];
-  /** A clarifying question DIVA needs answered before it can act (multi-turn). */
+  /** A clarifying question Aggarwal Ji needs answered before it can act (multi-turn). */
   ask?: { slot: string; prompt: string };
   /** Conversational memory to echo back on the next turn (serialised). */
   context?: string;
@@ -103,7 +103,7 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
   // 3) Low confidence + LLM available → ask the model, keep NLU context as memory.
   const catalog = DIVA_TOOLS.map((t) => `- ${t.name}(${t.params.map((p) => p.name + (p.required ? "*" : "")).join(", ")}) [${t.kind}] — ${t.desc}`).join("\n");
   const system =
-    `You are DIVA, the operations agent inside the Aggarwal Jewellers artificial-jewellery admin console (Aggarwal Jewellers, Sadar Bazar, Delhi). ` +
+    `You are Aggarwal Ji, the operations agent inside the Aggarwal Jewellers artificial-jewellery admin console (Aggarwal Jewellers, Sadar Bazar, Delhi). ` +
     `The console manages a catalogue of products (each has a SKU like AJ1000, a price, stock, status published/draft, AI page, photos), ` +
     `online + wholesale + counter(POS) sales, estimates, purchases, suppliers, inventory health, staff roles, and analytics. ` +
     `Turn the owner's command into an ordered plan using ONLY these tools:\n${catalog}\n\n` +
@@ -148,7 +148,7 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
 export type DivaSuggestion = { id: string; icon: string; text: string; command: string };
 
 /**
- * Proactive, context-aware suggestions DIVA offers when idle (Phase 7).
+ * Proactive, context-aware suggestions Aggarwal Ji offers when idle (Phase 7).
  * Each suggestion carries a natural-language `command` that flows back through
  * divaPlan → divaRun, so clicking one is the same as typing it. Best-effort &
  * non-throwing — a data hiccup just yields fewer chips.
@@ -271,13 +271,13 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
           await sb.from("variants").update({ qty: newV }).eq("id", v.id);
           const sum = variants.reduce((n, x) => n + (x.id === v.id ? newV : (x.qty ?? 0)), 0);
           await sb.from("products").update({ qty: sum, last_movement_at: new Date().toISOString() }).eq("id", pid);
-          await sb.from("stock_adjustments").insert({ product_id: pid, variant_id: v.id, sku: v.sku, delta, kind: "adjustment", source: String(args.source ?? "DIVA command"), reason: `${toolName === "add_stock" ? "Added to" : "Removed from"} ${v.color} by DIVA` });
+          await sb.from("stock_adjustments").insert({ product_id: pid, variant_id: v.id, sku: v.sku, delta, kind: "adjustment", source: String(args.source ?? "Aggarwal Ji command"), reason: `${toolName === "add_stock" ? "Added to" : "Removed from"} ${v.color} by Aggarwal Ji` });
           revalidatePath("/admin/inventory");
           return { ok: true, message: `${toolName === "add_stock" ? "Added" : "Removed"} ${qty} ${v.color} — ${(p as any).name} ${v.color} is now ${newV} (total ${sum}).` };
         }
         const newQty = Math.max(0, ((p as any).qty ?? 0) + delta);
         await sb.from("products").update({ qty: newQty, last_movement_at: new Date().toISOString() }).eq("id", pid);
-        await sb.from("stock_adjustments").insert({ product_id: pid, sku, delta, kind: "adjustment", source: String(args.source ?? "DIVA command"), reason: "Adjusted by DIVA" });
+        await sb.from("stock_adjustments").insert({ product_id: pid, sku, delta, kind: "adjustment", source: String(args.source ?? "Aggarwal Ji command"), reason: "Adjusted by Aggarwal Ji" });
         revalidatePath("/admin/inventory");
         return { ok: true, message: `${toolName === "add_stock" ? "Added" : "Removed"} ${qty} — ${(p as any).name} is now ${newQty} in stock.` };
       }
@@ -320,7 +320,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         const sb = supabaseServer();
         const { error } = await sb.from("products").update({ status }).eq("sku", sku);
         if (error) return { ok: false, message: error.message };
-        await logActivity({ action: status === "published" ? "product_shown" : "product_hidden", ref: sku, detail: `${sku} ${status === "published" ? "shown on" : "hidden from"} the store (via DIVA).` });
+        await logActivity({ action: status === "published" ? "product_shown" : "product_hidden", ref: sku, detail: `${sku} ${status === "published" ? "shown on" : "hidden from"} the store (via Aggarwal Ji).` });
         revalidatePath("/admin/catalogue"); revalidatePath("/shop");
         return { ok: true, message: `${sku} is now ${status === "published" ? "visible on the store" : "hidden from the store"}.` };
       }
@@ -338,10 +338,10 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         if (error) {
           // Has past orders → can't hard-delete; hide instead.
           await sb.from("products").update({ status: "draft" }).eq("id", pid);
-          await logActivity({ action: "product_hidden", ref: sku, detail: `${(p as any).name} (${sku}) has past orders — hidden instead of deleted (via DIVA).` });
+          await logActivity({ action: "product_hidden", ref: sku, detail: `${(p as any).name} (${sku}) has past orders — hidden instead of deleted (via Aggarwal Ji).` });
           return { ok: true, message: `${sku} has past orders, so I hid it from the store instead of deleting (keeps your books intact).` };
         }
-        await logActivity({ action: "product_deleted", ref: sku, detail: `Deleted ${(p as any).name} (${sku}) via DIVA.` });
+        await logActivity({ action: "product_deleted", ref: sku, detail: `Deleted ${(p as any).name} (${sku}) via Aggarwal Ji.` });
         return { ok: true, message: `Deleted ${(p as any).name} (${sku}).` };
       }
       case "delete_role": {
@@ -355,7 +355,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         return { ok: true, message: `Deleted the "${(role as any).name}" role.` };
       }
 
-      // -------- intelligence-layer executors (multilingual DIVA) --------
+      // -------- intelligence-layer executors (multilingual Aggarwal Ji) --------
       case "get_price": {
         const sku = String(args.sku ?? "").trim().toUpperCase();
         const p = sku ? await getProductBySku(sku) : await resolveProductByName(String(args.query ?? ""));
@@ -402,7 +402,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         const sb = supabaseServer();
         const newQty = Math.max(0, (p.qty ?? 0) + delta);
         await sb.from("products").update({ qty: newQty, last_movement_at: new Date().toISOString() }).eq("id", p.id);
-        await sb.from("stock_adjustments").insert({ product_id: p.id, sku: p.sku, delta, kind: "adjustment", source: String(args.source ?? "DIVA command"), reason: "Adjusted by DIVA (by name)" });
+        await sb.from("stock_adjustments").insert({ product_id: p.id, sku: p.sku, delta, kind: "adjustment", source: String(args.source ?? "Aggarwal Ji command"), reason: "Adjusted by Aggarwal Ji (by name)" });
         revalidatePath("/admin/inventory");
         return { ok: true, message: `${delta > 0 ? "Added" : "Removed"} ${qty} — ${p.name} (${p.sku}) is now ${newQty} in stock.` };
       }
@@ -475,13 +475,13 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
           await sb.from("variants").update({ qty: newQty }).eq("id", v.id);
           const sum = variants.reduce((n, x) => n + (x.id === v.id ? newQty : (x.qty ?? 0)), 0);
           await sb.from("products").update({ qty: sum, last_movement_at: new Date().toISOString() }).eq("id", target.id);
-          await sb.from("stock_adjustments").insert({ product_id: target.id, variant_id: v.id, sku: v.sku, delta, kind: "adjustment", source: "DIVA set stock", reason: `Set ${v.color} to exact count by DIVA` });
+          await sb.from("stock_adjustments").insert({ product_id: target.id, variant_id: v.id, sku: v.sku, delta, kind: "adjustment", source: "Aggarwal Ji set stock", reason: `Set ${v.color} to exact count by Aggarwal Ji` });
           revalidatePath("/admin/inventory");
           return { ok: true, message: `${target.name} ${v.color} set to ${newQty} (total ${sum}).` };
         }
         const delta = newQty - (target.qty ?? 0);
         await sb.from("products").update({ qty: newQty, last_movement_at: new Date().toISOString() }).eq("id", target.id);
-        await sb.from("stock_adjustments").insert({ product_id: target.id, sku: target.sku, delta, kind: "adjustment", source: "DIVA set stock", reason: "Set to exact count by DIVA" });
+        await sb.from("stock_adjustments").insert({ product_id: target.id, sku: target.sku, delta, kind: "adjustment", source: "Aggarwal Ji set stock", reason: "Set to exact count by Aggarwal Ji" });
         revalidatePath("/admin/inventory");
         return { ok: true, message: `${target.name} (${target.sku}) stock set to ${newQty}${delta ? ` (${delta > 0 ? "+" : ""}${delta})` : ""}.` };
       }
@@ -711,7 +711,7 @@ const NAME_STOP = new Set([
 
 /** Pick the colour variant a command refers to, by colour name or variant SKU. A single-variant
  *  product defaults to its only variant. Returns null when there are several and none matched,
- *  so DIVA asks "which colour?" rather than guessing. */
+ *  so Aggarwal Ji asks "which colour?" rather than guessing. */
 function matchVariant(variants: any[], hint: string): any | null {
   if (!variants?.length) return null;
   const h = (hint ?? "").trim().toLowerCase();
@@ -730,7 +730,7 @@ function matchVariant(variants: any[], hint: string): any | null {
  * Resolve a product from a fuzzy name phrase (e.g. "meenakari wala haar" → Meenakari
  * Peacock Haar). Token-overlap scored against name + category + tags, so word order,
  * filler words and partial names all still match. Returns null only when nothing shares
- * a meaningful word, so DIVA honestly asks for the SKU instead of guessing.
+ * a meaningful word, so Aggarwal Ji honestly asks for the SKU instead of guessing.
  */
 async function resolveProductByName(query: string): Promise<{ id: string; sku: string; name: string; qty: number; base_wholesale: number } | null> {
   const q = (query ?? "").trim();
@@ -743,7 +743,7 @@ async function resolveProductByName(query: string): Promise<{ id: string; sku: s
   if (!rows.length) return null;
 
   // 1) ANY token that LOOKS like a SKU (has a digit) must match a real SKU EXACTLY — product
-  //    or variant. If it looks like a SKU but matches nothing, return null so DIVA says
+  //    or variant. If it looks like a SKU but matches nothing, return null so Aggarwal Ji says
   //    "no product with that code" instead of fuzzy-guessing a WRONG product (the WBR113→WBR1002 bug).
   const skuLike = tokens.filter((t) => /\d/.test(t));
   if (skuLike.length) {
@@ -763,7 +763,7 @@ async function resolveProductByName(query: string): Promise<{ id: string; sku: s
   }
 
   // 2) Descriptive name match — WHOLE-WORD only (so "wbr" can't match inside "WBR1002").
-  //    Requires a clear winner; ambiguous/weak → null so DIVA asks for the SKU.
+  //    Requires a clear winner; ambiguous/weak → null so Aggarwal Ji asks for the SKU.
   let best: any = null, bestScore = 0, secondScore = 0;
   for (const r of rows) {
     const tags = (((r.generated_content as any)?.tags) ?? []) as string[];
