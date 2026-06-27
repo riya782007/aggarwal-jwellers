@@ -104,3 +104,26 @@ body {
 .barcode-label .bc-name { font-size: 10px; }
 .barcode-label .bc-sku { font-size: 10px; margin-top: 2px; }
 .barcode-label .bc-price { font-size: 11px; }
+
+
+/* ---- QR labels (50×25mm tags, 3 per row on A4) ---- */
+.qr-label .ql-name { font-size: 11px; }
+.qr-label .ql-sku { font-size: 11px; letter-spacing: 0.05em; }
+.qr-label .ql-price { font-size: 12px; }
+@media print {
+  .qr-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 2mm !important;
+  }
+  .qr-label {
+    height: 25mm;
+    padding: 1.5mm !important;
+    border-radius: 2px !important;
+    page-break-inside: avoid;
+  }
+  .qr-label svg { width: 20mm !important; height: 20mm !important; }
+  .qr-label .ql-name { font-size: 6pt; line-height: 1.05; }
+  .qr-label .ql-sku { font-size: 6.5pt; }
+  .qr-label .ql-price { font-size: 7pt; }
+}
