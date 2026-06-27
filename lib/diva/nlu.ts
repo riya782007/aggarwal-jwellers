@@ -1,8 +1,8 @@
 /**
- * lib/diva/nlu.ts — DIVA's multilingual Natural-Language Understanding engine.
+ * lib/diva/nlu.ts — Aggarwal Ji's multilingual Natural-Language Understanding engine.
  *
  * This is a PURE, dependency-free, deterministic intent engine. It runs with NO network
- * and NO model call, so DIVA works even when the LLM/Groq/OpenAI keys are absent or
+ * and NO model call, so Aggarwal Ji works even when the LLM/Groq/OpenAI keys are absent or
  * unreachable. The server planner (app/actions/diva.ts) uses this as the primary engine
  * and only escalates to an LLM for low-confidence input.
  *
@@ -31,10 +31,10 @@ export type NluStep = { tool: string; args: Record<string, any>; label: string }
 export type DivaContext = {
   /** A half-finished task waiting on more info (e.g. create_product needing a price). */
   pending?: { intent: string; slots: Record<string, any>; need: string[] };
-  /** Last product DIVA talked about — resolves "ye/is product". */
+  /** Last product Aggarwal Ji talked about — resolves "ye/is product". */
   lastSku?: string;
   lastSubject?: string;
-  /** Last customer DIVA talked about — resolves "is customer". */
+  /** Last customer Aggarwal Ji talked about — resolves "is customer". */
   lastCustomer?: string;
 };
 
@@ -42,7 +42,7 @@ export type NluPlan = {
   language: NluLang;
   reply: string;
   steps: NluStep[];
-  /** When set, DIVA needs an answer before it can act (multi-turn slot fill). */
+  /** When set, Aggarwal Ji needs an answer before it can act (multi-turn slot fill). */
   ask?: { slot: string; prompt: string };
   /** Updated memory to send back on the next turn. */
   context: DivaContext;
@@ -99,7 +99,7 @@ export function detectLanguage(textRaw: string): NluLang {
 
 // A SKU is any short letters-then-digits code, optionally with a -SUFFIX variant part:
 // AJ1001, WBR113, KPC64, WBR1024-Silver, KPC64-MEH. (Earlier this only matched "AJ####",
-// so real SKUs were invisible to DIVA and got mis-resolved — that was the #1 reliability bug.)
+// so real SKUs were invisible to Aggarwal Ji and got mis-resolved — that was the #1 reliability bug.)
 const SKU_RE = /\b(?:sku\s*)?([a-z]{1,6}-?\d{2,6}(?:-[a-z0-9]+)?)\b/i;
 
 export function extractSku(text: string): string | undefined {
@@ -404,7 +404,7 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
     }
   }
   // Category + a change/rename intent that DIDN'T parse cleanly above → ASK (never fall through
-  // to a product search). This keeps DIVA from "doing the wrong thing" on category commands.
+  // to a product search). This keeps Aggarwal Ji from "doing the wrong thing" on category commands.
   if (/categor/.test(lower) && hasAny(lower, ["rename", "change", "naam", "badal", "badlo", "kar do", "kardo", "kr do", "rakho"])) {
     const prompt = ack(lang,
       "Which category should I rename, and to what? e.g. \"rename Bracelet to Bangles & Bracelets\".",
@@ -478,12 +478,12 @@ function stockPlan(base: Omit<NluPlan, "steps" | "reply" | "confidence">, ctx: D
   if (sku) {
     // `color` lets the executor target a specific colour variant (e.g. "EE5270 me 5 green add karo").
     const c = (colorHint ?? "").trim() || undefined;
-    return mk(base, [step(tool, { sku, qty, color: c, source: "DIVA command" }, `${verb} ${qty}${c ? ` ${c}` : ""} → ${sku}`)],
+    return mk(base, [step(tool, { sku, qty, color: c, source: "Aggarwal Ji command" }, `${verb} ${qty}${c ? ` ${c}` : ""} → ${sku}`)],
       ack(lang, `I'll ${verb} ${qty} unit${qty > 1 ? "s" : ""}${c ? ` of ${c}` : ""} ${tool === "add_stock" ? "to" : "from"} ${sku}.`,
         `${sku} me ${qty}${c ? ` ${c}` : ""} unit ${tool === "add_stock" ? "add" : "kam"} kar rahi hun.`), 0.85, { ...ctx, pending: undefined, lastSku: sku });
   }
   // We have a subject but no SKU → resolve first, then the executor applies the delta by name.
-  return mk(base, [step(tool === "add_stock" ? "add_stock_by_name" : "remove_stock_by_name", { query: subject, qty, source: "DIVA command" }, `${verb} ${qty} → "${subject}"`)],
+  return mk(base, [step(tool === "add_stock" ? "add_stock_by_name" : "remove_stock_by_name", { query: subject, qty, source: "Aggarwal Ji command" }, `${verb} ${qty} → "${subject}"`)],
     ack(lang, `I'll ${verb} ${qty} to "${subject}" — I'll match it to a product first.`,
       `"${subject}" me ${qty} ${tool === "add_stock" ? "add" : "kam"} kar rahi hun.`), 0.6, { ...ctx, pending: undefined, lastSubject: subject });
 }

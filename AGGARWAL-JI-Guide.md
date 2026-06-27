@@ -1,11 +1,11 @@
-# DIVA — aapki dukaan ki assistant (kaise use karein)
+# Aggarwal Ji — aapki dukaan ki assistant (kaise use karein)
 
-DIVA aapke **Owner Console** me niche-daayें (green avatar) baithti hai. Tap karke **bol ya type karein**
+Aggarwal Ji aapke **Owner Console** me niche-daayें (green avatar) baithti hai. Tap karke **bol ya type karein**
 — **English, Hindi ya Hinglish** me. Wo aapka poora catalogue, stock, bills, purchases, customers aur
 analytics samajhti hai, aur **kaam khud karti hai**, phir sach-sach result batati hai.
 
 ## 3 baatein jo yaad rakhein
-1. **Aap bolo → DIVA plan banati hai → aap confirm karo.** Jo cheez data *badalti* hai (stock, price,
+1. **Aap bolo → Aggarwal Ji plan banati hai → aap confirm karo.** Jo cheez data *badalti* hai (stock, price,
    naya product, etc.) uske liye wo step dikhati hai aur **"Run it"** ka wait karti hai (ya **Skip**).
    Sirf padhne/poochhne wale jawab turant aa jaate hain.
 2. **Wo imaandaar hai.** Kaam hone par sach batati hai (jaise *"5 add kar diye — ab 46 stock hai"*).
@@ -74,16 +74,16 @@ analytics samajhti hai, aur **kaam khud karti hai**, phir sach-sach result batat
 
 ## Console navigation
 - `billing kholo` · `inventory kholo` · `dashboard dikhao` · `purchases kholo`
-  (DIVA koi bhi page khol deti hai: dashboard, catalogue, inventory, billing, sales,
+  (Aggarwal Ji koi bhi page khol deti hai: dashboard, catalogue, inventory, billing, sales,
    estimates, suppliers, roles, barcodes…)
 
 ---
 
-## DIVA ye **nahi** karti (taaki expectation clear rahe)
+## Aggarwal Ji ye **nahi** karti (taaki expectation clear rahe)
 - **Counter pe sale/bill khud nahi banati.** Wo aapke liye **Billing page khol** degi (`billing kholo`),
   par actual sale aap khud ring-up karte ho (taaki paisa/quantity galat na ho).
 - **Online payment ya bank ka kaam nahi karti.**
-- Purane site (BrainyBuzz) se data import — wo alag process hai, DIVA ka kaam nahi.
+- Purane site (BrainyBuzz) se data import — wo alag process hai, Aggarwal Ji ka kaam nahi.
 
 ## Agar kuch ulta lage
 - Failed step pe **✕** aur wajah dikhayegi (zyada-tar "SKU batao"). SKU reply karo, wo aage badh jaayegi.

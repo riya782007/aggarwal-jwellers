@@ -482,7 +482,7 @@ export async function createCategoryJsonAction(name: string): Promise<{ id: stri
 }
 
 // ---------------------------------------------------------------------------
-// Subcategories (category hierarchy) — backs the management UI + DIVA.
+// Subcategories (category hierarchy) — backs the management UI + Aggarwal Ji.
 // Requires migration 0002 (subcategories, product_subcategory_map).
 // ---------------------------------------------------------------------------
 

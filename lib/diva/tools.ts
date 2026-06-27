@@ -1,5 +1,5 @@
 /**
- * DIVA tool catalogue — the operations DIVA can perform in the console.
+ * Aggarwal Ji tool catalogue — the operations Aggarwal Ji can perform in the console.
  * Shared by the planner (server) and the widget (client). No server-only imports.
  *
  * kind: "read" = fetch/analyse data · "navigate" = move the console · "mutate" = change data.
@@ -65,7 +65,7 @@ export const DIVA_TOOLS: DivaTool[] = [
   { name: "delete_product", kind: "mutate", permission: "catalog.delete", confirm: true, desc: "Delete a product permanently (or hide it if it has past orders).", params: [{ name: "sku", type: "string", required: true, desc: "product SKU" }] },
   { name: "delete_role", kind: "mutate", permission: "roles.manage", confirm: true, desc: "Delete a staff role by name.", params: [{ name: "name", type: "string", required: true, desc: "role name" }] },
 
-  // ---- Intelligence-layer tools (multilingual DIVA) ----
+  // ---- Intelligence-layer tools (multilingual Aggarwal Ji) ----
   // READ
   { name: "get_price", kind: "read", permission: "catalog.view", desc: "Show a product's MRP / retail / wholesale price.", params: [{ name: "sku", type: "string", desc: "product SKU" }, { name: "query", type: "string", desc: "name to match if no SKU" }, { name: "tier", type: "string", desc: "all | wholesale | retail | mrp" }] },
   { name: "inventory_of", kind: "read", permission: "inventory.view", desc: "Show stock for a product matched by name/keywords.", params: [{ name: "query", type: "string", required: true, desc: "name or keywords" }] },
