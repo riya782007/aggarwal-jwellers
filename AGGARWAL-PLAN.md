@@ -9,7 +9,7 @@ agent that is **more capable** than the reference, and a refreshed UI/UX._
 
 ## 1. Where we started (repository audit)
 
-This repo (`riya782007/aggarwal-jwellers`) is a **copy of the "Blythe Diva" build** that was
+This repo (`riya782007/aggarwal-jwellers`) is a **copy of the "Aggarwal Jewellers" build** that was
 delivered to another client (`riya782007/yogendra`). A single squashed commit had already done
 a partial rebrand of customer-facing copy.
 
@@ -48,7 +48,7 @@ Two important findings from comparing the two repositories:
 | AI agent name | **DIVA** — kept (it is the agent, not the brand) |
 | Positioning | **Wholesale / B2B first**, with a retail + D2C storefront alongside |
 | Location | Sadar Bazar, Delhi (per existing data; owner to confirm exact address/GSTIN) |
-| SKU prefix | `BD####` → **`AJ####`** (Aggarwal Jewellers) |
+| SKU prefix | `AJ####` → **`AJ####`** (Aggarwal Jewellers) |
 | Owner passcode | demo passcode rebranded; to be replaced by real auth |
 | Email / domain | placeholder `@aggarwaljewellers.in` until the real domain is provided |
 | Legal entity / GSTIN / bank | **placeholders** — owner to provide real registration details (drive every invoice) |

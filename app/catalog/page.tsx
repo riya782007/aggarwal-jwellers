@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getCatalogProducts, getCategoryTree } from "@/lib/supabase/queries";
+import { getCatalogProducts, getCategoryTree, getCatalogSuggestions } from "@/lib/supabase/queries";
 import { CatalogShareBar } from "@/components/site/CatalogShareBar";
+import { CatalogSearch } from "@/components/site/CatalogSearch";
 import { SelectableCatalog } from "@/components/site/SelectableCatalog";
 import { BUSINESS } from "@/lib/business";
 
@@ -14,10 +15,19 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
   const q = (searchParams.q ?? "").trim();
   const skus = (searchParams.skus ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
-  const [tree, products] = await Promise.all([
+  const [tree, fetched, suggestions] = await Promise.all([
     getCategoryTree(),
-    getCatalogProducts({ category, subcategory, q, skus: skus.length ? skus : undefined }),
+    getCatalogProducts({ category, subcategory, q, skus: skus.length ? skus : undefined, includeWholesaleOnly: view === "wholesale" }),
+    getCatalogSuggestions().catch(() => ({ products: [], categories: [], colours: [] })),
   ]);
+  // Never dead-end a shared sub-category link: if nothing is tagged there yet,
+  // fall back to the whole parent category so the catalogue always shows stock.
+  let products = fetched;
+  let subFellBack = false;
+  if (products.length === 0 && subcategory !== "all" && skus.length === 0) {
+    products = await getCatalogProducts({ category, q });
+    subFellBack = products.length > 0;
+  }
 
   const activeCat = tree.find((c) => c.slug === category);
   const subs = activeCat?.subcategories ?? [];
@@ -47,6 +57,8 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
             <p className="text-cream/70 text-sm mt-1">{scopeName} · {products.length} designs · {view === "wholesale" ? "Wholesale rates" : "Retail prices"} · WhatsApp {BUSINESS.phone}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {/* Search with live suggestions — designs, SKUs, categories, colours. */}
+            <CatalogSearch suggestions={suggestions} view={view} initialQuery={q} />
             {/* Retail / Wholesale toggle */}
             <div className="no-print inline-flex rounded-full bg-white/10 p-1 text-sm">
               <Link href={{ pathname: "/catalog", query: cleanQuery({ category, subcategory, q, skus: searchParams.skus }) }} className={`px-3 py-1 rounded-full ${view === "retail" ? "bg-gold text-ink" : "text-cream/80"}`}>Retail</Link>
@@ -77,6 +89,9 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
 
       {/* Cards + select-to-share */}
       <div className="max-w-6xl mx-auto px-5 py-6">
+        {subFellBack && (
+          <p className="no-print text-xs text-muted mb-3">No designs are tagged under <b>{activeSub?.name}</b> yet — showing all of <b>{activeCat?.name}</b>.</p>
+        )}
         <SelectableCatalog products={products} view={view} brand={BUSINESS.brand} phone={BUSINESS.phone} />
       </div>
 

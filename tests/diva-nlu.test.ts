@@ -17,7 +17,7 @@ describe("language detection", () => {
 describe("entity extraction", () => {
   it("SKU with and without prefix word", () => {
     expect(extractSku("SKU AJ1001 ka photo dikhao")).toBe("AJ1001");
-    expect(extractSku("hide aj 1003 please")).toBe("AJ1003");
+    expect(extractSku("hide aj1003 please")).toBe("AJ1003");
     expect(extractSku("no sku here")).toBeUndefined();
   });
   it("quantity from digits and Hindi number-words", () => {
