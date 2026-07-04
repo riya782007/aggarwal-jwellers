@@ -122,7 +122,7 @@ export default async function Shop() {
           <Reveal>
             <div className="text-center mb-9">
               <p className="text-gold-dark tracking-[0.25em] uppercase text-xs">Real words, real customers</p>
-              <h2 className="font-display text-4xl text-ink mt-1">Happy Divas</h2>
+              <h2 className="font-display text-4xl text-ink mt-1">Happy Customers</h2>
             </div>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-5">
