@@ -546,14 +546,13 @@ function extractInvoiceNo(text: string): string | undefined {
 }
 
 const PAGE_ALIASES: Record<string, string> = {
-  dashboard: "dashboard", analytics: "analytics", catalogue: "catalogue", catalog: "catalogue",
-  products: "catalogue", inventory: "inventory", stock: "inventory", upload: "upload",
-  media: "media", "product photos": "media", photos: "media", categories: "categories",
-  barcodes: "barcodes", barcode: "barcodes", reorder: "reorder", billing: "billing", pos: "billing",
-  sales: "sales", estimates: "estimates", returns: "returns", purchases: "purchases",
-  customers: "customers", suppliers: "suppliers", vendors: "suppliers", reviews: "reviews",
-  reels: "reels", abandoned: "abandoned carts", approvals: "approvals", notifications: "notifications",
-  inbox: "notifications", roles: "roles",
+  dashboard: "dashboard", home: "dashboard", catalogue: "catalogue", catalog: "catalogue",
+  products: "catalogue", inventory: "inventory", stock: "inventory", maal: "inventory", upload: "upload",
+  categories: "categories",
+  barcodes: "barcodes", barcode: "barcodes", labels: "barcodes", reorder: "reorder", billing: "billing", pos: "billing",
+  bill: "billing", sales: "sales", hisaab: "sales", estimates: "estimates", returns: "returns", purchases: "purchases",
+  customers: "customers", grahak: "customers", party: "customers", suppliers: "suppliers", vendors: "suppliers",
+  approvals: "approvals", notifications: "notifications", inbox: "notifications",
 };
 
 function matchPage(lower: string): string | undefined {

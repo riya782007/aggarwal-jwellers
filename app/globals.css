@@ -67,6 +67,28 @@ body {
 .donut-in { animation: drawConic .8s cubic-bezier(.16,1,.3,1) both; }
 .count-tabular { font-variant-numeric: tabular-nums; }
 
+/* ---------------------------------------------------------------------------
+   Senior-friendly admin console ("Aggarwal mode")
+   Older owners, thick fingers, reading glasses. Everything inside .admin-shell
+   gets: larger base type, larger form controls, bigger touch targets, and a
+   visible focus ring. Scoped so the storefront keeps its refined scale.
+--------------------------------------------------------------------------- */
+.admin-shell { font-size: 1.0625rem; }
+/* Lift Tailwind's small utility sizes one visual step inside the console. */
+.admin-shell .text-xs { font-size: 0.85rem; line-height: 1.35; }
+.admin-shell .text-sm { font-size: 0.975rem; line-height: 1.45; }
+/* Comfortable form controls: readable text, tall enough to tap reliably. */
+.admin-shell input:not([type="checkbox"]):not([type="radio"]),
+.admin-shell select,
+.admin-shell textarea { font-size: 1rem; min-height: 2.75rem; }
+.admin-shell input[type="checkbox"], .admin-shell input[type="radio"] { width: 1.15rem; height: 1.15rem; }
+.admin-shell button { font-size: inherit; }
+/* Obvious keyboard/tap focus for low-vision users. */
+.admin-shell a:focus-visible, .admin-shell button:focus-visible,
+.admin-shell input:focus-visible, .admin-shell select:focus-visible, .admin-shell textarea:focus-visible {
+  outline: 3px solid #C8A24C; outline-offset: 2px; border-radius: 8px;
+}
+
 /* print: invoice only */
 @media print {
   .no-print { display: none !important; }

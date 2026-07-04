@@ -10,10 +10,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Defense-in-depth: never render the console for an unauthenticated request.
   if (!s.authed) redirect("/login");
   return (
-    <div className="flex min-h-screen bg-diva-cream">
+    <div className="admin-shell flex min-h-screen bg-diva-cream">
       <AdminNav perms={s.permissions} roleName={s.roleName} />
-      {/* pt-14 clears the fixed mobile top bar; lg has the in-flow sidebar instead */}
-      <div className="flex-1 min-w-0 pt-14 lg:pt-0">{children}</div>
+      {/* pt-16 clears the fixed mobile top bar; lg has the in-flow sidebar instead */}
+      <div className="flex-1 min-w-0 pt-16 lg:pt-0">{children}</div>
       <Diva roleName={s.roleName} />
     </div>
   );

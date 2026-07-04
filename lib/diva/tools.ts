@@ -12,13 +12,11 @@ export type DivaTool = { name: string; kind: DivaKind; permission?: string; conf
 /** Friendly page names → admin routes (used by open_page). */
 export const PAGE_MAP: Record<string, string> = {
   dashboard: "/admin/dashboard",
-  analytics: "/admin/analytics",
+  home: "/admin/dashboard",
   catalogue: "/admin/catalogue",
   products: "/admin/catalogue",
   "add inventory": "/admin/upload",
   upload: "/admin/upload",
-  "product photos": "/admin/media",
-  media: "/admin/media",
   categories: "/admin/categories",
   inventory: "/admin/inventory",
   barcodes: "/admin/barcodes",
@@ -34,12 +32,8 @@ export const PAGE_MAP: Record<string, string> = {
   customers: "/admin/customers",
   suppliers: "/admin/suppliers",
   vendors: "/admin/suppliers",
-  reviews: "/admin/reviews",
-  reels: "/admin/reels",
-  "abandoned carts": "/admin/abandoned",
   approvals: "/admin/approvals",
   notifications: "/admin/inbox",
-  roles: "/admin/roles",
 };
 
 export const DIVA_TOOLS: DivaTool[] = [

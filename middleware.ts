@@ -9,7 +9,6 @@ const STAFF = OWNER + "-staff";
 const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/upload", "catalog.create"],
   ["/admin/catalogue", "catalog.view"],
-  ["/admin/media", "catalog.ai"],
   ["/admin/categories", "catalog.edit"],
   ["/admin/inventory", "inventory.view"],
   ["/admin/barcodes", "inventory.barcode"],
@@ -27,12 +26,7 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/customer", "customers.view"],
   ["/admin/product", "catalog.view"],
   ["/admin/suppliers", "suppliers.manage"],
-  ["/admin/reviews", "reviews.respond"],
-  ["/admin/abandoned", "marketing.manage"],
-  ["/admin/reels", "reels.manage"],
   ["/admin/approvals", "approvals.approve"],
-  ["/admin/analytics", "analytics.view"],
-  ["/admin/roles", "roles.manage"],
 ];
 
 export function middleware(req: NextRequest) {
