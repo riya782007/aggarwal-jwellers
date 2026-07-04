@@ -6,16 +6,19 @@
 
 html { scroll-behavior: smooth; }
 body {
-  background: #FAF6EF;
-  color: #241B2E;
-  font-family: var(--font-body, "Plus Jakarta Sans"), system-ui, sans-serif;
+  background: #FCF8EF;
+  color: #451117;
+  font-family: var(--font-body, "Mukta"), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Aggarwal "shop awning" stripe — maroon & gold, the brand signature */
+  border-top: 4px solid #7B1E28;
+  border-image: linear-gradient(90deg, #7B1E28 0%, #C79A2D 50%, #7B1E28 100%) 1;
 }
-.font-display { font-family: "Cormorant Garamond", Georgia, serif; }
+.font-display { font-family: "Playfair Display", Georgia, serif; }
 
 /* gold gradient text */
 .text-gold-gradient {
-  background: linear-gradient(90deg, #A07E2E, #E2C887, #A07E2E);
+  background: linear-gradient(90deg, #96701C, #E9CF8B, #96701C);
   background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -31,23 +34,23 @@ body {
 .nav-link { position: relative; }
 .nav-link::after {
   content: ""; position: absolute; left: 0; bottom: -4px; height: 1.5px; width: 0;
-  background: #C8A24C; transition: width .3s ease;
+  background: #C79A2D; transition: width .3s ease;
 }
 .nav-link:hover::after { width: 100%; }
 
-/* premium button */
+/* premium button — Aggarwal: maroon primary, softened square corners (heritage, not boutique-pill) */
 .btn-primary {
-  background: #0F5C4D; color: #fff; border-radius: 9999px;
+  background: #7B1E28; color: #fff; border-radius: 14px;
   transition: transform .2s ease, box-shadow .25s ease, background .25s ease;
 }
-.btn-primary:hover { background: #0A4034; transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(15,92,77,.5); }
+.btn-primary:hover { background: #5E141D; transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(123,30,40,.5); }
 .btn-primary:active { transform: translateY(0) scale(.98); }
 
 .btn-gold {
-  background: #C8A24C; color: #241B2E; border-radius: 9999px;
+  background: #C79A2D; color: #451117; border-radius: 14px;
   transition: transform .2s ease, box-shadow .25s ease, filter .25s ease;
 }
-.btn-gold:hover { filter: brightness(1.05); transform: translateY(-2px); box-shadow: 0 10px 28px -8px rgba(200,162,76,.55); }
+.btn-gold:hover { filter: brightness(1.05); transform: translateY(-2px); box-shadow: 0 10px 28px -8px rgba(199,154,45,.55); }
 .btn-gold:active { transform: translateY(0) scale(.98); }
 
 /* product card image zoom */
@@ -86,13 +89,13 @@ body {
 /* Obvious keyboard/tap focus for low-vision users. */
 .admin-shell a:focus-visible, .admin-shell button:focus-visible,
 .admin-shell input:focus-visible, .admin-shell select:focus-visible, .admin-shell textarea:focus-visible {
-  outline: 3px solid #C8A24C; outline-offset: 2px; border-radius: 8px;
+  outline: 3px solid #C79A2D; outline-offset: 2px; border-radius: 8px;
 }
 
 /* print: invoice only */
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff !important; }
+  body { background: #fff !important; border-top: none !important; }
   .print-area { box-shadow: none !important; }
 
   /* Barcode labels: exactly 64 per A4 (8 columns × 8 rows) */
@@ -110,8 +113,8 @@ body {
     display: flex; flex-direction: column; justify-content: center;
   }
   /* Catalogue PDF: make dark header/footer readable without background graphics */
-  .catalog-dark, .catalog-dark * { background: transparent !important; color: #241B2E !important; }
-  .catalog-dark a { color: #A07E2E !important; }
+  .catalog-dark, .catalog-dark * { background: transparent !important; color: #451117 !important; }
+  .catalog-dark a { color: #96701C !important; }
 
   .barcode-label .bc-name { font-size: 6pt; line-height: 1.1; }
   .barcode-label .bc-sku { font-size: 6pt; margin-top: 0.5mm; }

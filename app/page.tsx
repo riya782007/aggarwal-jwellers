@@ -2,13 +2,18 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="max-w-3xl mx-auto px-6 py-20 text-center">
-      <p className="text-diva-gold tracking-[0.3em] text-xs uppercase mb-3">Aggarwal Jewellers</p>
-      <h1 className="font-serif text-5xl text-diva-ink mb-4">Aggarwal Jewellers</h1>
-      <p className="text-diva-ink/70 mb-10">Artificial jewellery — retail &amp; wholesale. Sadar Bazar, Delhi.</p>
-      <div className="flex gap-4 justify-center">
-        <Link href="/shop" className="px-6 py-3 rounded-full bg-diva-rose text-white font-medium">Shop the boutique</Link>
-        <Link href="/admin/catalogue" className="px-6 py-3 rounded-full border border-diva-ink/20 text-diva-ink font-medium">Owner console</Link>
+    <main className="max-w-3xl mx-auto px-6 py-24 text-center">
+      <p className="text-gold-dark tracking-[0.35em] text-xs uppercase mb-4">Est. Sadar Bazar · Delhi</p>
+      <h1 className="font-display text-6xl text-ink mb-3">Aggarwal Jewellers</h1>
+      <div className="mx-auto mb-6 h-[3px] w-24 bg-gradient-to-r from-wine via-gold to-wine rounded-full" />
+      <p className="text-ink/70 text-lg mb-12">
+        Artificial jewellery — Kundan, Meenakari, Temple &amp; more.<br className="hidden sm:block" />
+        Retail &amp; wholesale from the heart of Sadar Bazar.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Link href="/shop" className="btn-primary px-8 py-4 text-lg font-medium">Dukaan Dekhein · Shop</Link>
+        <Link href="/wholesale" className="btn-gold px-8 py-4 text-lg font-medium">Wholesale / थोक</Link>
+        <Link href="/admin/dashboard" className="px-8 py-4 rounded-[14px] border-2 border-wine/25 text-wine text-lg font-medium hover:bg-wine hover:text-white transition-colors">Malik ka Console</Link>
       </div>
     </main>
   );

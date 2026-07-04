@@ -91,7 +91,7 @@ export default async function Shop() {
       <section className="max-w-7xl mx-auto px-5 py-12">
         <Reveal>
           <div className="rounded-3xl bg-ink text-cream px-8 py-12 text-center relative overflow-hidden">
-            <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #C8A24C, transparent 40%), radial-gradient(circle at 80% 80%, #0F5C4D, transparent 40%)" }} />
+            <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #C79A2D, transparent 40%), radial-gradient(circle at 80% 80%, #2F6B3C, transparent 40%)" }} />
             <p className="relative text-gold-light tracking-[0.3em] uppercase text-xs">Festive Edit</p>
             <h2 className="relative font-display text-4xl md:text-5xl mt-2">Flat 20% off, sitewide</h2>
             <p className="relative text-cream/70 mt-3">No code needed. Free shipping over ₹999. Cash on delivery available.</p>
