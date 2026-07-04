@@ -104,9 +104,14 @@ export function extractSku(text: string): string | undefined {
   return m ? `${m[1].toUpperCase()}${m[2]}` : undefined;
 }
 
+/** Remove SKU tokens (e.g. "AJ1004") so their digits are never read as qty/price. */
+function stripSkus(text: string): string {
+  return text.replace(new RegExp(SKU_RE.source, "gi"), " ");
+}
+
 /** First sensible integer quantity in the text — digits or number-words. */
 export function extractQuantity(textRaw: string): number | undefined {
-  const text = asciiDigits(textRaw).toLowerCase();
+  const text = stripSkus(asciiDigits(textRaw).toLowerCase());
   // Prefer a number that sits next to a stock/qty word, else the first standalone integer.
   const near = /(\d{1,6})\s*(?:pcs|pc|piece|pieces|units?|nos?|qty|stock|maal|adad|pieces?)/.exec(text)
     || /(?:add|badhao|badha|jodo|daal|stock|qty|quantity|set|kar do)\D{0,12}?(\d{1,6})/.exec(text);
@@ -119,7 +124,7 @@ export function extractQuantity(textRaw: string): number | undefined {
 
 /** A money amount near a price cue. Returns rupees. */
 export function extractPriceRupees(textRaw: string): number | undefined {
-  const text = asciiDigits(textRaw).toLowerCase();
+  const text = stripSkus(asciiDigits(textRaw).toLowerCase());
   const m =
     /(?:₹|rs\.?|inr|rupees?)\s*(\d{2,7})/.exec(text) ||
     /(\d{2,7})\s*(?:₹|rs\.?|rupees?|rupaye|rupiya|\/-)/.exec(text) ||
