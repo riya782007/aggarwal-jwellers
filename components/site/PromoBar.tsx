@@ -1,19 +1,10 @@
-const MESSAGES = [
-  "✦ Flat 20% OFF on everything",
-  "✦ Free shipping over ₹999",
-  "✦ Cash on Delivery available",
-  "✦ Handcrafted in Sadar Bazar, Delhi",
-  "✦ Wholesale rates for retailers",
-];
 export function PromoBar() {
-  const strip = [...MESSAGES, ...MESSAGES];
   return (
-    <div className="bg-ink text-cream text-xs tracking-wide overflow-hidden py-2">
-      <div className="marquee-track">
-        {strip.map((m, i) => (
-          <span key={i} className="mx-6 inline-block text-gold-light/90">{m}</span>
-        ))}
-      </div>
+    <div className="bg-wine text-white text-[13px] text-center py-2 px-4 tracking-wide">
+      <span className="font-medium">Flat 20% OFF sitewide</span>
+      <span className="mx-2 opacity-50">|</span> Free shipping over ₹999
+      <span className="mx-2 opacity-50 hidden sm:inline">|</span>
+      <span className="hidden sm:inline">Cash on Delivery available</span>
     </div>
   );
 }

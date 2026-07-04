@@ -11,7 +11,7 @@ export default async function RetailLayout({ children }: { children: React.React
   const categories = await getCategories();
   const cats = categories.map((c) => ({ name: c.name, slug: c.slug }));
   return (
-    <CartProvider><WishlistProvider><div className="min-h-screen flex flex-col bg-ivory">
+    <CartProvider><WishlistProvider><div className="min-h-screen flex flex-col bg-white">
       <Header categories={cats} />
       <main className="flex-1">{children}</main>
       <Footer categories={cats} />

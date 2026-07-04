@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ProductImage } from "@/components/Placeholder";
-import { Stars } from "./Stars";
 import { AddToCart } from "@/components/cart/AddToCart";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { formatPaise } from "@/lib/pricing";
@@ -15,39 +14,46 @@ export type CardProduct = {
   wholesale_override?: number | null; retail_override?: number | null; mrp_override?: number | null;
 };
 
-export function ProductCard({ p, formula, index = 0 }: { p: CardProduct; formula: PricingFormula; index?: number }) {
+export function ProductCard({ p, formula, index = 0, bestseller = false }: { p: CardProduct; formula: PricingFormula; index?: number; bestseller?: boolean }) {
   const o = liveOffer(p.base_wholesale, formula, overridesOf(p));
   const low = p.qty > 0 && p.qty <= 3;
   return (
-    <Link href={`/shop/${p.category.slug}/${p.sku}`}
-      className="group relative block rounded-2xl bg-white shadow-card hover:shadow-luxe transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-      <div className="relative aspect-[4/5] overflow-hidden bg-cream">
-        <div className="card-img h-full w-full"><ProductImage name={p.name} /></div>
-
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {o.hasOffer && <span className="bg-rose text-white text-[11px] font-semibold px-2 py-1 rounded-full shadow-sm">{o.offerPct}% OFF</span>}
-          {p.isNew && <span className="bg-emerald text-white text-[11px] font-semibold px-2 py-1 rounded-full">NEW</span>}
+    <div className="group relative flex flex-col rounded-xl bg-white border border-sand/60 hover:border-gold/50 hover:shadow-luxe transition-all duration-300 overflow-hidden">
+      <Link href={`/shop/${p.category.slug}/${p.sku}`} className="block">
+        <div className="relative aspect-square overflow-hidden bg-ivory">
+          <div className="card-img h-full w-full"><ProductImage name={p.name} /></div>
+          <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
+            {bestseller && <span className="bg-gold text-ink text-[10.5px] font-bold px-2 py-0.5 rounded">BESTSELLER</span>}
+            {p.isNew && !bestseller && <span className="bg-emerald text-white text-[10.5px] font-bold px-2 py-0.5 rounded">NEW</span>}
+            {o.hasOffer && <span className="bg-wine text-white text-[10.5px] font-bold px-2 py-0.5 rounded">{o.offerPct}% OFF</span>}
+          </div>
+          {low && <span className="absolute bottom-2.5 left-2.5 bg-ink/80 text-white text-[10px] px-2 py-1 rounded-full">Only {p.qty} left</span>}
         </div>
+      </Link>
 
-        <WishlistButton item={{ sku: p.sku, name: p.name, category: p.category.name, categorySlug: p.category.slug, price: o.price }} className="absolute top-3 right-3 h-9 w-9 grid place-items-center rounded-full backdrop-blur opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all" />
+      <WishlistButton item={{ sku: p.sku, name: p.name, category: p.category.name, categorySlug: p.category.slug, price: o.price }}
+        className="absolute top-2.5 right-2.5 h-9 w-9 grid place-items-center rounded-full bg-white/90 shadow-sm hover:scale-110 transition-transform" />
 
-        {low && <span className="absolute bottom-3 left-3 bg-ink/80 text-cream text-[10px] px-2 py-1 rounded-full">Only {p.qty} left</span>}
-
-        <div className="absolute inset-x-3 bottom-3 opacity-0 group-hover:opacity-100 translate-y-3 group-hover:translate-y-0 transition-all duration-300">
+      <div className="flex flex-col flex-1 p-3.5">
+        <Link href={`/shop/${p.category.slug}/${p.sku}`} className="block">
+          <h3 className="text-[14px] font-medium text-ink leading-snug line-clamp-1 group-hover:text-wine transition-colors">{p.name}</h3>
+          {/* GIVA-style rating line: 4.8 ★ | 943 */}
+          <p className="mt-1 text-[12.5px] text-muted">
+            <span className="text-ink font-medium">{p.rating.toFixed(1)}</span>
+            <span className="text-gold"> ★</span>
+            {p.reviews > 0 && <span> | {p.reviews}</span>}
+          </p>
+          <div className="mt-1.5 flex items-baseline gap-2">
+            <span className="text-[15.5px] font-semibold text-ink">{formatPaise(o.price)}</span>
+            {o.hasOffer && <span className="text-[12.5px] text-muted line-through">{formatPaise(o.mrp)}</span>}
+            {o.hasOffer && <span className="text-[12px] text-emerald font-semibold">{o.offerPct}% off</span>}
+          </div>
+        </Link>
+        {/* Always-visible add to cart — commerce-first, like GIVA */}
+        <div className="mt-3">
           <AddToCart variant="card" item={{ sku: p.sku, name: p.name, price: o.price, category: p.category.slug }} />
         </div>
       </div>
-
-      <div className="p-4">
-        <p className="text-[10px] uppercase tracking-[0.15em] text-gold-dark">{p.category.name}</p>
-        <h3 className="text-sm font-medium text-ink leading-snug mt-0.5 line-clamp-1 group-hover:text-emerald transition-colors">{p.name}</h3>
-        <div className="mt-1"><Stars rating={p.rating} count={p.reviews} /></div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="font-semibold text-ink">{formatPaise(o.price)}</span>
-          {o.hasOffer && <span className="text-xs text-muted line-through">{formatPaise(o.mrp)}</span>}
-          {o.hasOffer && <span className="text-xs text-emerald font-medium">Save {o.offerPct}%</span>}
-        </div>
-      </div>
-    </Link>
+    </div>
   );
 }
