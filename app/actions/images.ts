@@ -16,12 +16,31 @@ const BUCKET = "product-media";
 
 export type GenResult = { ok: boolean; sku: string; reason?: string; error?: string; url?: string; prompt?: string };
 
-export async function generateOneAction(sku: string): Promise<GenResult> {
+export async function generateOneAction(sku: string, keywords?: string): Promise<GenResult> {
   if (!(await requirePerm("catalog.ai"))) return { ok: false, sku, reason: "not_permitted" };
   const p = await getProductBySku(sku);
   if (!p) return { ok: false, sku, reason: "not_found" };
   const index = parseInt(sku.replace(/\D/g, ""), 10) || 0;
-  const prompt = buildImagePrompt({ category: p.category?.slug ?? "necklace", index, aspect: "4:5" });
+  // Pull the product's REAL details into the prompt so Gemini frames the right jewellery type
+  // (a necklace as a necklace, etc.) and knows the piece's name, colours and material — instead
+  // of guessing from the reference alone. Category drives the worn-location; subcategory refines it.
+  const gc = (p.generated_content as any) ?? {};
+  const colours = ((p as any).variants ?? []).map((v: any) => v.color).filter(Boolean);
+  const details = [
+    ...(Array.isArray(gc.tags) ? gc.tags : []),
+    ...(Array.isArray(gc.seo?.keywords) ? gc.seo.keywords : []),
+    ...colours,
+  ].filter(Boolean).slice(0, 8);
+  const prompt = buildImagePrompt({
+    category: (p as any).category?.name ?? p.category?.slug ?? "necklace",
+    subcategory: (p as any).subcategory?.name ?? "",
+    productName: p.name,
+    details,
+    keywords: (keywords ?? "").trim().slice(0, 120) || undefined,
+    style: (p as any).subcategory?.image_style as ("auto" | "indian" | "western" | undefined),
+    index,
+    aspect: "4:5",
+  });
 
   if (!geminiConfigured()) return { ok: false, sku, reason: "no_key", prompt };
 
@@ -52,17 +71,12 @@ export async function generateOneAction(sku: string): Promise<GenResult> {
   const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
   await sb.from("product_images").insert({ product_id: p.id, path: pub.publicUrl, kind: "model", sort: -1 });
 
-  // The polished model shot replaces the raw photo everywhere: auto-delete every raw
-  // (source/flatlay) image — both its storage object and its DB row — so only the
-  // AI-generated image (and any owner-added angles) is ever shown on the storefront/admin.
-  const raws = (p.images ?? []).filter((i: any) => i.kind === "source" || i.kind === "flatlay");
-  if (raws.length) {
-    const objectPaths = raws
-      .map((i: any) => storagePathFromPublicUrl(i.path))
-      .filter((x): x is string => !!x);
-    if (objectPaths.length) await sb.storage.from(BUCKET).remove(objectPaths).catch(() => {});
-    await sb.from("product_images").delete().in("id", raws.map((i: any) => i.id));
-  }
+  // The polished model shot becomes the PRIMARY (sort -1). We deliberately KEEP the raw
+  // (source/flatlay) photo now — it is the ground-truth reference the "Fix a detail" editor
+  // re-feeds to correct drifted details, so it must never be destroyed. Customers never see it:
+  // every storefront image read hides kind 'source'/'flatlay' (isStorefrontImage in
+  // lib/supabase/queries.ts), so only AI-generated images appear on the shop while the owner
+  // still has the raw in the Photo Studio.
 
   revalidatePath(`/shop/${p.category.slug}/${sku}`);
   revalidatePath("/admin/catalogue");

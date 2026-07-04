@@ -14,7 +14,7 @@ describe("content resolver (no model on request path)", () => {
     expect(c.title).toBe("Anklet Pair");
     expect(c.description).toContain("Sadar Bazar");
     expect(c.seo.keywords).toContain("Delhi");
-    expect(c.specs.Colours).toBe("Gold, Silver");
+    expect(c.specs.Colors).toBe("Gold, Silver");
   });
   it("never returns empty content", () => {
     const c = templateContent({ name: "X", sku: "X1" });

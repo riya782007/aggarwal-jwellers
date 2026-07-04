@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getEstimates, getStorefront } from "@/lib/supabase/queries";
-import { liveOffer } from "@/lib/offers";
-import { formatPaise } from "@/lib/pricing";
+import { getEstimates, getStorefront, getCustomersDb } from "@/lib/supabase/queries";
+import { supabaseServer } from "@/lib/supabase/server";
+import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
 import { EstimateClient } from "@/components/admin/EstimateClient";
 import { billEstimateAction, denyEstimateAction, reopenEstimateAction } from "@/app/actions/billing";
 
@@ -27,31 +27,75 @@ const STATUS_LABEL: Record<string, string> = {
   open: "Held", converted: "GST billed", cash_billed: "Cash billed", denied: "Denied", expired: "Expired",
 };
 
-export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string } }) {
-  const [{ products, formula }, estimates] = await Promise.all([getStorefront(), getEstimates()]);
-  const list = products.map((p) => ({ sku: p.sku, name: p.name, price: liveOffer(p.base_wholesale, formula).price }));
+export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string } }) {
+  const sb = supabaseServer();
+  const [{ products, formula }, estimates, customers, { data: variants }] = await Promise.all([
+    getStorefront({ includeDrafts: true, includeWholesaleOnly: true }),
+    getEstimates({ sort: searchParams.sort }),
+    getCustomersDb({}),
+    sb.from("variants").select("sku,color,qty,product_id,wholesale_override,retail_override,mrp_override"),
+  ]);
+  // Expand each design into its colour VARIANTS (variant SKUs are what get billed), so the estimate
+  // search shows the exact colour — e.g. "Rajwada Necklace · Green (KN132-GREEN)" — not just the parent.
+  const varsByProduct = new Map<string, any[]>();
+  for (const v of ((variants ?? []) as any[])) { const a = varsByProduct.get(v.product_id) ?? []; a.push(v); varsByProduct.set(v.product_id, a); }
+  const list: { sku: string; name: string; price: number; wholesale: number }[] = [];
+  for (const p of products as any[]) {
+    const vs = varsByProduct.get(p.id) ?? [];
+    if (vs.length) {
+      for (const v of vs) {
+        const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
+        list.push({ sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate });
+      }
+    } else {
+      const ps = resolvePrices(p.base_wholesale, formula, overridesOf(p));
+      list.push({ sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate });
+    }
+  }
+  const custList = customers.map((c: any) => ({ id: c.id, name: c.name, phone: c.phone ?? "", type: c.type ?? "retail", gstin: c.gstin ?? "" }));
 
   const tab = TABS.find((t) => t.key === (searchParams.tab ?? "all")) ?? TABS[0];
   const q = (searchParams.q ?? "").toLowerCase().trim();
   const rows = estimates.filter((e: any) => tab.match(e.status) && (!q || (e.customer_name ?? "").toLowerCase().includes(q) || String(e.id).toLowerCase().includes(q)));
   const counts = Object.fromEntries(TABS.map((t) => [t.key, estimates.filter((e: any) => t.match(e.status)).length]));
 
+  // Pillar 1 — sortable column headers, mirroring the sales register so A–Z by customer
+  // and Ref-ID order are one click away on quotes too.
+  const sort = searchParams.sort ?? "date_desc";
+  const [sortField, sortDir] = sort.split("_");
+  const sortHref = (field: string, firstAsc: boolean) => {
+    const next = sortField === field
+      ? (sortDir === "asc" ? `${field}_desc` : `${field}_asc`)
+      : (firstAsc ? `${field}_asc` : `${field}_desc`);
+    const sp = new URLSearchParams();
+    sp.set("tab", tab.key);
+    if (searchParams.q) sp.set("q", searchParams.q);
+    sp.set("sort", next);
+    return `/admin/estimates?${sp.toString()}`;
+  };
+  const arrow = (field: string) => sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "↕";
+
   return (
     <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-5xl">
       <h1 className="font-display text-4xl text-ink mb-1">Estimates &amp; Quotations</h1>
       <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Each estimate can be held, billed with GST, billed as a cash memo, or denied.</p>
-      <EstimateClient products={list} />
+      <EstimateClient products={list} customers={custList} />
 
       {/* tabs + search */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {TABS.map((t) => (
-          <Link key={t.key} href={`/admin/estimates?tab=${t.key}`}
-            className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${tab.key === t.key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-gold"}`}>
-            {t.label} <span className="opacity-60">{counts[t.key] ?? 0}</span>
-          </Link>
-        ))}
+        {TABS.map((t) => {
+          const sp = new URLSearchParams(); sp.set("tab", t.key);
+          if (searchParams.sort) sp.set("sort", searchParams.sort);
+          return (
+            <Link key={t.key} href={`/admin/estimates?${sp.toString()}`}
+              className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${tab.key === t.key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-gold"}`}>
+              {t.label} <span className="opacity-60">{counts[t.key] ?? 0}</span>
+            </Link>
+          );
+        })}
         <form className="ml-auto" action="/admin/estimates">
           <input type="hidden" name="tab" value={tab.key} />
+          {searchParams.sort && <input type="hidden" name="sort" value={searchParams.sort} />}
           <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search customer / ref…" className="rounded-full border border-sand px-4 py-1.5 text-sm bg-white outline-none focus:border-emerald w-56" />
         </form>
       </div>
@@ -59,16 +103,22 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-left"><tr>
-            <th className="p-3">Ref</th><th className="p-3">Customer</th><th className="p-3">Total</th><th className="p-3">Status</th><th className="p-3 text-right">Actions</th>
+            <th className="p-3"><Link href={sortHref("ref", true)} className="hover:text-ink">Ref <span className="opacity-60">{arrow("ref")}</span></Link></th>
+            <th className="p-3"><Link href={sortHref("customer", true)} className="hover:text-ink">Customer <span className="opacity-60">{arrow("customer")}</span></Link></th>
+            <th className="p-3"><Link href={sortHref("amount", false)} className="hover:text-ink">Total <span className="opacity-60">{arrow("amount")}</span></Link></th>
+            <th className="p-3">Status</th>
+            <th className="p-3"><Link href={sortHref("date", false)} className="hover:text-ink">Date <span className="opacity-60">{arrow("date")}</span></Link></th>
+            <th className="p-3 text-right">Actions</th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={5} className="p-4 text-muted">No estimates here.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="p-4 text-muted">No estimates here.</td></tr>}
             {rows.map((e: any) => (
               <tr key={e.id} className="border-t border-sand/60 align-middle">
                 <td className="p-3 text-muted whitespace-nowrap">{String(e.id).slice(0, 8).toUpperCase()}</td>
                 <td className="p-3 text-ink">{e.customer_name || "—"}{e.customer_phone && <span className="block text-xs text-muted">{e.customer_phone}</span>}</td>
                 <td className="p-3 font-medium whitespace-nowrap">{formatPaise(e.total)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_STYLE[e.status] ?? "bg-cream text-muted"}`}>{STATUS_LABEL[e.status] ?? e.status}</span></td>
+                <td className="p-3 text-muted whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-1.5 justify-end items-center">
                     <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">🖶 Print</Link>

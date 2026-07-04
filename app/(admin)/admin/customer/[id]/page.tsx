@@ -12,7 +12,7 @@ export const metadata = { title: "Owner Console · Customer" };
 export default async function CustomerDetail({ params }: { params: { id: string } }) {
   const data = await getCustomerById(params.id);
   if (!data) notFound();
-  const { customer: c, orders, totalSpent, orderCount } = data;
+  const { customer: c, orders, totalSpent, orderCount, outstanding, creditAdjustment } = data;
   const canManage = can(getSession(), "customers.manage");
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
@@ -27,7 +27,18 @@ export default async function CustomerDetail({ params }: { params: { id: string 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-xs uppercase tracking-wide text-muted">Orders</p><p className="text-xl font-semibold mt-1">{orderCount}</p></div>
         <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-xs uppercase tracking-wide text-muted">Total spent</p><p className="text-xl font-semibold mt-1 text-emerald">{formatPaise(totalSpent)}</p></div>
-        <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-xs uppercase tracking-wide text-muted">Outstanding</p><p className={`text-xl font-semibold mt-1 ${c.credit_balance ? "text-rose" : "text-ink"}`}>{formatPaise(c.credit_balance ?? 0)}</p></div>
+        {/* Pillar 8 — "Outstanding" is now computed live from unpaid/partial bills, not a
+            manual field. The manual `credit_balance` column is kept as an explicit
+            adjustment (advance / store credit) below the headline tile. */}
+        <div className="bg-white rounded-2xl p-4 shadow-card">
+          <p className="text-xs uppercase tracking-wide text-muted">Outstanding <span className="text-[10px] opacity-70">(from bills)</span></p>
+          <p className={`text-xl font-semibold mt-1 ${outstanding > 0 ? "text-rose" : "text-ink"}`}>{formatPaise(outstanding)}</p>
+          {creditAdjustment !== 0 && (
+            <p className={`text-[11px] mt-1 ${creditAdjustment > 0 ? "text-rose/80" : "text-emerald-dark"}`}>
+              {creditAdjustment > 0 ? "+ " : "− "}{formatPaise(Math.abs(creditAdjustment))} manual adj.
+            </p>
+          )}
+        </div>
         <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-xs uppercase tracking-wide text-muted">GSTIN</p><p className="text-sm font-medium mt-1 break-all">{c.gstin || "—"}</p></div>
       </div>
 
@@ -37,7 +48,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-medium text-ink">Wholesale portal access</h2>
-              <p className="text-xs text-muted">{c.wholesale_approved ? "Approved — this retailer can sign in at /wholesale and see trade prices." : "Not approved yet — approve to issue an access code."}</p>
+              <p className="text-xs text-muted">{c.wholesale_approved ? "Approved — this dealer can sign in at /trade/login and see trade prices." : "Not approved yet — approve to issue an access code."}</p>
               {c.wholesale_approved && (
                 <p className="text-sm mt-2">Login: <b>{c.phone || "set a phone first"}</b> · Access code: <span className="font-mono tracking-widest bg-ink/5 px-2 py-0.5 rounded">{c.login_code ?? "—"}</span></p>
               )}
@@ -70,7 +81,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
                 <input name="email" defaultValue={c.email ?? ""} className={fld} placeholder="Email" />
                 <input name="gstin" defaultValue={c.gstin ?? ""} className={fld} placeholder="GSTIN" />
                 <input name="city" defaultValue={c.city ?? ""} className={fld} placeholder="City" />
-                <input name="credit_balance" type="number" defaultValue={(c.credit_balance ?? 0) / 100} className={fld} placeholder="Outstanding ₹" />
+                <input name="credit_balance" type="number" defaultValue={(c.credit_balance ?? 0) / 100} className={fld} placeholder="Manual adjustment ₹ (advance / store credit)" />
               </div>
               <textarea name="address" defaultValue={c.address ?? ""} className={fld} rows={2} placeholder="Address" />
               <textarea name="notes" defaultValue={c.notes ?? ""} className={fld} rows={2} placeholder="Notes" />

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductBySku, getPricingFormula, getProductReviews, getRecommendations } from "@/lib/supabase/queries";
+import { getProductBySku, getPricingFormula, getProductReviews, getRecommendations, isStorefrontImage } from "@/lib/supabase/queries";
 import { resolveProductContent } from "@/lib/content";
 import { liveOffer } from "@/lib/offers";
 import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
@@ -25,18 +25,48 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ProductPage({ params }: Params) {
   const [p, formula] = await Promise.all([getProductBySku(params.sku), getPricingFormula()]);
   if (!p) notFound();
-  const [reviews, related] = await Promise.all([getProductReviews(p.id), getRecommendations(p.sku, 4)]);
+  // Reviews + recommendations are secondary — a failure in either must NEVER take down the
+  // whole product page. Degrade gracefully to empty.
+  const [reviews, related] = await Promise.all([
+    getProductReviews(p.id).catch(() => ({ avg: 4.6, count: 0, list: [] as any[], dist: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number> })),
+    getRecommendations(p.sku, 4).catch(() => [] as any[]),
+  ]);
+
+  // Category should always be present (FK), but never let a missing relation 500 the page.
+  const catSlug = p.category?.slug ?? "all";
+  const catName = p.category?.name ?? "Jewellery";
 
   const colors = (p.variants ?? []).map((v) => v.color ?? "").filter(Boolean);
   const content = resolveProductContent({ name: p.name, sku: p.sku, categoryName: p.category?.name, colors, generated_content: p.generated_content });
-  const o = liveOffer(p.base_wholesale, formula, overridesOf(p));
-  const w = resolvePrices(p.base_wholesale, formula, overridesOf(p));
+  const pOv = overridesOf(p);
+  const o = liveOffer(p.base_wholesale, formula, pOv);
+  // Per-variant: its own photo, stock and price (variant override → product override → formula).
+  const variantsForBuy = (p.variants ?? []).map((v: any) => {
+    const vOv = overridesOf(v);
+    const merged = { wholesale: vOv.wholesale ?? pOv.wholesale, retail: vOv.retail ?? pOv.retail, mrp: vOv.mrp ?? pOv.mrp };
+    const vo = liveOffer(p.base_wholesale, formula, merged);
+    const label = [v.color, v.size, v.polish].filter(Boolean).join(" · ") || v.sku;
+    return { sku: v.sku, label, image: (v.image_paths?.[0] ?? null) as string | null, price: vo.price, qty: v.qty ?? 0 };
+  });
+  // Gallery shows AI-generated product photos + every variant photo, all zoomable. The raw upload
+  // (kind 'source'/'flatlay') is kept for the Fix-a-detail editor but never shown to customers.
+  const galleryImages = [
+    ...((p.images ?? []) as any[]).filter((i: any) => isStorefrontImage(i.kind)),
+    ...((p.variants ?? []) as any[]).flatMap((v: any) => (((v.image_paths ?? []) as string[]) || []).map((path) => ({ path, kind: v.color }))),
+  ];
+  // Owner-chosen storefront cover leads the gallery (so the hero matches the card thumbnail).
+  const coverPath = typeof (p as any).thumbnail_path === "string" && (p as any).thumbnail_path.startsWith("http") ? (p as any).thumbnail_path : null;
+  if (coverPath) {
+    const i = galleryImages.findIndex((g: any) => g.path === coverPath);
+    if (i > 0) galleryImages.unshift(galleryImages.splice(i, 1)[0]);
+    else if (i === -1) galleryImages.unshift({ path: coverPath, kind: "cover" });
+  }
   const waText = `Please place an order for ${p.name} (SKU:${p.sku})`;
   const waHref = `https://wa.me/919873151767?text=${encodeURIComponent(waText)}`;
   
 
   const jsonLd = {
-    "@context": "https://schema.org", "@type": "Product", name: p.name, sku: p.sku, category: p.category?.name,
+    "@context": "https://schema.org", "@type": "Product", name: p.name, sku: p.sku, category: catName,
     description: content.seo.metaDescription, keywords: content.seo.keywords.join(", "), brand: { "@type": "Brand", name: "Aggarwal Jewellers" },
     aggregateRating: { "@type": "AggregateRating", ratingValue: reviews.avg, reviewCount: reviews.count },
     offers: { "@type": "Offer", priceCurrency: "INR", price: (o.price / 100).toFixed(2), availability: p.qty > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock" },
@@ -49,29 +79,29 @@ export default async function ProductPage({ params }: Params) {
         <Back label="Back" />
         <nav className="text-xs text-muted">
           <Link href="/shop" className="hover:text-emerald">Home</Link> /{" "}
-          <Link href={`/shop/c/${p.category.slug}`} className="hover:text-emerald">{p.category.name}</Link> / <span className="text-ink">{p.sku}</span>
+          <Link href={`/shop/c/${catSlug}`} className="hover:text-emerald">{catName}</Link> / <span className="text-ink">{p.sku}</span>
         </nav>
       </div>
 
       <div className="grid md:grid-cols-2 gap-10">
-        <div className="animate-fadeIn"><Gallery name={p.name} images={p.images ?? []} /></div>
+        <div className="animate-fadeIn md:sticky md:top-24 self-start"><Gallery name={p.name} images={galleryImages} /></div>
 
         <div className="md:py-2">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-gold-dark">{p.category.name} · {p.sku}</p>
-          <h1 className="font-display text-4xl text-ink mt-1 leading-tight">{content.title}</h1>
-          <div className="mt-3 flex items-center gap-3">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-gold-dark">{catName} · {p.sku}</p>
+          <h1 className="font-display text-4xl text-ink mt-1 leading-snug break-words">{content.title}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <Stars rating={reviews.avg} count={reviews.count} size="md" />
             <a href="#reviews" className="text-xs text-emerald nav-link">Read reviews</a>
           </div>
 
-          <div className="mt-5 flex items-baseline gap-3">
-            <span className="text-3xl font-semibold text-ink">{formatPaise(o.price)}</span>
-            {o.hasOffer && <span className="text-lg text-muted line-through">{formatPaise(o.mrp)}</span>}
-            {o.hasOffer && <span className="text-sm font-semibold text-white bg-rose px-2 py-0.5 rounded-full">{o.offerPct}% OFF</span>}
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="text-3xl font-semibold text-ink leading-none">{formatPaise(o.price)}</span>
+            {o.hasOffer && <span className="text-lg text-muted line-through leading-none">{formatPaise(o.mrp)}</span>}
+            {o.hasOffer && <span className="text-sm font-semibold text-white bg-rose px-2 py-0.5 rounded-full leading-none">{o.offerPct}% OFF</span>}
           </div>
           <p className="text-xs text-muted mt-1">Inclusive of all taxes · You save {formatPaise(o.savings)}</p>
 
-          <BuyBox colors={colors} waText={waText} waHref={waHref} item={{ sku: p.sku, name: p.name, price: o.price, category: p.category.slug }} />
+          <BuyBox variants={variantsForBuy} waText={waText} waHref={waHref} item={{ sku: p.sku, name: p.name, price: o.price, category: catSlug, qty: (p as any).qty }} />
 
           <div className="mt-7 border-t border-sand pt-5">
             <p className="text-ink/80 leading-relaxed">{content.description}</p>
@@ -96,7 +126,6 @@ export default async function ProductPage({ params }: Params) {
               </div>
             </div>
           )}
-          <p className="mt-6 text-xs text-muted">Wholesale rate: {formatPaise(w.wholesaleRate)} · MOQ applies · <Link href="/wholesale" className="text-emerald nav-link">Retailer? See trade pricing</Link></p>
         </div>
       </div>
 

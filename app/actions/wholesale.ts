@@ -18,19 +18,19 @@ function genCode(): string {
 export async function wholesaleLoginAction(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
-  if (!phone || !code) redirect("/wholesale?error=1");
+  if (!phone || !code) redirect("/trade/login?error=1");
   const { data } = await supabaseServer()
     .from("customers").select("id")
     .eq("type", "wholesale").eq("wholesale_approved", true).eq("phone", phone).eq("login_code", code)
     .maybeSingle();
-  if (!data) redirect("/wholesale?error=1");
+  if (!data) redirect("/trade/login?error=1");
   cookies().set("bd_wholesale", (data as any).id, COOKIE);
-  redirect("/wholesale");
+  redirect("/trade");
 }
 
 export async function wholesaleLogoutAction() {
   cookies().set("bd_wholesale", "", { httpOnly: true, path: "/", maxAge: 0 });
-  redirect("/wholesale");
+  redirect("/trade/login");
 }
 
 /** Owner: approve/revoke wholesale access and (re)issue an access code. */
@@ -65,7 +65,7 @@ export async function placeWholesaleOrderAction(items: { sku: string; qty: numbe
   const clean = (items ?? []).filter((i) => i.sku && i.qty > 0).map((i) => ({ sku: i.sku, qty: Math.floor(i.qty) }));
   if (!clean.length) return { ok: false, error: "Enter quantities for at least one product." };
   const sb = supabaseServer();
-  const { data, error } = await sb.rpc("place_wholesale_order", { p_customer: sess.id, p_items: clean });
+  const { data, error } = await sb.rpc("place_wholesale_order", { p_customer: sess.id, p_items: clean, p_allow_oversell: false });
   if (error) return { ok: false, error: error.message };
   const orderId = (data as any)?.order_id;
   if (orderId) await sb.rpc("assign_invoice_no", { p_order: orderId });

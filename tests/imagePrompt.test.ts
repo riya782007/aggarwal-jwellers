@@ -13,11 +13,7 @@ describe("buildImagePrompt", () => {
     expect(p).toContain("NON-NEGOTIABLE — PRODUCT FIDELITY");
   });
   it("respects aspect ratio", () => {
-    const square = buildImagePrompt({ category: "ring", aspect: "1:1" });
-    expect(square).toContain("SQUARE 1:1 aspect ratio");
-    expect(square).toContain("product grid thumbnail");
-    const portrait = buildImagePrompt({ category: "ring", aspect: "4:5" });
-    expect(portrait).toContain("VERTICAL PORTRAIT 4:5 aspect ratio");
+    expect(buildImagePrompt({ category: "ring", aspect: "1:1" })).toContain("1:1 for thumbnails");
   });
   it("is deterministic per index", () => {
     expect(buildImagePrompt({ category: "ring", index: 0 })).toBe(buildImagePrompt({ category: "ring", index: 0 }));

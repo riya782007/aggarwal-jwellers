@@ -2,16 +2,25 @@ export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  getProductBySku, getCategories, getPricingFormula, getSubcategories,
-  getProductSalesStats, getStockHistory,
+  getProductBySku, getCategories, getPricingFormula, getSubcategories, getStyles,
+  getProductSalesStats, getStockHistory, getProductEstimateReservations, getVariantOptions, getLabels, getColorCodeMap,
+  getLastPurchaseCosts,
 } from "@/lib/supabase/queries";
 import { ProductEditor, type EditorProduct } from "@/components/admin/ProductEditor";
 import { ProductWorkspace, type WorkspaceTab, type TabKey } from "@/components/admin/ProductWorkspace";
 import { ProductStockAdjust } from "@/components/admin/ProductStockAdjust";
 import { MediaCard } from "@/components/admin/MediaCard";
+import VariantAiPhoto from "@/components/admin/VariantAiPhoto";
 import { requirePerm, getSession, can } from "@/lib/auth";
 import { addVariantAction, updateVariantAction, deleteVariantAction } from "@/app/actions/variants";
-import { setProductVisibilityAction, moveProductToSubcategoryAction, savePricingAction } from "@/app/actions/catalog";
+import { VariantPhotos } from "@/components/admin/VariantPhotos";
+import { setProductVisibilityAction, moveProductToSubcategoryAction, moveProductToStyleAction, savePricingAction, setWholesaleOnlyAction, toggleProductLabelAction } from "@/app/actions/catalog";
+
+const LABEL_CHIP: Record<string, string> = {
+  emerald: "bg-emerald-mist text-emerald-dark", gold: "bg-gold/15 text-gold-dark",
+  wine: "bg-wine/10 text-wine", rose: "bg-rose/10 text-rose",
+  blue: "bg-blue-50 text-blue-700", ink: "bg-ink/10 text-ink",
+};
 import { formatPaise, computePrices, resolvePrices, overridesOf } from "@/lib/pricing";
 import { geminiConfigured } from "@/lib/ai/gemini";
 
@@ -36,11 +45,22 @@ export default async function ProductPage({ params, searchParams }: { params: { 
   ]);
   if (!p) notFound();
 
-  const [subcategories, stats, history] = await Promise.all([
+  const [subcategories, styles, stats, history, vopts, allLabels, colorCodes, estReservations] = await Promise.all([
     getSubcategories({ categoryId: p.category?.id }),
+    getStyles({ categoryId: p.category?.id }).catch(() => []),
     getProductSalesStats(p.sku).catch(() => null),
     getStockHistory(p.id).catch(() => []),
+    getVariantOptions().catch(() => ({ color: [], size: [], polish: [] })),
+    getLabels().catch(() => []),
+    getColorCodeMap().catch(() => ({} as Record<string, string>)),
+    getProductEstimateReservations(p.id).catch(() => []),
   ]);
+  // Last price this piece was actually bought at (display-only, for the owner's margin reference).
+  const lastCosts: { byProduct: Record<string, number>; byVariant: Record<string, number> } =
+    await getLastPurchaseCosts().catch(() => ({ byProduct: {}, byVariant: {} }));
+  const lastCostPaise: number | undefined = lastCosts.byProduct[p.id]
+    ?? (p.variants ?? []).map((v: any) => lastCosts.byVariant[v.id]).find((c: number | undefined) => typeof c === "number");
+  const labelIds = new Set((((p as any).product_labels as any[]) ?? []).map((x) => x.label_id));
 
   const session = getSession();
   const gc = (p.generated_content as any) ?? {};
@@ -65,8 +85,17 @@ export default async function ProductPage({ params, searchParams }: { params: { 
     categorySlug: p.category?.slug ?? "all",
     type: p.type,
     status: p.status,
+    // Visibility/labels surface the same data the dedicated Catalog tab toggles
+    // already control, so the unified ProductEditor form opens prefilled.
+    visibility: (p as any).retail_only ? "retail" : (p as any).wholesale_only ? "wholesale" : "all",
+    labels: (allLabels as any[])
+      .filter((l) => labelIds.has(l.id))
+      .map((l) => l.name)
+      .join(", "),
     basePriceRupees: Math.round((p.base_wholesale ?? 0) / 100),
-    qty: p.qty ?? 0,
+    // Configurable products carry their stock on the variants — show the live sum, not the (possibly
+    // stale) product-row qty, so the read-only Basic-tab total always matches the Variants tab.
+    qty: p.type === "configurable" ? variantStock : (p.qty ?? 0),
     title: gc.title ?? p.name,
     description: gc.description ?? "",
     tags: tags.join("\n"),
@@ -82,7 +111,16 @@ export default async function ProductPage({ params, searchParams }: { params: { 
     <ProductEditor
       product={product}
       categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))}
-      formula={{ retailMultiplier: formula.retailMultiplier, mrpMultiplier: formula.mrpMultiplier, wholesaleMarkupPct: formula.wholesaleMarkupPct }}
+      formula={formula}
+      effective={(() => {
+        const eff = resolvePrices(p.base_wholesale ?? 0, formula, overridesOf(p));
+        return {
+          retail: Math.round(eff.retailPrice / 100),
+          mrp: Math.round(eff.mrp / 100),
+          wholesale: Math.round(eff.wholesaleRate / 100),
+          custom: !!((p as any).wholesale_override || (p as any).retail_override || (p as any).mrp_override),
+        };
+      })()}
     />
   );
 
@@ -102,6 +140,13 @@ export default async function ProductPage({ params, searchParams }: { params: { 
           <div className="rounded-xl bg-cream/60 p-4"><p className="text-xs uppercase tracking-wide text-muted">Wholesale {prodOv.wholesale ? "· custom" : ""}</p><p className="text-2xl font-semibold text-ink mt-1">{formatPaise(effective.wholesaleRate)}</p><p className="text-[11px] text-muted">what retailers pay</p></div>
           <div className="rounded-xl bg-emerald-mist/50 p-4"><p className="text-xs uppercase tracking-wide text-muted">Retail {prodOv.retail ? "· custom" : ""}</p><p className="text-2xl font-semibold text-emerald-dark mt-1">{formatPaise(effective.retailPrice)}</p><p className="text-[11px] text-muted">shop selling price</p></div>
           <div className="rounded-xl bg-gold/10 p-4"><p className="text-xs uppercase tracking-wide text-muted">MRP {prodOv.mrp ? "· custom" : ""}</p><p className="text-2xl font-semibold text-gold-dark mt-1">{formatPaise(effective.mrp)}</p><p className="text-[11px] text-muted">printed price</p></div>
+        </div>
+        {/* Last purchase cost — display only, so the owner can see margin at a glance. */}
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-ink/5 px-4 py-2.5 text-sm">
+          <span className="text-xs uppercase tracking-wide text-muted">Last purchase cost</span>
+          {typeof lastCostPaise === "number"
+            ? <><span className="font-semibold text-ink">{formatPaise(lastCostPaise)}</span><span className="text-[11px] text-muted">what you last bought this at</span></>
+            : <span className="text-muted">No purchase recorded yet — record one under Purchases.</span>}
         </div>
       </div>
 
@@ -148,9 +193,13 @@ export default async function ProductPage({ params, searchParams }: { params: { 
 
   const inventory = (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className={card}><p className="text-xs uppercase tracking-wide text-muted">In stock</p><p className={`text-2xl font-semibold mt-1 ${p.qty <= 2 ? "text-rose" : "text-ink"}`}>{p.qty}</p></div>
-        <div className={card}><p className="text-xs uppercase tracking-wide text-muted">Variant stock</p><p className="text-2xl font-semibold text-ink mt-1">{variantStock}</p></div>
+      <div className="grid grid-cols-2 gap-3">
+        {/* One stock figure only: for a product WITH variants the total IS the sum of its variants,
+            so we show a single "Total stock" card instead of the confusing duplicate (owner's note). */}
+        <div className={card}>
+          <p className="text-xs uppercase tracking-wide text-muted">{variants.length > 0 ? "Total stock (all variants)" : "In stock"}</p>
+          <p className={`text-2xl font-semibold mt-1 ${(variants.length > 0 ? variantStock : p.qty) <= 2 ? "text-rose" : "text-ink"}`}>{variants.length > 0 ? variantStock : p.qty}</p>
+        </div>
         <div className={card}><p className="text-xs uppercase tracking-wide text-muted">Status</p><p className={`text-lg font-semibold mt-1 ${published ? "text-emerald-dark" : "text-gold-dark"}`}>{published ? "Visible" : "Hidden"}</p></div>
       </div>
       {can(session, "inventory.add") || can(session, "inventory.remove")
@@ -181,31 +230,86 @@ export default async function ProductPage({ params, searchParams }: { params: { 
     </div>
   );
 
+  const vInput = "rounded-xl border border-sand px-3 py-2 text-sm outline-none focus:border-emerald";
   const variantsPanel = (
     <div className={card}>
-      <h3 className="font-medium text-ink mb-1">Variants</h3>
-      <p className="text-xs text-muted mb-4">Colour/size options — each gets its own SKU and stock. Variant stock total: <b className="text-ink">{variantStock}</b> pcs.</p>
-      <div className="space-y-2 mb-4">
-        {variants.length === 0 && <p className="text-sm text-muted">No variants yet — this is a simple product.</p>}
-        {variants.map((v: any) => (
-          <form key={v.id} action={updateVariantAction} className="flex flex-wrap items-center gap-2">
-            <input type="hidden" name="id" value={v.id} />
-            <input type="hidden" name="product_sku" value={p.sku} />
-            <input name="color" defaultValue={v.color ?? ""} placeholder="Colour / size" className="rounded-xl border border-sand px-3 py-2 text-sm w-36 outline-none focus:border-emerald" />
-            <input name="sku" defaultValue={v.sku ?? ""} placeholder="Variant SKU" className="rounded-xl border border-sand px-3 py-2 text-sm w-40 outline-none focus:border-emerald font-mono" />
-            <label className="text-xs text-muted flex items-center gap-1">Stock <input name="qty" type="number" min={0} defaultValue={v.qty ?? 0} className="rounded-xl border border-sand px-2 py-2 text-sm w-20 text-center outline-none focus:border-emerald" /></label>
-            <button className="px-3 py-2 rounded-xl bg-ink/5 text-ink text-xs hover:bg-ink/10">Save</button>
-            <button formAction={deleteVariantAction} className="text-muted hover:text-rose text-xs">Delete</button>
-          </form>
-        ))}
+      {/* Datalists power as-you-type suggestions; typing a brand-new value grows the master list. */}
+      <datalist id="opt-color">{vopts.color.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="opt-size">{vopts.size.map((o) => <option key={o} value={o} />)}</datalist>
+      <datalist id="opt-polish">{vopts.polish.map((o) => <option key={o} value={o} />)}</datalist>
+
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h3 className="font-medium text-ink">Variants</h3>
+        {can(session, "catalog.ai") && (
+          <Link href={`/admin/media/${(p as any).id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ink text-white text-xs hover:bg-ink/90">✦ Open AI Studio</Link>
+        )}
       </div>
-      <form action={addVariantAction} className="flex flex-wrap items-center gap-2 border-t border-sand/60 pt-4">
+      <p className="text-xs text-muted mb-4">Each variant has its own <b>colour, size &amp; polish</b>, SKU, stock and photos. Variant stock total: <b className="text-ink">{variantStock}</b> pcs. Generate a <b>model photo + a branded on-stand photo per colour</b> in the <Link href={`/admin/media/${(p as any).id}`} className="text-emerald nav-link">AI Studio →</Link>. SKUs auto-generate as <code className="bg-cream px-1 rounded">{`${p.sku}-{colourCode}`}</code> — see your <Link href="/admin/colours" className="text-emerald nav-link">Colours master</Link> for the codes.</p>
+
+      <div className="space-y-4 mb-4">
+        {variants.length === 0 && <p className="text-sm text-muted">No variants yet — this is a simple product.</p>}
+        {variants.map((v: any) => {
+          const imgs: string[] = v.image_paths ?? [];
+          // Pillar 11 — what the canonical SKU WOULD be (if the owner clears the SKU
+          // field and saves). Shown below the row when it differs from the stored SKU,
+          // so the owner can spot variants printing the legacy 5-char truncation and
+          // normalise them in one click.
+          const canonicalColorCode = v.color ? (colorCodes[String(v.color).toLowerCase()] ?? null) : null;
+          const canonicalSku = canonicalColorCode
+            ? `${p.sku}-${[canonicalColorCode,
+                v.size ? String(v.size).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) : null,
+                v.polish ? String(v.polish).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) : null,
+              ].filter(Boolean).join("-")}`
+            : null;
+          const needsNormalise = !!canonicalSku && canonicalSku !== v.sku;
+          return (
+            <div key={v.id} className="rounded-xl border border-sand/70 p-3">
+              <form action={updateVariantAction} className="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="id" value={v.id} />
+                <input type="hidden" name="product_sku" value={p.sku} />
+                <label className="text-[11px] text-muted">Colour<input name="color" list="opt-color" defaultValue={v.color ?? ""} placeholder="Colour" className={`${vInput} w-28 block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">Size<input name="size" list="opt-size" defaultValue={v.size ?? ""} placeholder="Size" className={`${vInput} w-24 block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">Polish<input name="polish" list="opt-polish" defaultValue={v.polish ?? ""} placeholder="Polish" className={`${vInput} w-28 block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">SKU<input name="sku" defaultValue={v.sku ?? ""} placeholder="auto" className={`${vInput} w-32 block mt-0.5 font-mono`} /></label>
+                <label className="text-[11px] text-muted">Stock<input name="qty" type="number" min={0} defaultValue={v.qty ?? 0} className={`${vInput} w-14 text-center block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">Retail ₹<input name="retail" type="number" min={0} step="0.01" defaultValue={v.retail_override != null ? (v.retail_override / 100).toFixed(2) : ""} placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">Wholesale ₹<input name="wholesale" type="number" min={0} step="0.01" defaultValue={v.wholesale_override != null ? (v.wholesale_override / 100).toFixed(2) : ""} placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
+                <label className="text-[11px] text-muted">MRP ₹<input name="mrp" type="number" min={0} step="0.01" defaultValue={v.mrp_override != null ? (v.mrp_override / 100).toFixed(2) : ""} placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
+                <button className="px-3 py-2 rounded-xl bg-ink/5 text-ink text-xs hover:bg-ink/10">Save</button>
+                <button formAction={deleteVariantAction} className="text-muted hover:text-rose text-xs px-1">Delete</button>
+              </form>
+              {/* Per-variant photos (#16) — reliable client uploader (compress + feedback, fixes large/HEIC) */}
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                <VariantPhotos variantId={v.id} productSku={p.sku} color={v.color ?? null} images={imgs} />
+                {can(session, "catalog.ai") && <VariantAiPhoto variantId={v.id} color={v.color ?? null} size={v.size ?? null} polish={v.polish ?? null} />}
+              </div>
+              {/* Pillar 11 — canonical-SKU hint. If the stored SKU is from the old
+                  5-char-truncation era, show the canonical form the system would now
+                  generate, so the owner can clear the SKU field above and save to align it. */}
+              {needsNormalise && (
+                <p className="mt-2 text-[11px] text-gold-dark">
+                  Tip: this variant prints <span className="font-mono">{v.sku}</span>; the canonical barcode would be{" "}
+                  <span className="font-mono text-ink">{canonicalSku}</span> — clear the SKU field and Save to switch.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <form action={addVariantAction} className="flex flex-wrap items-end gap-2 border-t border-sand/60 pt-4">
         <input type="hidden" name="product_sku" value={p.sku} />
-        <input name="color" placeholder="New colour / size *" className="rounded-xl border border-sand px-3 py-2 text-sm w-44 outline-none focus:border-emerald" required />
-        <input name="sku" placeholder="SKU (blank = auto)" className="rounded-xl border border-sand px-3 py-2 text-sm w-44 outline-none focus:border-emerald font-mono" />
-        <label className="text-xs text-muted flex items-center gap-1">Stock <input name="qty" type="number" min={0} defaultValue={0} className="rounded-xl border border-sand px-2 py-2 text-sm w-20 text-center outline-none focus:border-emerald" /></label>
+        <label className="text-[11px] text-muted">Colour<input name="color" list="opt-color" placeholder="e.g. Green" className={`${vInput} w-28 block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">Size<input name="size" list="opt-size" placeholder="e.g. 2.6" className={`${vInput} w-24 block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">Polish<input name="polish" list="opt-polish" placeholder="e.g. Oxidised" className={`${vInput} w-28 block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">SKU<input name="sku" placeholder="blank = auto" className={`${vInput} w-32 block mt-0.5 font-mono`} /></label>
+        <label className="text-[11px] text-muted">Stock<input name="qty" type="number" min={0} defaultValue={0} className={`${vInput} w-14 text-center block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">Retail ₹<input name="retail" type="number" min={0} step="0.01" placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">Wholesale ₹<input name="wholesale" type="number" min={0} step="0.01" placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">MRP ₹<input name="mrp" type="number" min={0} step="0.01" placeholder="auto" className={`${vInput} w-20 text-right block mt-0.5`} /></label>
         <button className="btn-primary px-4 py-2 text-sm font-medium">+ Add variant</button>
       </form>
+      <p className="text-[11px] text-muted mt-2">At least one of colour / size / polish is required. Leave a price <b>blank</b> to use the automatic formula price; enter a value to set that colour&apos;s own retail / wholesale / MRP. Add photos so the storefront shows the right piece per option.</p>
     </div>
   );
 
@@ -223,6 +327,15 @@ export default async function ProductPage({ params, searchParams }: { params: { 
             </form>
           )}
         </div>
+        {/* #1 wholesale-only */}
+        <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-sand/60">
+          <p className="text-sm text-muted">{(p as any).wholesale_only ? "Wholesale only — hidden from the D2C storefront, shown to approved retailers." : "Sold to everyone (retail + wholesale)."}</p>
+          <form action={setWholesaleOnlyAction}>
+            <input type="hidden" name="sku" value={p.sku} />
+            <input type="hidden" name="wholesale_only" value={(p as any).wholesale_only ? "0" : "1"} />
+            <button className="px-4 py-2 rounded-full bg-wine/10 text-wine text-sm hover:bg-wine/20 whitespace-nowrap">{(p as any).wholesale_only ? "Make available to all" : "Wholesale only"}</button>
+          </form>
+        </div>
       </div>
 
       <div className={card}>
@@ -230,6 +343,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
         <p className="text-xs text-muted mb-3">Parent: <b className="text-ink">{p.category?.name ?? "—"}</b>. Assign a subcategory so it shows in nested filters and subcategory catalogues.</p>
         <form action={moveProductToSubcategoryAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="sku" value={p.sku} />
+          <span className="text-xs text-muted">Type</span>
           <select name="subcategory_id" defaultValue={(p as any).subcategory_id ?? ""} className="rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald">
             <option value="">— None (parent only) —</option>
             {subcategories.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -237,6 +351,41 @@ export default async function ProductPage({ params, searchParams }: { params: { 
           <button className="px-4 py-2 rounded-xl bg-ink/5 text-ink text-sm hover:bg-ink/10">Save</button>
           {subcategories.length === 0 && <span className="text-xs text-muted">No subcategories under {p.category?.name ?? "this category"} yet — add some in Categories.</span>}
         </form>
+        {/* Style — the 2nd filter dimension (Choker, Long Necklace…). */}
+        <form action={moveProductToStyleAction} className="flex flex-wrap items-center gap-2 mt-2">
+          <input type="hidden" name="sku" value={p.sku} />
+          <span className="text-xs text-muted">Style</span>
+          <select name="style_id" defaultValue={(p as any).style_id ?? ""} className="rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald">
+            <option value="">— No style —</option>
+            {styles.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <button className="px-4 py-2 rounded-xl bg-ink/5 text-ink text-sm hover:bg-ink/10">Save</button>
+          {styles.length === 0 && <span className="text-xs text-muted">No styles under {p.category?.name ?? "this category"} yet — add some in Categories.</span>}
+        </form>
+      </div>
+
+      <div className={card}>
+        <h3 className="font-medium text-ink mb-1">Labels</h3>
+        <p className="text-xs text-muted mb-3">Stick your own labels on this product. Create new ones in <Link href="/admin/categories" className="text-emerald nav-link">Categories</Link>.</p>
+        {allLabels.length === 0 ? (
+          <p className="text-sm text-muted">No labels yet — add some in Categories.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {allLabels.map((l: any) => {
+              const on = labelIds.has(l.id);
+              return (
+                <form key={l.id} action={toggleProductLabelAction}>
+                  <input type="hidden" name="sku" value={p.sku} />
+                  <input type="hidden" name="label_id" value={l.id} />
+                  <input type="hidden" name="on" value={on ? "0" : "1"} />
+                  <button className={`inline-flex items-center gap-1 rounded-full text-xs px-3 py-1.5 border transition-all ${on ? `${LABEL_CHIP[l.color] ?? LABEL_CHIP.emerald} border-transparent` : "bg-white text-muted border-sand hover:border-gold"}`}>
+                    {on ? "✓ " : "+ "}{l.name}
+                  </button>
+                </form>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className={card}>
@@ -273,15 +422,36 @@ export default async function ProductPage({ params, searchParams }: { params: { 
               <li key={i} className="py-2.5 flex items-center justify-between gap-3 text-sm">
                 <span className={`font-medium tabular-nums ${h.delta > 0 ? "text-emerald-dark" : "text-rose"}`}>{h.delta > 0 ? "+" : ""}{h.delta}</span>
                 <span className="flex-1 text-ink truncate">
-                  {h.kind && <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded mr-1.5 ${h.kind === "damage" ? "bg-rose/10 text-rose" : h.kind === "purchase" ? "bg-emerald-mist text-emerald-dark" : "bg-cream text-muted"}`}>{h.kind}</span>}
+                  {h.kind && <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded mr-1.5 ${h.kind === "damage" ? "bg-rose/10 text-rose" : h.kind === "purchase" ? "bg-emerald-mist text-emerald-dark" : h.kind === "sale" ? "bg-gold/15 text-gold-dark" : "bg-cream text-muted"}`}>{h.kind}</span>}
                   {h.source ?? "Adjustment"}{h.reason ? <span className="text-muted"> — {h.reason}</span> : null}
                 </span>
+                {(h as any).ref_id && (h.kind === "sale" || h.kind === "purchase") ? (
+                  <Link href={h.kind === "sale" ? `/admin/invoice/${(h as any).ref_id}` : `/admin/purchase/${(h as any).ref_id}`} className="text-emerald nav-link whitespace-nowrap text-xs">
+                    {h.kind === "sale" ? "View bill →" : "View purchase →"}
+                  </Link>
+                ) : null}
                 <span className="text-muted whitespace-nowrap">{timeAgo(h.created_at)}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
+      {estReservations.length > 0 && (
+        <div className={card}>
+          <h3 className="font-medium text-ink mb-1">🔖 Reserved by open estimates</h3>
+          <p className="text-xs text-muted mb-3">Soft holds — this stock only moves when the estimate is billed.</p>
+          <ul className="divide-y divide-sand/60">
+            {estReservations.map((e) => (
+              <li key={e.id} className="py-2 flex items-center justify-between gap-3 text-sm">
+                <Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link">EST-{String(e.id).slice(0, 8).toUpperCase()} →</Link>
+                <span className="flex-1 text-muted truncate">{e.customer || "Walk-in"}</span>
+                <span className="text-gold-dark font-semibold whitespace-nowrap">{e.qty} pcs held</span>
+                <span className="text-muted whitespace-nowrap">{timeAgo(e.created_at)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 

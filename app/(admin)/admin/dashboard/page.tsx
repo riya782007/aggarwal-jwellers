@@ -1,21 +1,14 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getDashboardData, getDashboardAnalytics } from "@/lib/supabase/queries";
+import { getDashboardData, getDashboardAnalytics, getChannelReport } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { AnimatedNumber } from "@/components/admin/AnimatedNumber";
+import { BarChart } from "@/components/admin/BarChart";
+import { Donut } from "@/components/admin/Donut";
+import { ExpandableReport } from "@/components/admin/ExpandableReport";
 
-/**
- * Home — designed for an older, non-technical owner.
- * Rules: one screen, no charts to decode, no date pickers.
- * Three questions answered at a glance:
- *   1. Aaj kitna bika?  2. Kaunsa maal khatam ho raha hai?  3. Ab kya karna hai?
- */
-
-const PRESETS = [
-  { key: "today", label: "Aaj", hindi: "आज" },
-  { key: "week", label: "Is Hafte", hindi: "इस हफ़्ते" },
-  { key: "month", label: "Is Mahine", hindi: "इस महीने" },
-];
+const CH_LABEL: Record<string, string> = { retail: "Online retail", wholesale: "Wholesale", pos: "Counter (POS)" };
+const PRESETS = [{ key: "today", label: "Today" }, { key: "week", label: "This week" }, { key: "month", label: "This month" }];
 
 function presetRange(preset: string): { from: string; to: string } {
   const now = new Date();
@@ -26,114 +19,153 @@ function presetRange(preset: string): { from: string; to: string } {
   return { from: start.toISOString(), to: now.toISOString() };
 }
 
-/** Big tappable action — the owner's whole day in four buttons. */
-function BigAction({ href, icon, label, hindi, accent }: { href: string; icon: string; label: string; hindi: string; accent?: boolean }) {
+function Tile({ label, children, sub, accent, icon, bar }: { label: string; children: React.ReactNode; sub?: string; accent?: string; icon?: string; bar?: string }) {
   return (
-    <Link href={href}
-      className={`flex items-center gap-4 rounded-2xl p-5 sm:p-6 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-luxe active:scale-[0.99] ${accent ? "bg-emerald text-white" : "bg-white text-ink"}`}>
-      <span className="text-4xl leading-none">{icon}</span>
-      <span className="min-w-0">
-        <span className="block text-xl font-semibold leading-tight">{label}</span>
-        <span className={`block text-sm mt-0.5 ${accent ? "text-white/75" : "text-muted"}`}>{hindi}</span>
-      </span>
-      <span className={`ml-auto text-2xl ${accent ? "text-white/70" : "text-gold-dark"}`}>›</span>
-    </Link>
-  );
-}
-
-function BigNumber({ label, hindi, children, sub, tone }: { label: string; hindi: string; children: React.ReactNode; sub?: string; tone?: "good" | "warn" | "bad" }) {
-  const color = tone === "good" ? "text-emerald" : tone === "warn" ? "text-gold-dark" : tone === "bad" ? "text-rose" : "text-ink";
-  const bar = tone === "good" ? "bg-emerald" : tone === "warn" ? "bg-gold-dark" : tone === "bad" ? "bg-rose" : "bg-sand";
-  return (
-    <div className="relative bg-white rounded-2xl p-5 sm:p-6 shadow-card overflow-hidden">
-      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${bar}`} />
-      <p className="text-[15px] text-muted">{label} <span className="text-muted/70">· {hindi}</span></p>
-      <p className={`text-4xl font-semibold mt-2 count-tabular ${color}`}>{children}</p>
-      {sub && <p className="text-[15px] text-muted mt-1.5">{sub}</p>}
+    <div className="relative bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe transition-all hover:-translate-y-0.5 overflow-hidden">
+      <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar ?? "bg-emerald"}`} />
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+        {icon && <span className="text-gold-dark/70 text-lg">{icon}</span>}
+      </div>
+      <p className={`text-2xl font-semibold mt-1 ${accent ?? "text-ink"}`}>{children}</p>
+      {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
     </div>
   );
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: { preset?: string; denied?: string } }) {
-  const preset = PRESETS.find((p) => p.key === searchParams.preset)?.key ?? "today";
-  const { from, to } = presetRange(preset);
-  const [d, a] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to)]);
-  const label = PRESETS.find((p) => p.key === preset)!;
+export default async function Dashboard({ searchParams }: { searchParams: { preset?: string; from?: string; to?: string; denied?: string } }) {
+  const custom = !!(searchParams.from && searchParams.to);
+  const preset = PRESETS.find((p) => p.key === searchParams.preset)?.key ?? (custom ? "custom" : "month");
+  // Interpret the picked dates as IST (the business runs in India). Without a fixed offset
+  // the server's own timezone shifted the day boundaries, so a selected range could miss a
+  // day's orders or appear empty. +05:30 pins the range to the Indian business day.
+  const r = custom
+    ? { from: new Date(searchParams.from + "T00:00:00+05:30").toISOString(), to: new Date(searchParams.to + "T23:59:59+05:30").toISOString() }
+    : presetRange(preset);
+  const { from, to } = r;
+  // Always prefill the pickers with the active window (even for presets) so the
+  // owner can see exactly which dates the figures cover — the earlier blank-box confusion.
+  const fromDate = searchParams.from ?? from.slice(0, 10);
+  const toDate = searchParams.to ?? to.slice(0, 10);
+  const [d, a, report] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to)]);
+  const label = custom
+    ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+    : (PRESETS.find((p) => p.key === preset)?.label ?? "This month");
+  const sel = "rounded-lg border border-sand bg-white px-2.5 py-1.5 text-sm outline-none focus:border-emerald";
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "Suprabhat" : hour < 17 ? "Namaste" : "Shubh Sandhya";
+  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <main className="admin-shell p-4 sm:p-8 bg-cream/40 min-h-screen max-w-6xl">
+    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
       {searchParams.denied && (
-        <div className="mb-4 rounded-xl bg-rose/10 text-rose px-4 py-3 text-[15px]">Aapke paas <b>{searchParams.denied}</b> ka access nahi hai. Malik se poochhiye.</div>
+        <div className="mb-4 rounded-xl bg-rose/10 text-rose px-4 py-2.5 text-sm">Your role doesn't have access to <b>{searchParams.denied}</b>. Ask the owner if you need it.</div>
       )}
-
-      {/* Greeting + period pills */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-4xl sm:text-5xl text-ink">{greet} 🙏</h1>
-          <p className="text-[15px] text-muted mt-1">Aggarwal Jewellers · Sadar Bazar</p>
+      {/* Hero */}
+      <div className="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-ink via-[#5A1620] to-emerald-dark text-cream p-6 sm:p-8 shadow-luxe">
+        <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-gold/20 blur-2xl" />
+        <div className="absolute right-20 bottom-0 w-32 h-32 rounded-full bg-emerald/30 blur-2xl" />
+        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">Owner Console</p>
+            <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Aggarwal</h1>
+            <p className="text-sm text-cream/70 mt-1">Showing <b className="text-ivory">{label}</b> · live from your catalogue &amp; orders</p>
+            <p className="text-2xl font-semibold text-ivory mt-3"><span className="sensitive">{formatPaise(d.revenue)}</span> <span className="text-sm font-normal text-cream/60">in revenue · {d.orders} orders</span></p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 bg-white/10 rounded-full p-1">
+              {PRESETS.map((p) => (
+                <a key={p.key} href={`/admin/dashboard?preset=${p.key}`}
+                  className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${!custom && preset === p.key ? "bg-ivory text-ink" : "text-cream/80 hover:text-white"}`}>{p.label}</a>
+              ))}
+            </div>
+            <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white/10 rounded-full p-1.5">
+              <input type="date" name="from" defaultValue={fromDate} className={`${sel} bg-white/90`} />
+              <span className="text-cream/60 text-xs">→</span>
+              <input type="date" name="to" defaultValue={toDate} className={`${sel} bg-white/90`} />
+              <button className="px-3 py-1.5 rounded-full bg-gold text-ink text-sm font-medium">Apply</button>
+            </form>
+          </div>
         </div>
-        <div className="flex gap-1.5 bg-white rounded-full p-1.5 shadow-card self-start sm:self-auto">
-          {PRESETS.map((p) => (
-            <a key={p.key} href={`/admin/dashboard?preset=${p.key}`}
-              className={`px-5 py-2.5 rounded-full text-[16px] font-medium transition-colors ${preset === p.key ? "bg-ink text-ivory" : "text-ink/70 hover:bg-cream"}`}>
-              {p.label}
-            </a>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <Tile label="Revenue" icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} orders`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
+        <Tile label="Orders" icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
+        <Tile label="Approved Retailers" icon="♚" bar="bg-wine" sub={`${d.pendingApprovals} pending`}><AnimatedNumber value={d.retailers} /></Tile>
+        <Tile label="Pending Approvals" icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
+      </div>
+
+      {/* Collections split — cash in hand vs bank/UPI (#14/#37) */}
+      <div className="grid grid-cols-2 gap-4 mb-5 sensitive">
+        <Tile label="Cash collected" icon="₹" accent="text-emerald" bar="bg-emerald" sub="counter cash">{formatPaise(d.cashCollected)}</Tile>
+        <Tile label="UPI / Bank collected" icon="🏦" bar="bg-wine" sub="online & card">{formatPaise(d.bankCollected)}</Tile>
+      </div>
+
+      {/* Expandable channel reports — headline number, click to see the full report for the range */}
+      <div className="mb-5">
+        <p className="text-sm text-muted mb-2">Sales by channel — <span className="text-ink">tap any card to expand the full report for {label.toLowerCase()}</span></p>
+        <div className="grid md:grid-cols-3 gap-4 sensitive">
+          {report.channels.map((c) => (
+            <ExpandableReport key={c.channel} title={CH_LABEL[c.channel] ?? c.channel} channelKey={c.channel}
+              revenue={c.revenue} count={c.count} orders={c.orders} from={fromDate} to={toDate}
+              accent={c.channel === "pos" ? "text-emerald" : undefined} />
           ))}
         </div>
       </div>
 
-      {/* The three numbers that matter */}
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        <BigNumber label={`${label.label} ki Bikri`} hindi="बिक्री" tone="good" sub={`${d.orders} bill bane`}>
-          <AnimatedNumber value={d.revenue / 100} prefix="₹" />
-        </BigNumber>
-        <BigNumber label="Kam Stock" hindi="कम माल" tone={d.low ? "warn" : undefined} sub={d.low ? "jaldi mangwana hai" : "sab theek hai ✓"}>
-          <AnimatedNumber value={d.low} />
-        </BigNumber>
-        <BigNumber label="Ruka hua Maal" hindi="नहीं बिक रहा" tone={d.dead ? "bad" : undefined} sub={d.dead ? "paisa fasa hai — clearance karein" : "kuch nahi ✓"}>
-          <AnimatedNumber value={d.dead} />
-        </BigNumber>
-      </div>
-
-      {/* What do you want to do? */}
-      <p className="text-[15px] text-muted mb-2.5">Kya karna hai? <span className="text-muted/70">· क्या करना है?</span></p>
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <BigAction href="/admin/billing" icon="🧾" label="Naya Bill Banao" hindi="नया बिल बनाओ" accent />
-        <BigAction href="/admin/upload" icon="➕" label="Naya Maal Jodo" hindi="नया माल जोड़ो" />
-        <BigAction href="/admin/inventory" icon="📦" label="Stock Dekho" hindi="माल देखो" />
-        <BigAction href="/catalog" icon="📤" label="Catalogue Bhejo" hindi="कैटलॉग भेजो" />
-      </div>
-
-      {/* Simple lists — no charts to decode */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-ink mb-1">⭐ Sabse zyada bik raha hai</h2>
-          <p className="text-sm text-muted mb-4">{label.label.toLowerCase()} ke top sellers</p>
-          <ul className="divide-y divide-sand/60">
-            {a.topProducts.length === 0 ? <li className="py-3 text-muted text-[15px]">Abhi koi bikri nahi hui.</li> : a.topProducts.map((p) => (
-              <li key={p.name} className="flex justify-between items-center py-3 text-[16px]">
-                <span className="truncate pr-3">{p.name}</span>
-                <span className="text-emerald font-semibold whitespace-nowrap">{formatPaise(p.revenue)}</span>
-              </li>
-            ))}
-          </ul>
-          <Link href="/admin/sales" className="inline-block mt-4 text-[15px] text-emerald nav-link">Poora hisaab dekho →</Link>
+      <div className="grid lg:grid-cols-3 gap-4 mb-5 sensitive">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-medium text-ink">Revenue trend</h2>
+            <span className="text-xs text-muted">8 weeks</span>
+          </div>
+          <BarChart data={a.weekly} />
         </div>
-
         <div className="bg-white rounded-2xl p-6 shadow-card">
-          <h2 className="text-lg font-semibold text-rose mb-1">🔴 Ruka hua maal</h2>
-          <p className="text-sm text-muted mb-4">bahut dino se nahi bika — dhyaan dijiye</p>
-          <ul className="divide-y divide-sand/60">
-            {d.deadList.length === 0 ? <li className="py-3 text-muted text-[15px]">Kuch nahi rukha 🎉</li> : d.deadList.map((p) => (
-              <li key={p.sku} className="flex justify-between items-center py-3 text-[16px]">
-                <span className="truncate pr-3">{p.name}</span>
-                <span className="text-muted whitespace-nowrap">{p.qty} pcs</span>
-              </li>
+          <h2 className="font-medium text-ink mb-4">Sales by channel</h2>
+          <Donut data={a.channels.map((c) => ({ label: c.channel, value: c.revenue }))} />
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4 mb-5">
+        <Tile label="Total Products" sub={`${d.newProducts} new`}><AnimatedNumber value={d.totalProducts} /></Tile>
+        <Tile label="Categories"><AnimatedNumber value={d.categories} /></Tile>
+        <Tile label="Dead Stock" accent={d.dead ? "text-rose" : undefined} sub="no movement · capital tied up"><AnimatedNumber value={d.dead} /></Tile>
+        <Tile label="Low Stock" accent={d.low ? "text-gold-dark" : undefined} sub="at/under reorder level"><AnimatedNumber value={d.low} /></Tile>
+        <Tile label="Inactive" accent={d.inactive ? "text-muted" : undefined} sub="never sold"><AnimatedNumber value={d.inactive} /></Tile>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-6 shadow-card sensitive">
+          <h2 className="font-medium text-ink mb-4">Revenue by category</h2>
+          <div className="space-y-3">
+            {a.categories.map((c, i) => {
+              const max = Math.max(1, ...a.categories.map((x) => x.revenue));
+              return (
+                <div key={c.name}>
+                  <div className="flex justify-between text-sm mb-1"><span className="text-ink/80">{c.name}</span><span className="text-muted">{formatPaise(c.revenue)}</span></div>
+                  <div className="h-2.5 rounded-full bg-cream overflow-hidden"><div className="h-full bar-grow bg-gradient-to-r from-emerald to-gold" style={{ width: `${(c.revenue / max) * 100}%`, animationDelay: `${i * 90}ms` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-6 shadow-card">
+          <h2 className="font-medium text-rose mb-4">🔴 Dead stock — act now</h2>
+          <ul className="text-sm divide-y divide-sand/60">
+            {d.deadList.length === 0 ? <li className="py-2 text-muted">None 🎉</li> : d.deadList.map((p) => (
+              <li key={p.sku} className="flex justify-between py-2"><span>{p.name}</span><span className="text-muted">{p.qty} pcs</span></li>
             ))}
           </ul>
-          <Link href="/admin/inventory" className="inline-block mt-4 text-[15px] text-emerald nav-link">Poora stock dekho →</Link>
+        </div>
+        <div className="bg-white rounded-2xl p-6 shadow-card sensitive">
+          <h2 className="font-medium text-gold-dark mb-4">⭐ Top sellers</h2>
+          <ul className="text-sm divide-y divide-sand/60">
+            {a.topProducts.map((p) => (
+              <li key={p.name} className="flex justify-between py-2"><span className="truncate pr-2">{p.name}</span><span className="text-emerald font-medium whitespace-nowrap">{formatPaise(p.revenue)}</span></li>
+            ))}
+          </ul>
+          <Link href="/admin/inventory" className="block mt-4 text-sm text-emerald nav-link">View full inventory →</Link>
         </div>
       </div>
     </main>

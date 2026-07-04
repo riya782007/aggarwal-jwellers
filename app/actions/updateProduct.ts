@@ -52,7 +52,14 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
   const type = String(formData.get("type") ?? "simple");
   const status = String(formData.get("status") ?? "published");
   const basePriceRupees = Number(formData.get("base_price_rupees") ?? 0);
-  const qty = Math.max(0, Math.floor(Number(formData.get("qty") ?? 0)));
+  let qty = Math.max(0, Math.floor(Number(formData.get("qty") ?? 0)));
+  // For a CONFIGURABLE (colours) product, stock lives on each variant — the product total is the
+  // SUM of its variants and is edited per-colour on the Variants tab. So never overwrite it with the
+  // Basic-tab number (that would desync the total from the real per-colour stock); recompute it.
+  if (type === "configurable") {
+    const { data: vs } = await sb.from("variants").select("qty").eq("product_id", existing.id);
+    qty = ((vs as any[]) ?? []).reduce((s, x) => s + (x.qty ?? 0), 0);
+  }
 
   if (!name) return { ok: false, error: "Name is required" };
   if (!categoryId) return { ok: false, error: "Category is required" };
@@ -86,6 +93,10 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
       category_id: categoryId,
       type,
       status,
+      // Visibility → two flags: wholesale-only (hide from retail shop) or retail-only (hide from
+      // wholesale portal); "all" clears both. Form sends visibility=all|wholesale|retail.
+      wholesale_only: String(formData.get("visibility") ?? "all") === "wholesale",
+      retail_only: String(formData.get("visibility") ?? "all") === "retail",
       base_wholesale: Math.round(basePriceRupees * 100),
       qty,
       generated_content,
@@ -93,6 +104,31 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
     })
     .eq("id", existing.id);
   if (error) return { ok: false, error: error.message };
+
+  // Labels are stored in a separate `labels` table joined via `product_labels`. The form
+  // submits a comma/newline list of names; we (a) upsert each name into labels so unknown
+  // names get auto-created, then (b) re-sync the product_labels rows for this product.
+  const labelNames = parseList(String(formData.get("labels") ?? ""));
+  if (labelNames.length) {
+    await sb.from("labels").upsert(
+      labelNames.map((name) => ({ name, color: "emerald" })),
+      { onConflict: "name", ignoreDuplicates: true },
+    );
+  }
+  const { data: labelRows } = await sb.from("labels").select("id,name").in("name", labelNames.length ? labelNames : ["__none__"]);
+  const wantIds = new Set(((labelRows as any[]) ?? []).map((r) => r.id));
+  // Replace the join set: delete the rows we no longer want, insert the new ones.
+  const { data: existingJoin } = await sb.from("product_labels").select("label_id").eq("product_id", existing.id);
+  const haveIds = new Set(((existingJoin as any[]) ?? []).map((r) => r.label_id));
+  const toAdd = [...wantIds].filter((id) => !haveIds.has(id));
+  const toRemove = [...haveIds].filter((id) => !wantIds.has(id));
+  if (toRemove.length) await sb.from("product_labels").delete().eq("product_id", existing.id).in("label_id", toRemove);
+  if (toAdd.length) {
+    await sb.from("product_labels").upsert(
+      toAdd.map((labelId) => ({ product_id: existing.id, label_id: labelId })),
+      { onConflict: "product_id,label_id", ignoreDuplicates: true },
+    );
+  }
 
   // Optional: rename the SKU (the client asked for editable SKUs). Validate uniqueness
   // first so we never create a duplicate. FK references use product_id, so this is safe.
@@ -113,6 +149,8 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
   revalidatePath(`/shop/${slug}/${sku}`);
   revalidatePath(`/shop/c/${slug}`);
   revalidatePath("/shop");
+  revalidatePath("/catalog");
+  revalidatePath("/trade");
   revalidatePath("/admin/catalogue");
   revalidatePath("/admin/media");
   return { ok: true };

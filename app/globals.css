@@ -16,6 +16,10 @@ body {
 }
 .font-display { font-family: "Playfair Display", Georgia, serif; }
 
+/* Privacy mode: blur sensitive money figures when the toggle is on. */
+.privacy-on .sensitive { filter: blur(10px); user-select: none; pointer-events: none; transition: filter .2s ease; }
+@media print { .privacy-on .sensitive { filter: none; } }
+
 /* gold gradient text */
 .text-gold-gradient {
   background: linear-gradient(90deg, #96701C, #E9CF8B, #96701C);

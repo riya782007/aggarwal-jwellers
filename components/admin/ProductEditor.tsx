@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { updateProductAction } from "@/app/actions/updateProduct";
+import { suggestProductTitleAction } from "@/app/actions/aiContent";
+import { computePrices, type PricingFormula } from "@/lib/pricing";
 
 type Cat = { id: string; name: string; slug: string };
 export type EditorProduct = {
@@ -13,6 +15,10 @@ export type EditorProduct = {
   categorySlug: string;
   type: string;
   status: string;
+  /** "all" | "wholesale" — backed by `products.wholesale_only` boolean in the DB. */
+  visibility?: string;
+  /** Newline / comma-joined list of label names. Resolved against the `labels` table on save. */
+  labels?: string;
   basePriceRupees: number;
   qty: number;
   title: string;
@@ -32,20 +38,51 @@ export function ProductEditor({
   product,
   categories,
   formula,
+  effective,
 }: {
   product: EditorProduct;
   categories: Cat[];
-  formula: { retailMultiplier: number; mrpMultiplier: number; wholesaleMarkupPct: number };
+  formula: PricingFormula;
+  /** Override-aware effective prices (rupees). `custom` = explicit prices are pinned, so the
+   *  formula below is NOT what the product actually sells for. */
+  effective?: { retail: number; mrp: number; wholesale: number; custom: boolean };
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [base, setBase] = useState(product.basePriceRupees);
   const [saving, setSaving] = useState(false);
+  const [title, setTitle] = useState(product.title);
+  const [name, setName] = useState(product.name);
+  const [description, setDescription] = useState(product.description);
+  // Owner's spec keywords (e.g. "necklace set, earrings, maang tikka, uncut kundan") → the AI uses
+  // these to build a AggarwalDIVA-style title + description.
+  const [specKeywords, setSpecKeywords] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+
+  async function suggestTitle() {
+    setSuggesting(true);
+    const catName = categories.find((c) => c.id === product.categoryId)?.name;
+    const keywords = specKeywords.split(/[,\n]/).map((k) => k.trim()).filter(Boolean);
+    const res = await suggestProductTitleAction({ name, category: catName, keywords, sku: product.sku });
+    setSuggesting(false);
+    if (res.ok && res.title) {
+      setTitle(res.title);
+      if (res.description) setDescription(res.description);
+      // Tell the owner which engine wrote it: "OpenAI" means the API key is live; "offline template"
+      // means it fell back (key missing/invalid on the deployment) so he can fix the env variable.
+      const engine = res.fallbackUsed || res.provider === "deterministic" ? "offline template" : (res.provider === "openai" ? "OpenAI ✨" : res.provider ?? "AI");
+      // When the product photo was fed to the model, let the owner know the copy is based on the image.
+      toast(`Title & description written by ${engine}${res.usedImage ? " — from the product photo 📸" : ""}`);
+    } else toast(res.error ?? "Couldn't suggest a title", "error");
+  }
 
   const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
-  const retail = base * formula.retailMultiplier;
-  const mrp = base * formula.mrpMultiplier;
-  const wholesale = base * (1 + formula.wholesaleMarkupPct / 100);
+  // Use the SINGLE shared pricing engine (honours the build-up chain / overrides), so this preview
+  // always matches the Pricing tab, catalogue and storefront — never the old flat multipliers.
+  const ps = computePrices(Math.round((Number(base) || 0) * 100), formula);
+  const retail = ps.retailPrice / 100;
+  const mrp = ps.mrp / 100;
+  const wholesale = ps.wholesaleRate / 100;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,7 +108,7 @@ export function ProductEditor({
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={label}>Product name</label>
-            <input name="name" defaultValue={product.name} className={field} required />
+            <input name="name" value={name} onChange={(e) => setName(e.target.value)} className={field} required />
           </div>
           <div>
             <label className={label}>SKU <span className="text-muted/70">(editable — must be unique &amp; is scannable)</span></label>
@@ -101,6 +138,18 @@ export function ProductEditor({
             </select>
           </div>
           <div>
+            <label className={label}>Visibility</label>
+            <select name="visibility" defaultValue={product.visibility} className={field}>
+              <option value="all">Both storefronts (retail + wholesale)</option>
+              <option value="retail">Retail only (hidden from wholesale)</option>
+              <option value="wholesale">Wholesale only (hidden from retail shop)</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={label}>Labels <span className="text-muted/70">(comma or newline — e.g. Bridal, Bestseller, New)</span></label>
+            <input name="labels" defaultValue={product.labels} className={field} placeholder="Bridal, Bestseller" />
+          </div>
+          <div>
             <label className={label}>Base wholesale cost (₹)</label>
             <input
               name="base_price_rupees"
@@ -115,17 +164,36 @@ export function ProductEditor({
           </div>
           <div>
             <label className={label}>Stock quantity</label>
-            <input name="qty" type="number" min={0} step="1" defaultValue={product.qty} className={field} />
+            {product.type === "configurable" ? (
+              <>
+                <input name="qty" type="number" value={product.qty} readOnly tabIndex={-1}
+                  className={`${field} bg-cream/60 text-muted cursor-not-allowed`} />
+                <p className="text-[11px] text-muted mt-1">Total across all colours. Edit each colour&apos;s stock on the <b>Variants</b> tab — this updates automatically.</p>
+              </>
+            ) : (
+              <input name="qty" type="number" min={0} step="1" defaultValue={product.qty} className={field} />
+            )}
           </div>
         </div>
 
-        {/* live price preview */}
-        <div className="mt-4 rounded-xl bg-cream/60 px-4 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
-          <span className="text-muted">From your pricing formula:</span>
-          <span>Retail <b className="text-ink">{inr(retail)}</b></span>
-          <span>MRP <b className="text-ink">{inr(mrp)}</b></span>
-          <span>Wholesale rate <b className="text-ink">{inr(wholesale)}</b></span>
-        </div>
+        {/* price preview — show the REAL selling price. If custom prices are pinned (e.g. from
+            import or the Pricing tab) we show those, not the formula, so it never misinforms. */}
+        {effective?.custom ? (
+          <div className="mt-4 rounded-xl bg-gold/10 border border-gold/30 px-4 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
+            <span className="text-gold-dark font-medium">Selling at (custom prices):</span>
+            <span>Retail <b className="text-ink">{inr(effective.retail)}</b></span>
+            <span>MRP <b className="text-ink">{inr(effective.mrp)}</b></span>
+            <span>Wholesale <b className="text-ink">{inr(effective.wholesale)}</b></span>
+            <span className="w-full text-xs text-muted/80">Set in the Pricing tab — the formula is overridden for this product. Change the base cost above only to update your records.</span>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl bg-cream/60 px-4 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
+            <span className="text-muted">From your pricing formula:</span>
+            <span>Retail <b className="text-ink">{inr(retail)}</b></span>
+            <span>MRP <b className="text-ink">{inr(mrp)}</b></span>
+            <span>Wholesale rate <b className="text-ink">{inr(wholesale)}</b></span>
+          </div>
+        )}
       </section>
 
       {/* STOREFRONT CONTENT */}
@@ -133,13 +201,27 @@ export function ProductEditor({
         <h2 className="font-display text-xl text-ink mb-1">Storefront content</h2>
         <p className="text-xs text-muted mb-4">What the customer reads on the product page.</p>
         <div className="space-y-4">
+          {/* Spec keywords → AI title + description in AggarwalDIVA house style */}
+          <div className="rounded-xl border border-emerald/30 bg-emerald-mist/20 p-3">
+            <label className={`${label} mb-1`}>Jewellery specifications <span className="text-muted/70">— 3–4 keywords for the AI</span></label>
+            <input value={specKeywords} onChange={(e) => setSpecKeywords(e.target.value)}
+              placeholder="e.g. necklace set, uncut kundan, earrings, maang tikka"
+              className={field} />
+            <div className="flex items-center gap-2 mt-2">
+              <button type="button" onClick={suggestTitle} disabled={suggesting}
+                className="text-xs px-3 py-1.5 rounded-full bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
+                {suggesting ? "Writing…" : "✨ Generate title & description"}
+              </button>
+              <span className="text-[11px] text-muted">Looks at the product photo + these specs, the name &amp; category. Says which pieces the set includes; no SKU in the title.</span>
+            </div>
+          </div>
           <div>
             <label className={label}>Display title</label>
-            <input name="title" defaultValue={product.title} className={field} />
+            <input name="title" value={title} onChange={(e) => setTitle(e.target.value)} className={field} />
           </div>
           <div>
             <label className={label}>Description</label>
-            <textarea name="description" defaultValue={product.description} rows={6} className={field} />
+            <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} className={field} />
           </div>
           <div>
             <label className={label}>Tags <span className="text-muted/70">(one per line or comma-separated — shown as chips & used for filtering)</span></label>

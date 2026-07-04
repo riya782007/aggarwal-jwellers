@@ -97,14 +97,22 @@ export function detectLanguage(textRaw: string): NluLang {
 
 // --------------------------------------------------------------------------- entities
 
-const SKU_RE = /\b(?:sku\s*)?(aj)\s*-?\s*(\d{3,6})\b/i;
+// A SKU is any short letters-then-digits code, optionally with a -SUFFIX variant part:
+// AJ1001, WBR113, KPC64, WBR1024-Silver, KPC64-MEH. (Earlier this only matched "BD####",
+// so real SKUs were invisible to DIVA and got mis-resolved — that was the #1 reliability bug.)
+const SKU_RE = /\b(?:sku\s*)?([a-z]{1,6}-?\d{2,6}(?:-[a-z0-9]+)?)\b/i;
+
+/** Spaced brand-prefix form ("aj 1003") — kept separate so generic word+number pairs ("add 20") never match. */
+const SKU_SPACED_RE = /\b(?:sku\s+)?(aj)\s+(\d{3,6})\b/i;
 
 export function extractSku(text: string): string | undefined {
   const m = SKU_RE.exec(text);
-  return m ? `${m[1].toUpperCase()}${m[2]}` : undefined;
+  if (m) return m[1].toUpperCase().replace(/\s+/g, "");
+  const sp = SKU_SPACED_RE.exec(text);
+  return sp ? `${sp[1]}${sp[2]}`.toUpperCase() : undefined;
 }
 
-/** Remove SKU tokens (e.g. "AJ1004") so their digits are never read as qty/price. */
+/** Remove SKU tokens (e.g. "AJ1004", "WBR113-Silver") so their digits are never read as qty/price. */
 function stripSkus(text: string): string {
   return text.replace(new RegExp(SKU_RE.source, "gi"), " ");
 }
@@ -339,10 +347,10 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
 
   // ---- 8) Stock add / remove --------------------------------------------------
   if (hasAny(lower, ADD_WORDS) && (/(stock|inventory|maal|qty|quantity|pieces|piece|pcs|units?)/.test(lower) || qty)) {
-    return stockPlan(base, ctx, lang, "add_stock", sku, subject, qty);
+    return stockPlan(base, ctx, lang, "add_stock", sku, subject, qty, color ?? (sku ? subject : undefined));
   }
   if (hasAny(lower, REMOVE_WORDS) && (/(stock|inventory|maal|qty|quantity|pieces|piece|pcs|units?)/.test(lower) || qty)) {
-    return stockPlan(base, ctx, lang, "remove_stock", sku, subject, qty);
+    return stockPlan(base, ctx, lang, "remove_stock", sku, subject, qty, color ?? (sku ? subject : undefined));
   }
 
   // ---- 9) Inventory / stock query: "blue kundan necklace ka inventory kitna hai" -
@@ -381,7 +389,7 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
 
   // ---- 12) SKU rename: "AJ1001 ka sku AJ2001 kar do" --------------------------
   if (sku && /\bsku\b/.test(lower)) {
-    const skus = command.match(/\baj\s*-?\s*\d{3,6}\b/gi)?.map((s) => s.replace(/\s|-/g, "").toUpperCase());
+    const skus = command.match(/\bbd\s*-?\s*\d{3,6}\b/gi)?.map((s) => s.replace(/\s|-/g, "").toUpperCase());
     if (skus && skus.length >= 2 && skus[0] !== skus[1]) {
       return mk(base, [step("rename_sku", { sku: skus[0], newSku: skus[1] }, `Rename ${skus[0]} → ${skus[1]}`)],
         ack(lang, `I'll rename ${skus[0]} to ${skus[1]}.`, `${skus[0]} ka SKU ${skus[1]} kar deti hun.`), 0.8, remember({ lastSku: skus[1] }));
@@ -389,6 +397,30 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
   }
 
   // ---- 13) Categories / subcategories -----------------------------------------
+  // RENAME a category (must come before "create"): "change the category of Bracelet to
+  // Bangles & Bracelets", "rename Bracelet category to X", "Bracelet category ka naam X kar do".
+  if (/categor/.test(lower) && hasAny(lower, ["rename", "change", "naam", "badal", "badlo", "kardo", "kar do", "kr do", "rakho", "rename to"])) {
+    const m =
+      command.match(/categor(?:y|ies)\s+(?:of\s+|named\s+|name\s+)?(.+?)\s+(?:to|into|→|ko)\s+(.+?)\s*$/i) ||
+      command.match(/(?:rename|change)\s+(?:the\s+)?(.+?)\s+categor(?:y|ies)?\s+(?:to|into|→|ko)\s+(.+?)\s*$/i) ||
+      command.match(/(.+?)\s+categor(?:y|ies)?\s+(?:ka\s+naam|naam|name)\s+(.+?)\s+(?:kar\s?do|kardo|karo|rakho)/i);
+    if (m) {
+      const clean = (s: string) => s.trim().replace(/^the\s+/i, "").replace(/[‘’“”"'`]/g, "").replace(/\s+(?:kar\s?do|kardo|karo|rakho|please)\s*$/i, "").trim();
+      const from = clean(m[1]); const to = clean(m[2]);
+      if (from && to && from.toLowerCase() !== to.toLowerCase()) {
+        return mk(base, [step("rename_category", { from, to }, `Rename category "${from}" → "${to}"`)],
+          ack(lang, `I'll rename the "${from}" category to "${to}".`, `"${from}" category ka naam "${to}" kar deti hun.`), 0.84, remember({}));
+      }
+    }
+  }
+  // Category + a change/rename intent that DIDN'T parse cleanly above → ASK (never fall through
+  // to a product search). This keeps DIVA from "doing the wrong thing" on category commands.
+  if (/categor/.test(lower) && hasAny(lower, ["rename", "change", "naam", "badal", "badlo", "kar do", "kardo", "kr do", "rakho"])) {
+    const prompt = ack(lang,
+      "Which category should I rename, and to what? e.g. \"rename Bracelet to Bangles & Bracelets\".",
+      "Kaunsi category ka naam badalna hai, aur kya naya naam? jaise \"Bracelet ka naam Bangles & Bracelets kar do\".");
+    return { ...base, steps: [], confidence: 0.55, context: remember({}), ask: { slot: "freeform", prompt }, reply: prompt };
+  }
   if (hasAny(lower, CREATE_WORDS) && /(sub-?category|subcategory)/.test(lower)) {
     return mk(base, [step("create_subcategory", { name: subject ?? "" }, "Create subcategory")],
       ack(lang, "I'll add that subcategory.", "Subcategory add kar rahi hun."), 0.6, remember({}));
@@ -444,7 +476,7 @@ function askFor(base: Omit<NluPlan, "steps" | "reply" | "confidence">, slot: str
     context: { ...ctx, pending: { intent, slots, need: [slot] } } };
 }
 
-function stockPlan(base: Omit<NluPlan, "steps" | "reply" | "confidence">, ctx: DivaContext, lang: NluLang, tool: "add_stock" | "remove_stock", sku?: string, subject?: string, qty?: number): NluPlan {
+function stockPlan(base: Omit<NluPlan, "steps" | "reply" | "confidence">, ctx: DivaContext, lang: NluLang, tool: "add_stock" | "remove_stock", sku?: string, subject?: string, qty?: number, colorHint?: string): NluPlan {
   const verb = tool === "add_stock" ? "add" : "remove";
   const verbHin = tool === "add_stock" ? "add" : "kam";
   if (!sku && !subject) {
@@ -454,9 +486,11 @@ function stockPlan(base: Omit<NluPlan, "steps" | "reply" | "confidence">, ctx: D
     return askFor(base, "qty", tool, { sku, subject }, ack(lang, `How many units to ${verb}?`, `Kitne units ${verbHin} karne hain?`), ctx);
   }
   if (sku) {
-    return mk(base, [step(tool, { sku, qty, source: "DIVA command" }, `${verb} ${qty} → ${sku}`)],
-      ack(lang, `I'll ${verb} ${qty} unit${qty > 1 ? "s" : ""} ${tool === "add_stock" ? "to" : "from"} ${sku}.`,
-        `${sku} me ${qty} unit ${tool === "add_stock" ? "add" : "kam"} kar rahi hun.`), 0.85, { ...ctx, pending: undefined, lastSku: sku });
+    // `color` lets the executor target a specific colour variant (e.g. "EE5270 me 5 green add karo").
+    const c = (colorHint ?? "").trim() || undefined;
+    return mk(base, [step(tool, { sku, qty, color: c, source: "DIVA command" }, `${verb} ${qty}${c ? ` ${c}` : ""} → ${sku}`)],
+      ack(lang, `I'll ${verb} ${qty} unit${qty > 1 ? "s" : ""}${c ? ` of ${c}` : ""} ${tool === "add_stock" ? "to" : "from"} ${sku}.`,
+        `${sku} me ${qty}${c ? ` ${c}` : ""} unit ${tool === "add_stock" ? "add" : "kam"} kar rahi hun.`), 0.85, { ...ctx, pending: undefined, lastSku: sku });
   }
   // We have a subject but no SKU → resolve first, then the executor applies the delta by name.
   return mk(base, [step(tool === "add_stock" ? "add_stock_by_name" : "remove_stock_by_name", { query: subject, qty, source: "DIVA command" }, `${verb} ${qty} → "${subject}"`)],
@@ -551,13 +585,14 @@ function extractInvoiceNo(text: string): string | undefined {
 }
 
 const PAGE_ALIASES: Record<string, string> = {
-  dashboard: "dashboard", home: "dashboard", catalogue: "catalogue", catalog: "catalogue",
-  products: "catalogue", inventory: "inventory", stock: "inventory", maal: "inventory", upload: "upload",
-  categories: "categories",
-  barcodes: "barcodes", barcode: "barcodes", labels: "barcodes", reorder: "reorder", billing: "billing", pos: "billing",
-  bill: "billing", sales: "sales", hisaab: "sales", estimates: "estimates", returns: "returns", purchases: "purchases",
-  customers: "customers", grahak: "customers", party: "customers", suppliers: "suppliers", vendors: "suppliers",
-  approvals: "approvals", notifications: "notifications", inbox: "notifications",
+  dashboard: "dashboard", analytics: "analytics", catalogue: "catalogue", catalog: "catalogue",
+  products: "catalogue", inventory: "inventory", stock: "inventory", upload: "upload",
+  media: "media", "product photos": "media", photos: "media", categories: "categories",
+  barcodes: "barcodes", barcode: "barcodes", reorder: "reorder", billing: "billing", pos: "billing",
+  sales: "sales", estimates: "estimates", returns: "returns", purchases: "purchases",
+  customers: "customers", suppliers: "suppliers", vendors: "suppliers", reviews: "reviews",
+  reels: "reels", abandoned: "abandoned carts", approvals: "approvals", notifications: "notifications",
+  inbox: "notifications", roles: "roles",
 };
 
 function matchPage(lower: string): string | undefined {

@@ -1,4 +1,4 @@
--- Aggarwal Jewellers / Aggarwal Jewellers — initial schema (Part E.3)
+-- Aggarwal Jewellers — initial schema (Part E.3)
 -- Postgres + RLS. Money columns are integer paise.
 
 create extension if not exists "uuid-ossp";
