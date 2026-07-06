@@ -40,6 +40,21 @@ export const PAGE_MAP: Record<string, string> = {
   approvals: "/admin/approvals",
   notifications: "/admin/inbox",
   roles: "/admin/roles",
+  cashbook: "/admin/cashbook",
+  "cash book": "/admin/cashbook",
+  "bank & cash": "/admin/cashbook",
+  creditors: "/admin/creditors",
+  employees: "/admin/employees",
+  staff: "/admin/employees",
+  promotions: "/admin/promotions",
+  submissions: "/admin/submissions",
+  "stock movements": "/admin/stock-movements",
+  backorders: "/admin/backorders",
+  "notify me": "/admin/notify",
+  feedback: "/admin/feedback",
+  pricing: "/admin/pricing",
+  "ai activity": "/admin/ai-activity",
+  trade: "/trade",
 };
 
 export const DIVA_TOOLS: DivaTool[] = [
@@ -97,6 +112,20 @@ export const DIVA_TOOLS: DivaTool[] = [
   { name: "product_photos", kind: "read", permission: "catalog.view", desc: "Show how many photos a product has and their links.", params: [{ name: "sku", type: "string", desc: "product SKU" }, { name: "query", type: "string", desc: "name if no SKU" }] },
   { name: "recent_sales", kind: "read", permission: "sales.view", desc: "List the most recent bills/invoices (amount, customer, type, date).", params: [{ name: "limit", type: "number", desc: "how many (default 8)" }] },
   { name: "last_purchase", kind: "read", permission: "purchases.view", desc: "Show the most recent purchase cost & date recorded for a product.", params: [{ name: "sku", type: "string", desc: "product SKU" }, { name: "query", type: "string", desc: "name if no SKU" }] },
+
+  // ---- Accounting & business health (AI employee upgrade) ----
+  { name: "check_cash_bank", kind: "read", permission: "analytics.view", desc: "Cash-in-hand and bank/UPI balance from the cash book.", params: [] },
+  { name: "receivables", kind: "read", permission: "sales.view", desc: "Who owes us money — unpaid or partly-paid bills grouped by customer (udhaar/baaki).", params: [] },
+  { name: "payables", kind: "read", permission: "purchases.view", desc: "Suppliers we still owe money to (purchase bills minus payments).", params: [] },
+  { name: "business_health", kind: "read", permission: "analytics.view", desc: "One-look business health: today's sales, stock alerts, receivable/payable, accounting drift.", params: [] },
+  { name: "inactive_customers", kind: "read", permission: "customers.view", desc: "Customers who haven't purchased recently.", params: [{ name: "days", type: "number", desc: "look-back window in days (default 60)" }] },
+  { name: "top_wholesale", kind: "read", permission: "customers.view", desc: "Biggest wholesale parties by lifetime revenue.", params: [] },
+  { name: "hide_dead_stock", kind: "mutate", permission: "catalog.publish", confirm: true, desc: "Hide ALL dead-stock products from the storefront in one go (sets them to draft).", params: [] },
+  { name: "remember_note", kind: "mutate", desc: "Save a business rule or preference to DIVA's permanent memory (e.g. 'hide dead products after 90 days').", params: [{ name: "note", type: "string", required: true, desc: "the rule to remember" }] },
+
+  // ---- Product factory (voice-note → catalogue → ad photos → publish) ----
+  { name: "generate_ad_images", kind: "mutate", permission: "catalog.ai", confirm: true, desc: "Create ready-to-advertise AI jewellery photos. With a sku: that product. Without: every product still missing a photo (batch of 5).", params: [{ name: "sku", type: "string", desc: "one product SKU (optional)" }, { name: "scope", type: "string", desc: "'missing' = all products without photos" }, { name: "limit", type: "number", desc: "max per batch (default 5)" }] },
+  { name: "publish_products", kind: "mutate", permission: "catalog.publish", confirm: true, desc: "Publish draft products to the live store in one go. scope 'photos' (default) = only drafts that have a photo; 'all' = every draft.", params: [{ name: "scope", type: "string", desc: "photos | all" }] },
 ];
 
 export function toolByName(name: string): DivaTool | undefined {

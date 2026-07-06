@@ -8,7 +8,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getProductBySku, getPublishedProducts } from "@/lib/supabase/queries";
-import { buildImagePrompt } from "@/lib/ai/imagePrompt";
+import { buildImagePrompt, buildAdPrompt } from "@/lib/ai/imagePrompt";
 import { generateImage, geminiConfigured } from "@/lib/ai/gemini";
 import { requirePerm } from "@/lib/auth";
 
@@ -79,6 +79,50 @@ export async function generateOneAction(sku: string, keywords?: string): Promise
   // still has the raw in the Photo Studio.
 
   revalidatePath(`/shop/${p.category.slug}/${sku}`);
+  revalidatePath("/admin/catalogue");
+  revalidatePath("/admin/media");
+  revalidatePath("/shop");
+  return { ok: true, sku, url: pub.publicUrl };
+}
+
+/**
+ * Ad-creative photo for a product with NO raw reference yet (voice-created drafts).
+ * If a raw source photo exists we always prefer the fidelity pipeline (generateOneAction);
+ * otherwise we render a plausible, ready-to-advertise piece from name/category/colours.
+ */
+export async function generateAdImageAction(sku: string, keywords?: string): Promise<GenResult> {
+  if (!(await requirePerm("catalog.ai"))) return { ok: false, sku, reason: "not_permitted" };
+  const p = await getProductBySku(sku);
+  if (!p) return { ok: false, sku, reason: "not_found" };
+
+  // Fidelity always wins when a real reference exists.
+  const hasRef = (p.images ?? []).some((i) => i.path.startsWith("http") && (i.kind === "source" || i.kind === "flatlay"));
+  if (hasRef) return generateOneAction(sku, keywords);
+
+  const colours = ((p as any).variants ?? []).map((v: any) => v.color).filter(Boolean);
+  const prompt = buildAdPrompt({
+    category: (p as any).category?.name ?? p.category?.slug ?? "necklace",
+    subcategory: (p as any).subcategory?.name ?? "",
+    productName: p.name,
+    colours,
+    index: parseInt(sku.replace(/\D/g, ""), 10) || 0,
+  });
+  if (!geminiConfigured()) return { ok: false, sku, reason: "no_key", prompt };
+
+  const result = await generateImage({ prompt, aspectRatio: "4:5" });
+  if (!result.ok) return { ok: false, sku, reason: result.reason, error: result.error, prompt };
+
+  const sb = supabaseServer();
+  await sb.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+  const ext = result.mime.includes("png") ? "png" : "jpg";
+  const path = `${sku}/ad-${Date.now()}.${ext}`;
+  const bytes = Buffer.from(result.base64, "base64");
+  const up = await sb.storage.from(BUCKET).upload(path, bytes, { contentType: result.mime, upsert: true });
+  if (up.error) return { ok: false, sku, reason: "upload_failed: " + up.error.message, prompt };
+
+  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
+  await sb.from("product_images").insert({ product_id: p.id, path: pub.publicUrl, kind: "model", sort: -1 });
+
   revalidatePath("/admin/catalogue");
   revalidatePath("/admin/media");
   revalidatePath("/shop");

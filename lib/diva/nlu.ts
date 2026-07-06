@@ -310,6 +310,27 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
       0.7, remember({ lastSubject: facet }));
   }
 
+  // Product factory: batch ad photos + one-command publish ----------------------
+  if (hasAny(lower, ["photo", "photos", "image", "images", "tasveer"]) &&
+      hasAny(lower, ["banao", "bana do", "banado", "generate", "create", "make"]) &&
+      (hasAny(lower, ["sab", "saare", "sare", "all", "sabki", "naye", "new products", "missing", "without", "bina"]) || !!sku)) {
+    return mk(base, [step("generate_ad_images", sku ? { sku } : { scope: "missing" }, sku ? `Ad photo for ${sku}` : "Ad photos for products without images")],
+      ack(lang, "Creating ready-to-advertise AI photos — confirm to start.", "Advertise-ready AI photos bana rahi hun — confirm kijiye."), 0.85, remember({}));
+  }
+  if (hasAny(lower, ["publish", "live kar", "site pe daal", "store pe daal", "website pe daal", "online kar"]) &&
+      hasAny(lower, ["sab", "saare", "sare", "all", "drafts", "naye", "sabko", "products"]) && !sku) {
+    return mk(base, [step("publish_products", { scope: "photos" }, "Publish all drafts with photos")],
+      ack(lang, "Publishing every draft that has a photo — confirm to go live.", "Jin drafts ki photo ready hai, sab live kar rahi hun — confirm kijiye."), 0.85, remember({}));
+  }
+  // ---- 10-pre) Voice-note with MANY products → hand to the LLM planner ---------
+  if (hasAny(lower, CREATE_WORDS) && !/categor/.test(lower)) {
+    const nums = (stripSkus(asciiDigits(lower)).match(/\d{1,6}/g) ?? []).length;
+    if (nums >= 3 || /;/.test(lower)) {
+      return { ...base, steps: [], confidence: 0.3,
+        reply: ack(lang, "That sounds like several products — one moment, planning them all…", "Kai saare products lag rahe hain — sab ek saath bana rahi hun…") };
+    }
+  }
+
   // ---- 6) Photo: "SKU AJ1001 ka photo dikhao" ---------------------------------
   if (/(photo|image|pic|tasveer|tasvir)/.test(lower)) {
     if (sku) return mk(base, [step("product_details", { sku }, `Show ${sku}`), step("open_page", { page: "media" }, "Open product photos")],
@@ -318,6 +339,43 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
       ack(lang, `Let me find "${subject}" first.`, `Pehle "${subject}" dhoondhti hun.`), 0.6, remember({ lastSubject: subject }));
   }
 
+  // ---- 9b) Accounting & business health (AI employee) --------------------------
+  if (/^(remember|note that|yaad rakh|yad rakh)/.test(lower) || lower.includes("yaad rakhna")) {
+    const note = command.replace(/^(remember( that)?|note that|yaad rakh(na|o)?|yad rakh(na|o)?)\s*[:,-]?\s*/i, "").trim();
+    if (note) return mk(base, [step("remember_note", { note }, "Save to memory")],
+      ack(lang, "Saving that to my permanent memory.", "Yaad rakh rahi hun — hamesha ke liye."), 0.9, remember({}));
+  }
+  if (hasAny(lower, ["baaki", "baki hai", "udhaar", "udhar", "owes us", "owe us", "outstanding", "receivable"]) &&
+      hasAny(lower, ["kis", "kaun", "who", "party", "customer", "kitna", "paisa", "money", "dikhao", "batao", "show"])) {
+    return mk(base, [step("receivables", {}, "Outstanding — who owes us")],
+      ack(lang, "Checking who owes us money.", "Dekh rahi hun kis party ka kitna baaki hai."), 0.82, remember({}));
+  }
+  if (hasAny(lower, ["cash", "bank"]) && hasAny(lower, ["kitna", "kitni", "how much", "balance", "in hand", "summary", "batao", "dikhao"]) &&
+      !/(memo|invoice|bill|order)/.test(lower)) {
+    return mk(base, [step("check_cash_bank", {}, "Cash & bank balance")],
+      ack(lang, "Checking cash-in-hand and bank.", "Cash aur bank ka hisaab dekh rahi hun."), 0.8, remember({}));
+  }
+  if (/supplier/.test(lower) && hasAny(lower, ["dena", "dene", "pending", "payable", "baki", "baaki", "due", "owed", "payment"])) {
+    return mk(base, [step("payables", {}, "Supplier dues")],
+      ack(lang, "Checking what we owe suppliers.", "Supplier ko kitna dena hai, dekh rahi hun."), 0.8, remember({}));
+  }
+  if (hasAny(lower, ["business health", "business ki sehat", "how is business today", "business today", "aaj business", "aaj ka business", "dhandha kaisa"])) {
+    return mk(base, [step("business_health", {}, "Business health check")],
+      ack(lang, "Running a business health check.", "Business ki sehat check kar rahi hun."), 0.85, remember({}));
+  }
+  if (hasAny(lower, ["hide dead", "dead stock hide", "dead products hide", "dead inventory", "ruka hua maal hata", "dead maal hata"]) &&
+      hasAny(lower, ["hide", "hata", "chhupa", "remove from store", "band"])) {
+    return mk(base, [step("hide_dead_stock", {}, "Hide all dead stock")],
+      ack(lang, "I'll hide every dead-stock product — confirm before I run it.", "Saara ruka hua maal store se hata rahi hun — confirm kijiye."), 0.85, remember({}));
+  }
+  if (hasAny(lower, ["inactive customer", "customer nahi aa", "haven't purchased", "havent purchased", "not purchased recently", "kaun customer nahi", "purani customer"])) {
+    return mk(base, [step("inactive_customers", { days: extractQuantity(lower) ?? 60 }, "Find inactive customers")],
+      ack(lang, "Finding customers who've gone quiet.", "Kaun customer nahi aa rahe, dekh rahi hun."), 0.8, remember({}));
+  }
+  if (hasAny(lower, ["biggest wholesale", "top wholesale", "sabse bade wholesale", "sabse bada wholesale", "best wholesale customer"])) {
+    return mk(base, [step("top_wholesale", {}, "Top wholesale parties")],
+      ack(lang, "Ranking your wholesale parties.", "Sabse bade wholesale grahak dekh rahi hun."), 0.85, remember({}));
+  }
   // ---- 7) Set price: "AJ1004 ka retail price 1500 kar do" --------------------
   if (sku && price && hasAny(lower, ["set", "kardo", "karo", "update", "change", "badlo", "badal", "lagao", "rakho", "kar"]) &&
       hasAny(lower, ["price", "rate", "daam", "keemat", "mrp", "wholesale", "retail", "thok"])) {

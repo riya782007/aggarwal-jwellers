@@ -7,7 +7,7 @@
  * Owner is logged in via the console passcode → DIVA gets ALL permissions. The granular
  * gate is wired so per-staff roles can scope DIVA later.
  */
-import { groqChat, openaiChat, geminiChat, groqConfigured, openaiConfigured, geminiTextConfigured } from "@/lib/ai/providers";
+import { aiChat, anyAiConfigured } from "@/lib/ai/providers";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   getChannelReport, getInventoryClassified, getProductsPage, getDashboardData, getStorefront,
@@ -19,7 +19,7 @@ import { DIVA_TOOLS, PAGE_MAP, toolByName } from "@/lib/diva/tools";
 import { interpret, type DivaContext } from "@/lib/diva/nlu";
 import { requirePerm } from "@/lib/auth";
 import { generateContentAction } from "@/app/actions/aiContent";
-import { generateOneAction } from "@/app/actions/images";
+import { generateOneAction, generateAdImageAction } from "@/app/actions/images";
 import { computePrices, isValidPriceSet } from "@/lib/pricing";
 import { createProductAction, createCategoryJsonAction } from "@/app/actions/catalog";
 import { revalidatePath } from "next/cache";
@@ -92,7 +92,7 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
   //    - it produced steps and is highly confident.
   //    A low/medium-confidence MUTATION is escalated to the LLM so a mis-parse like
   //    "billvan WH17 gold" never silently runs the wrong change (Aggarwal's complaint).
-  const llmAvailable = geminiTextConfigured() || groqConfigured() || openaiConfigured();
+  const llmAvailable = anyAiConfigured();
   if (nlu.ask || !llmAvailable) return nluPlan;
   const mutating = nluPlan.steps.some((s) => s.kind === "mutate");
   // Reads need a minimum confidence too — a low-confidence guess (e.g. a vague find_product
@@ -101,6 +101,13 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
   if (nluPlan.steps.length > 0 && nlu.confidence >= minConf) return nluPlan;
 
   // 3) Low confidence + LLM available → ask the model, keep NLU context as memory.
+  // Business memory — rules the owner told DIVA to remember (best-effort; migration 0042).
+  let memoryNotes = "";
+  try {
+    const { data: mem } = await supabaseServer().from("diva_memory").select("note").order("created_at", { ascending: false }).limit(8);
+    if (mem && mem.length) memoryNotes = `\nOwner rules to respect (business memory):\n${(mem as any[]).map((m) => `- ${m.note}`).join("\n")}`;
+  } catch { /* memory table is optional */ }
+
   const catalog = DIVA_TOOLS.map((t) => `- ${t.name}(${t.params.map((p) => p.name + (p.required ? "*" : "")).join(", ")}) [${t.kind}] — ${t.desc}`).join("\n");
   const system =
     `You are DIVA, the operations agent inside the Aggarwal Jewellers artificial-jewellery admin console (Aggarwal Jewellers, Sadar Bazar, Delhi). ` +
@@ -113,22 +120,23 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
     `"hide"/"take off the store"=hide_product; "show"/"put back"=show_product; "delete/remove a product"=delete_product. ` +
     `Match a product by SKU (BD####) OR by any detail hint (name, colour, category, keywords) — when no SKU is given, pass the hint as "query" to the *_by_name / *_of / set_stock / product_photos / last_purchase tools. ` +
     `Tool hints: "stock N kar do"/"set stock to N"=set_stock (exact total); "N add/kam"=add_stock/remove_stock; variants=add_variant/list_variants; product photos=product_photos (or generate_photo to create one); recent bills/invoices=recent_sales; convert a cash memo to GST=convert_invoice; last purchase cost=last_purchase; categories=list_categories; create page/product=create_product. ` +
+    `VOICE-NOTE PRODUCT FACTORY: the owner may dictate MANY products in ONE message ("gold jhumka 50 piece cost 80, oxidised kada 30 piece 120, ..."). Emit ONE create_product step per product: {name (title-case the spoken name), category, price (the cost/rate number in rupees), qty (the piece count)}. Infer category from the type word: jhumka/jhumki/bali/earring=Earrings; kada/bracelet/bangle=Bracelets; ring/anguthi=Rings; necklace/haar/set/choker/mala=Necklaces; payal/anklet=Anklets; tikka/mangtika=Maang Tikka; nath/nosepin=Nose Pins. If they also ask for photos, append generate_ad_images {"scope":"missing"}; if they say publish/live karo, append publish_products {"scope":"photos"}. `+
     `CLARITY: if you are unsure which product they mean, or multiple could match, or a required value (quantity, price, name, category) is missing, DO NOT guess — return EMPTY steps and ask ONE short clarifying question in "reply". Once it is clear, act. ` +
     `Examples:\n` +
+    `"3 naye product: gold jhumka 50 piece cost 80, oxidised kada 30 piece 120, pearl ring 20 piece 60 — photos bhi bana dena" -> [{"tool":"create_product","args":{"name":"Gold Jhumka","category":"Earrings","price":80,"qty":50}},{"tool":"create_product","args":{"name":"Oxidised Kada","category":"Bracelets","price":120,"qty":30}},{"tool":"create_product","args":{"name":"Pearl Ring","category":"Rings","price":60,"qty":20}},{"tool":"generate_ad_images","args":{"scope":"missing"}}]\n` +
     `"how's AJ1004 doing?" -> [{"tool":"product_analytics","args":{"sku":"AJ1004"},"label":"Analyse AJ1004"}]\n` +
     `"hide the polki choker AJ1003 and tell me sales this week" -> [{"tool":"hide_product","args":{"sku":"AJ1003"}},{"tool":"analyze_sales","args":{"days":7}}]\n` +
     `"add 30 to AJ1010 then open inventory" -> [{"tool":"add_stock","args":{"sku":"AJ1010","qty":30}},{"tool":"open_page","args":{"page":"inventory"}}]\n\n` +
     `Respond ONLY as compact JSON: {"reply": "<one friendly sentence>", "steps": [{"tool":"<name>","args":{...},"label":"<short label>"}]}. ` +
-    `If nothing matches, return empty steps and explain in reply.`;
+    `If nothing matches, return empty steps and explain in reply.` + memoryNotes;
 
   let parsed: any = null;
   try {
-    let raw: string;
-    // Prefer Gemini (you already use it for images), then Groq, then OpenAI.
-    if (geminiTextConfigured()) raw = await geminiChat({ system, user: cmd, json: true });
-    else if (groqConfigured()) raw = await groqChat({ system, user: cmd, json: true });
-    else if (openaiConfigured()) raw = await openaiChat({ system, user: cmd, json: true });
-    else return nluPlan;
+    // Task-based routing with cascading fallback: mutations need the strongest
+    // reasoning; very long commands go to the large-context model; quick lookups
+    // go to the fastest. aiChat() tries the next provider automatically on failure.
+    const task = mutating ? "reasoning" : cmd.length > 320 ? "context" : "fast";
+    const { text: raw } = await aiChat(task, { system, user: cmd, json: true });
     parsed = JSON.parse(raw);
   } catch {
     return nluPlan;
@@ -195,6 +203,9 @@ export async function getDivaSuggestions(): Promise<DivaSuggestion[]> {
       const r = drafts[0];
       out.push({ id: "draft", icon: "✏️", text: `${r.name} (${r.sku}) is still a draft — open it to finish & publish?`, command: `show ${r.sku}` });
     }
+    if (drafts.length >= 2) {
+      out.push({ id: "factory", icon: "🏭", text: `${drafts.length} naye products draft me hain — AI photos bana ke publish kar dun?`, command: "sab naye products ki photos banao" });
+    }
     if (dead.length) {
       const r = dead[0];
       out.push({ id: "dead", icon: "💤", text: `${r.name} hasn't sold lately — share its catalogue to push it?`, command: `${r.name} ka catalog whatsapp pe bhejo` });
@@ -211,6 +222,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
   if (!tool) return { ok: false, message: "Unknown action." };
   if (!(await sessionCan(tool.permission))) return { ok: false, denied: true, message: `Your role doesn't have permission for ${tool.name}.` };
 
+  const __res = await (async (): Promise<DivaResult> => {
   try {
     switch (toolName) {
       case "open_page": {
@@ -693,12 +705,170 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         return { ok: true, message: `Converted cash memo ${invoice} into a GST invoice.${warn}` };
       }
 
+      // ---- Accounting & business health (AI employee upgrade) -----------------
+      case "check_cash_bank": {
+        const sb = supabaseServer();
+        const { data: sum, error } = await sb.rpc("cash_bank_summary");
+        if (error) return { ok: false, message: `Cash book isn't ready (${error.message}).` };
+        const r: any = (Array.isArray(sum) ? sum[0] : sum) ?? {};
+        const cash = Number(r.opening_cash ?? 0) + Number(r.cash_in ?? 0) - Number(r.cash_out ?? 0);
+        const bank = Number(r.opening_bank ?? 0) + Number(r.bank_in ?? 0) - Number(r.bank_out ?? 0);
+        return { ok: true, data: r, message: `Cash in hand ${formatPaise(cash)} · Bank/UPI ${formatPaise(bank)}. (In: ${formatPaise(Number(r.cash_in ?? 0))} cash / ${formatPaise(Number(r.bank_in ?? 0))} bank · Out to suppliers: ${formatPaise(Number(r.cash_out ?? 0) + Number(r.bank_out ?? 0))}.)` };
+      }
+      case "receivables": {
+        const sb = supabaseServer();
+        const { data } = await sb.from("orders").select("customer_name,total,amount_paid,invoice_no,created_at").order("created_at", { ascending: false }).limit(1000);
+        const due = new Map<string, number>();
+        let total = 0;
+        for (const o of (data as any[]) ?? []) {
+          const d = Math.max(0, Number(o.total ?? 0) - Number(o.amount_paid ?? 0));
+          if (!d) continue;
+          total += d;
+          const who = o.customer_name || "Walk-in / unnamed";
+          due.set(who, (due.get(who) ?? 0) + d);
+        }
+        if (!total) return { ok: true, message: "Nobody owes us anything right now — sab paisa aa chuka hai 🎉" };
+        const top = [...due.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
+          .map(([n, v]) => `${n}: ${formatPaise(v)}`).join(" · ");
+        return { ok: true, data: { total, parties: due.size }, message: `Outstanding ${formatPaise(total)} from ${due.size} parties. Biggest: ${top}.` };
+      }
+      case "payables": {
+        const sb = supabaseServer();
+        const [{ data: purch }, { data: pays }, { data: sups }] = await Promise.all([
+          sb.from("purchases").select("supplier_id,total").limit(2000),
+          sb.from("supplier_payments").select("supplier_id,amount").limit(2000),
+          sb.from("suppliers").select("id,name").limit(500),
+        ]);
+        const name = new Map(((sups as any[]) ?? []).map((x) => [x.id, x.name]));
+        const owed = new Map<string, number>();
+        for (const p of (purch as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) + Number(p.total ?? 0));
+        for (const p of (pays as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) - Number(p.amount ?? 0));
+        const rows = [...owed.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+        const total = rows.reduce((s2, [, v]) => s2 + v, 0);
+        if (!total) return { ok: true, message: "No pending supplier payments — sab clear hai ✓" };
+        const top = rows.slice(0, 6).map(([id, v]) => `${name.get(id) ?? "Unknown"}: ${formatPaise(v)}`).join(" · ");
+        return { ok: true, data: { total }, message: `We owe suppliers ${formatPaise(total)}. ${top}.` };
+      }
+      case "business_health": {
+        const sb = supabaseServer();
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const d = await getDashboardData(today.toISOString(), new Date().toISOString());
+        let health = "";
+        try {
+          const { data: h } = await sb.from("v_accounting_health").select("*").maybeSingle();
+          if (h) health = ` Receivable ${formatPaise(Number((h as any).receivable_paise ?? 0))} · payable ${formatPaise(Number((h as any).payable_paise ?? 0))}${Number((h as any).negative_stock ?? 0) ? ` · ⚠ ${(h as any).negative_stock} negative-stock items` : ""}.`;
+        } catch { /* view optional */ }
+        return { ok: true, data: d, message: `Today: ${formatPaise(d.revenue)} from ${d.orders} bills (${d.pos} counter, ${d.cod} COD). Stock: ${d.low} low, ${d.dead} dead.${health} ${d.low ? "Suggestion: reorder the low-stock items." : "All healthy ✓"}` };
+      }
+      case "inactive_customers": {
+        const days = Math.max(7, Number(args.days) || 60);
+        const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+        const sb = supabaseServer();
+        const { data: cust } = await sb.from("customers").select("id,name,phone").limit(1000);
+        const { data: ords } = await sb.from("orders").select("customer_id,created_at").not("customer_id", "is", null).order("created_at", { ascending: false }).limit(3000);
+        const last = new Map<string, string>();
+        for (const o of (ords as any[]) ?? []) if (!last.has(o.customer_id)) last.set(o.customer_id, o.created_at);
+        const inactive = ((cust as any[]) ?? []).filter((c) => { const l = last.get(c.id); return l && l < cutoff; });
+        if (!inactive.length) return { ok: true, message: `No customers have gone quiet in the last ${days} days.` };
+        const list = inactive.slice(0, 10).map((c) => c.name || c.phone || "?").join(", ");
+        return { ok: true, data: inactive.slice(0, 50), message: `${inactive.length} customers haven't purchased in ${days}+ days: ${list}${inactive.length > 10 ? "…" : ""}. Want me to prepare a WhatsApp catalogue link to win them back?` };
+      }
+      case "top_wholesale": {
+        const sb = supabaseServer();
+        const { data } = await sb.from("orders").select("customer_name,total").eq("channel", "wholesale").limit(2000);
+        const by = new Map<string, number>();
+        for (const o of (data as any[]) ?? []) by.set(o.customer_name ?? "?", (by.get(o.customer_name ?? "?") ?? 0) + Number(o.total ?? 0));
+        const rows = [...by.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+        if (!rows.length) return { ok: true, message: "No wholesale orders yet." };
+        return { ok: true, data: rows, message: `Top wholesale parties: ${rows.map(([n, v], i) => `${i + 1}. ${n} (${formatPaise(v)})`).join(" · ")}.` };
+      }
+      case "hide_dead_stock": {
+        const rows = await getInventoryClassified();
+        const dead = rows.filter((r: any) => r.cls === "dead" && r.sku);
+        if (!dead.length) return { ok: true, message: "No dead stock to hide — everything is moving 🎉" };
+        const sb = supabaseServer();
+        const { error } = await sb.from("products").update({ status: "draft" }).in("sku", dead.map((r: any) => r.sku));
+        if (error) return { ok: false, message: error.message };
+        revalidatePath("/shop"); revalidatePath("/admin/catalogue"); revalidatePath("/admin/inventory");
+        return { ok: true, data: { hidden: dead.length }, message: `Hidden ${dead.length} dead-stock products from the storefront (set to draft): ${dead.slice(0, 8).map((r: any) => r.sku).join(", ")}${dead.length > 8 ? "…" : ""}. Say "show <SKU>" to bring any back.` };
+      }
+      case "remember_note": {
+        const note = String(args.note ?? "").trim().slice(0, 300);
+        if (!note) return { ok: false, message: "Tell me what to remember." };
+        const sb = supabaseServer();
+        const { error } = await sb.from("diva_memory").insert({ note });
+        if (error) return { ok: false, message: `I couldn't save that (${error.message}). Apply migration 0042_diva_memory.sql.` };
+        return { ok: true, message: `Remembered: "${note}". I'll respect this in future plans.` };
+      }
+
+      // ---- Product factory: ad photos + one-command publish --------------------
+      case "generate_ad_images": {
+        const sku = String(args.sku ?? "").trim().toUpperCase();
+        const limit = Math.min(8, Math.max(1, Number(args.limit) || 5));
+        const sb = supabaseServer();
+        let targets: { sku: string }[] = [];
+        if (sku) {
+          targets = [{ sku }];
+        } else {
+          const { data: prods } = await sb.from("products").select("id,sku").order("created_at", { ascending: false }).limit(80);
+          const ids = ((prods as any[]) ?? []).map((p) => p.id);
+          const { data: imgs } = ids.length
+            ? await sb.from("product_images").select("product_id").eq("kind", "model").in("product_id", ids)
+            : ({ data: [] } as any);
+          const have = new Set(((imgs as any[]) ?? []).map((i: any) => i.product_id));
+          targets = ((prods as any[]) ?? []).filter((p) => !have.has(p.id)).slice(0, limit).map((p) => ({ sku: p.sku }));
+        }
+        if (!targets.length) return { ok: true, message: "Every product already has a photo 🎉" };
+        const done: string[] = []; const failed: string[] = [];
+        for (const t of targets) {
+          const r = await generateAdImageAction(t.sku);
+          if (r.ok) done.push(t.sku); else failed.push(`${t.sku} (${r.reason ?? "error"})`);
+        }
+        revalidatePath("/admin/catalogue"); revalidatePath("/admin/media"); revalidatePath("/shop");
+        const more = !sku && done.length + failed.length >= limit ? ` There may be more — say "photos banao" again for the next batch.` : "";
+        return {
+          ok: failed.length === 0,
+          data: { done, failed },
+          message: `${done.length ? `Ready-to-advertise photos created for ${done.length} products: ${done.join(", ")}. ` : ""}${failed.length ? `Couldn't do: ${failed.join(", ")}.` : ""}${more} Say "sab publish kar do" to put them live.`.trim(),
+        };
+      }
+      case "publish_products": {
+        const scope = String(args.scope ?? "photos");
+        const sb = supabaseServer();
+        const { data: drafts } = await sb.from("products").select("id,sku,name").eq("status", "draft").limit(200);
+        let list = (drafts as any[]) ?? [];
+        if (!list.length) return { ok: true, message: "No drafts — everything is already live on the store." };
+        if (scope !== "all") {
+          const { data: imgs } = await sb.from("product_images").select("product_id").eq("kind", "model").in("product_id", list.map((p) => p.id));
+          const have = new Set(((imgs as any[]) ?? []).map((i: any) => i.product_id));
+          const withPhoto = list.filter((p) => have.has(p.id));
+          if (!withPhoto.length) return { ok: false, message: `${list.length} drafts are waiting but none has a photo yet — say "photos banao" first, then publish.` };
+          list = withPhoto;
+        }
+        const { error } = await sb.from("products").update({ status: "published" }).in("id", list.map((p) => p.id));
+        if (error) return { ok: false, message: error.message };
+        revalidatePath("/shop"); revalidatePath("/admin/catalogue");
+        return { ok: true, data: { published: list.length }, message: `Published ${list.length} products — live on the website now ✓ ${list.slice(0, 10).map((p) => p.sku).join(", ")}${list.length > 10 ? "…" : ""}` };
+      }
+
       default:
         return { ok: false, message: "That action isn't wired yet." };
     }
   } catch (e) {
     return { ok: false, message: `Something went wrong: ${e instanceof Error ? e.message : "unknown error"}.` };
   }
+  })();
+  // AI task history — every action DIVA takes is recorded (agent_runs; never blocks the action).
+  try {
+    await supabaseServer().from("agent_runs").insert({
+      agent: "diva",
+      trigger: toolName,
+      input: args as any,
+      output: { ok: __res.ok, message: __res.message } as any,
+      needs_human: !!tool.confirm,
+    });
+  } catch { /* logging is best-effort */ }
+  return __res;
 }
 
 /** Best-effort: match a product by SKU embedded in the text, else by name/keyword search. */

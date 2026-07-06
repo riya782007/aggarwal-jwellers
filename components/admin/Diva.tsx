@@ -17,10 +17,12 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const [busy, setBusy] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [listening, setListening] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime." }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime. 🏭 NEW: ek voice note me kai products bolo — “gold jhumka 50 piece cost 80, oxidised kada 30 piece 120” — main sab create karungi; phir “photos banao” aur “sab publish kar do”." }]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<DivaSuggestion[] | null>(null);
+  const [voiceLang, setVoiceLang] = useState<"hi-IN" | "en-IN">("hi-IN"); // hi-IN also handles Hinglish well
+  const [speakBack, setSpeakBack] = useState(true);
   const recRef = useRef<any>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<Step[]>([]);
@@ -40,11 +42,23 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
     if (!hasVoice) { toast("Voice isn't supported in this browser — try Chrome.", "error"); return; }
     if (listening) { recRef.current?.stop(); return; }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const rec = new SR(); rec.lang = "en-IN"; rec.interimResults = false; rec.maxAlternatives = 1;
+    const rec = new SR(); rec.lang = voiceLang; rec.interimResults = false; rec.maxAlternatives = 1;
     rec.onresult = (e: any) => { const t = e.results[0][0].transcript; setInput(t); submit(t); };
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
     recRef.current = rec; setListening(true); rec.start();
+  }
+
+  /** Voice reply — speaks DIVA's answer aloud (Hindi voice for Devanagari, else the mic language). */
+  function speak(text: string) {
+    if (!speakBack || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/[✓✕●○◔—]/g, "").slice(0, 280));
+      u.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : voiceLang;
+      u.rate = 1.05;
+      window.speechSynthesis.speak(u);
+    } catch { /* voice reply is optional */ }
   }
 
   async function submit(text?: string) {
@@ -57,7 +71,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
     setPlanning(false);
     ctxRef.current = plan.context; // carry conversational memory into the next turn
     setMsgs((m) => [...m, { who: "diva", text: plan.reply }]);
-    if (plan.steps.length === 0) { setBusy(false); return; }
+    if (plan.steps.length === 0) { speak(plan.reply); setBusy(false); return; }
     sync(plan.steps.map((s) => ({ ...s, status: "pending" })));
     run(0, myRun);
   }
@@ -73,7 +87,10 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
       const clean = errN === 0 && skipN === 0;
       toast(clean ? "DIVA finished ✓" : "DIVA finished with issues", clean ? undefined : "error");
       // Honest summary — never claim "Done" when a step actually failed.
-      setMsgs((m) => [...m, { who: "diva", text: clean ? (okN ? "All done ✓" : "Nothing to do.") : `Finished — ${okN} done${errN ? `, ${errN} couldn't run` : ""}${skipN ? `, ${skipN} skipped` : ""}. Check the lines marked ✕.` }]);
+      const summaryText = clean ? (okN ? "All done ✓" : "Nothing to do.") : `Finished — ${okN} done${errN ? `, ${errN} couldn't run` : ""}${skipN ? `, ${skipN} skipped` : ""}. Check the lines marked ✕.`;
+      setMsgs((m) => [...m, { who: "diva", text: summaryText }]);
+      const lastMsg = [...stepsRef.current].reverse().find((x) => x.status === "done" && x.message)?.message;
+      speak(lastMsg && okN === 1 && errN === 0 ? lastMsg : summaryText);
       loadSuggestions(); return;
     }
     const step = s[i];
@@ -120,6 +137,10 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
               <p className="font-display text-xl leading-none text-ivory">DIVA</p>
               <p className="text-[10px] tracking-widest uppercase text-gold-light">Operator · {roleName}</p>
             </div>
+            <button onClick={() => setVoiceLang((l) => (l === "hi-IN" ? "en-IN" : "hi-IN"))} title="Mic language (Hindi / English)"
+              className="text-[11px] font-semibold px-2 py-1 rounded-full bg-white/10 text-cream/80 hover:text-white transition-colors">{voiceLang === "hi-IN" ? "हिं" : "EN"}</button>
+            <button onClick={() => setSpeakBack((v) => !v)} title={speakBack ? "Voice replies on" : "Voice replies off"}
+              className="text-sm px-1 text-cream/80 hover:text-white transition-colors">{speakBack ? "🔊" : "🔇"}</button>
             <button onClick={() => setOpen(false)} className="text-cream/70 hover:text-white text-lg px-1">✕</button>
           </div>
 

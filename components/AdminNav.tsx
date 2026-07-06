@@ -48,6 +48,7 @@ const GROUPS: { title: string; links: L[] }[] = [
   { title: "Control", links: [
     { href: "/admin/approvals", label: "Approvals", icon: "✓", perm: "approvals.approve" },
     { href: "/admin/inbox", label: "Notifications", icon: "✉" },
+    { href: "/admin/ai-activity", label: "AI Activity", icon: "🤖" },
     { href: "/admin/roles", label: "Roles", icon: "⚿", perm: "roles.manage" },
   ]},
 ];

@@ -317,3 +317,38 @@ TECHNICAL: photorealistic, shot on a 85mm lens look, shallow depth of field with
 OUTPUT FRAMING: Render the final image in ${aspectNote}.
 OUTPUT: A clean photograph with NO text, NO watermark, NO logo, and NO graphic overlays anywhere.`;
 }
+
+/**
+ * Ad-creative prompt for products that have NO raw reference photo yet (voice-created
+ * drafts). Unlike buildImagePrompt (locked to pixel-fidelity against a reference), this
+ * renders a beautiful, plausible piece from the product's name/category/colours —
+ * a ready-to-advertise editorial shot the owner can replace later with a fidelity
+ * render once a real photo is uploaded.
+ */
+export function buildAdPrompt(opts: {
+  category: string;
+  subcategory?: string;
+  productName: string;
+  colours?: string[];
+  index?: number;
+}): string {
+  const identity = categoryIdentity(opts.category, opts.subcategory);
+  const shot = shotTypeFor(opts.category);
+  const colour = opts.colours && opts.colours.length ? ` The piece is in ${opts.colours.join(" and ")} tones.` : "";
+  const i = opts.index ?? 0;
+  const model = i % 2 === 0
+    ? "a 27-year-old Indian woman with warm medium skin tone, natural minimal makeup, soft loose hair, calm confident expression"
+    : "a 32-year-old Indian woman with deep skin tone, dewy natural makeup, hair pulled back softly, serene aspirational expression";
+  return `Generate a professional, editorial-grade e-commerce advertising photograph of a model wearing an Indian artificial-jewellery piece: "${opts.productName}" — ${identity}.${colour}
+
+DESIGN: create an elegant, realistic, handcrafted-looking design appropriate for the name — premium anti-tarnish gold-tone/oxidised finish typical of Sadar Bazar fashion jewellery. Intricate but believable detailing; it must look like a real manufactured product.
+
+SUBJECT: ${model}.
+SHOT TYPE: ${shot} — framed so the jewellery is the clear hero and tack-sharp.
+STYLING: minimal neutral clothing (soft beige, ivory or muted tone); no other jewellery in frame.
+LIGHTING: soft diffused studio light with gentle directional highlights so metal catches light and stones sparkle; no harsh shadows.
+BACKGROUND & MOOD: clean off-white seamless studio backdrop; calm, aspirational, luxury-brand feel.
+TECHNICAL: photorealistic, 85mm lens look, shallow depth of field, natural skin texture, professional colour grading.
+ABSOLUTELY NO TEXT: zero words, letters, numbers, logos, watermarks or borders anywhere in the image.
+OUTPUT FRAMING: VERTICAL PORTRAIT 4:5 aspect ratio (e.g. 1080x1350), jewellery centred with comfortable margins.`;
+}

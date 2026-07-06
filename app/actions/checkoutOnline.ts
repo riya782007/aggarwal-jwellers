@@ -18,7 +18,6 @@ import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices } from "@/lib/pricing";
 import { createRazorpayOrder, verifyRazorpaySignature, isRazorpayConfigured, razorpayPublicKeyId } from "@/lib/payments/razorpay";
 import { notifyOrderPlaced } from "@/lib/whatsapp";
-import { sendPurchase } from "@/lib/ga4";
 
 type CartItem = { sku: string; qty: number; color?: string };
 type Customer = { name: string; phone: string; address: string; pincode?: string; city?: string };
@@ -157,7 +156,6 @@ async function finalizeOnlineOrder(args: {
     status: "placed", order_id: orderId, payment_ref: args.paymentId, placed_at: new Date().toISOString(),
   }).eq("razorpay_order_id", args.razorpayOrderId);
 
-  await sendPurchase({ orderId, valuePaise: total, channel: "retail", items: items.map((i) => ({ sku: i.sku, qty: i.qty })) }).catch(() => {});
   await notifyOrderPlaced({
     orderId, customerName: customer.name, customerPhone: customer.phone,
     totalPaise: total, payment: "online", itemCount: items.reduce((n, i) => n + i.qty, 0),

@@ -99,3 +99,38 @@ export async function geminiChat(a: ChatArgs): Promise<string> {
     return text;
   } finally { clearTimeout(t); }
 }
+
+// ---------------------------------------------------------------- task router
+/**
+ * Task-based model selection with cascading fallback (AI employee upgrade):
+ *   reasoning — complex multi-step planning / mutations  → OpenAI → Gemini → Groq
+ *   context   — long inputs, large analysis              → Gemini → OpenAI → Groq
+ *   fast      — quick lookups, simple actions            → Groq  → Gemini → OpenAI
+ * Only configured providers are tried; the first success wins.
+ */
+export type AiTask = "reasoning" | "context" | "fast";
+type ProviderEntry = { name: string; ok: () => boolean; call: (a: ChatArgs) => Promise<string> };
+const P_OPENAI: ProviderEntry = { name: "openai", ok: openaiConfigured, call: openaiChat };
+const P_GEMINI: ProviderEntry = { name: "gemini", ok: geminiTextConfigured, call: geminiChat };
+const P_GROQ: ProviderEntry = { name: "groq", ok: groqConfigured, call: groqChat };
+const ROUTES: Record<AiTask, ProviderEntry[]> = {
+  reasoning: [P_OPENAI, P_GEMINI, P_GROQ],
+  context: [P_GEMINI, P_OPENAI, P_GROQ],
+  fast: [P_GROQ, P_GEMINI, P_OPENAI],
+};
+
+export function anyAiConfigured(): boolean {
+  return openaiConfigured() || geminiTextConfigured() || groqConfigured();
+}
+
+export async function aiChat(task: AiTask, a: ChatArgs): Promise<{ text: string; provider: string }> {
+  let lastErr: unknown = new Error("no AI provider configured");
+  for (const p of ROUTES[task]) {
+    if (!p.ok()) continue;
+    try {
+      const text = await p.call(a);
+      return { text, provider: p.name };
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}

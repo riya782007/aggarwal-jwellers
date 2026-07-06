@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Analytics } from "@/components/Analytics";
 import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         {/* progressive-enhancement flag for scroll reveal */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
-        <Analytics />
       </head>
       <body><ToastProvider>{children}</ToastProvider></body>
     </html>
