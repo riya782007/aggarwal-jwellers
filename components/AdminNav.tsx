@@ -26,6 +26,7 @@ const GROUPS: { title: I18nKey; links: L[] }[] = [
   ]},
   { title: "navSales", links: [
     { href: "/admin/billing", label: "billingPos", icon: "₹", perm: "billing.sell" },
+    { href: "/admin/orders", label: "websiteOrders", icon: "🛒", perm: "sales.view" },
     { href: "/admin/sales", label: "salesRecords", icon: "❑", perm: "sales.view" },
     { href: "/admin/backorders", label: "backorders", icon: "⏳", perm: "sales.view" },
     { href: "/admin/estimates", label: "estimates", icon: "≈", perm: "estimates.create" },

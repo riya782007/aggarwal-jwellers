@@ -41,6 +41,7 @@ const STR = {
   aiReorder: { en: "AI Reorder", hi: "AI रीऑर्डर" },
   billingPos: { en: "Billing (POS)", hi: "बिलिंग (काउंटर)" },
   salesRecords: { en: "Sales Records", hi: "बिक्री रिकॉर्ड" },
+  websiteOrders: { en: "Website Orders", hi: "वेबसाइट ऑर्डर" },
   backorders: { en: "Backorders", hi: "बैकऑर्डर" },
   estimates: { en: "Estimates", hi: "एस्टिमेट" },
   returns: { en: "Returns", hi: "वापसी" },

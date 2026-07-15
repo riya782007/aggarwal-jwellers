@@ -625,17 +625,18 @@ export async function getSupplierLedger(id: string) {
   const { data: supplier } = await sb.from("suppliers").select("*").eq("id", id).maybeSingle();
   if (!supplier) return null;
   const [{ data: purchases }, { data: pays }] = await Promise.all([
-    sb.from("purchases").select("id,bill_no,total,created_at, items:purchase_items(qty)").eq("supplier_id", id).order("created_at", { ascending: false }),
+    sb.from("purchases").select("id,bill_no,total,return_amount,created_at, items:purchase_items(qty)").eq("supplier_id", id).order("created_at", { ascending: false }),
     sb.from("supplier_payments").select("id,amount,mode,ref,note,created_at").eq("supplier_id", id).order("created_at", { ascending: false }),
   ]);
   const list = ((purchases as any[]) ?? []).map((p) => ({
-    id: p.id, bill_no: p.bill_no, total: p.total ?? 0, created_at: p.created_at,
+    id: p.id, bill_no: p.bill_no, total: p.total ?? 0, return_amount: p.return_amount ?? 0, created_at: p.created_at,
     qty: ((p.items as any[]) ?? []).reduce((s, x) => s + (x.qty ?? 0), 0),
     lines: ((p.items as any[]) ?? []).length,
   }));
   const payments = ((pays as any[]) ?? []).map((p) => ({ id: p.id, amount: p.amount ?? 0, mode: p.mode as string, ref: p.ref as string | null, note: p.note as string | null, created_at: p.created_at }));
   const opening = ((supplier as any).opening_balance ?? 0) as number;
-  const totalPurchased = list.reduce((s, p) => s + p.total, 0);
+  // Net of purchase-return debit notes (0046) — same formula as v_accounting_health & DIVA payables.
+  const totalPurchased = list.reduce((s, p) => s + p.total - (p as any).return_amount, 0);
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
   return {
     supplier, purchases: list, payments,
@@ -1545,7 +1546,7 @@ export async function getPurchaseById(id: string) {
   const sb = supabaseServer();
   const { data: p } = await sb.from("purchases").select("*, supplier:suppliers(id,name,city)").eq("id", id).maybeSingle();
   if (!p) return null;
-  const { data: items } = await sb.from("purchase_items").select("supplier_sku,qty,unit_cost, product:products(sku,name)").eq("purchase_id", id);
+  const { data: items } = await sb.from("purchase_items").select("id,supplier_sku,qty,unit_cost,returned_qty,variant_id, product:products(sku,name), variant:variants(sku,color)").eq("purchase_id", id);
   const { data: pending } = await sb.from("approvals").select("id").eq("action", "delete_purchase").eq("status", "pending").contains("payload", { purchase_id: id }).maybeSingle();
   const { data: suppliers } = await sb.from("suppliers").select("id,name,city").order("name");
   return { purchase: p, items: (items as any[]) ?? [], deletionPending: !!pending, suppliers: (suppliers as any[]) ?? [] };
@@ -1744,4 +1745,55 @@ export async function getProductsWithMedia() {
     for (const p of base) p.variants = byP.get(p.id) ?? [];
   }
   return base;
+}
+
+/** Website orders (retail + wholesale channels; POS excluded) for the fulfillment queue (0047). */
+export async function getWebsiteOrders(tab: "new" | "accepted" | "dispatched" | "all" = "new") {
+  const sb = supabaseServer();
+  let q = sb.from("orders")
+    .select("id,channel,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_id,customer_name,customer_phone,created_at,dispatched_at,delivered_at, items:order_items(qty), customer:customers(address,city)")
+    .neq("channel", "pos")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (tab === "new") q = q.is("fulfillment", null).not("status", "in", "(cancelled,void,refunded)");
+  else if (tab === "accepted") q = q.eq("fulfillment", "accepted").is("dispatched_at", null).not("status", "in", "(cancelled,void,refunded)");
+  else if (tab === "dispatched") q = q.eq("status", "dispatched").is("delivered_at", null);
+  const { data } = await q;
+  return ((data as any[]) ?? []).map((o) => ({ ...o, itemCount: ((o.items as any[]) ?? []).reduce((s, x) => s + (x.qty ?? 0), 0) }));
+}
+
+/** Count of NEW website orders awaiting accept/reject — powers the nav badge. */
+export async function countNewWebsiteOrders(): Promise<number> {
+  const sb = supabaseServer();
+  const { count } = await sb.from("orders").select("id", { count: "exact", head: true })
+    .neq("channel", "pos").is("fulfillment", null).not("status", "in", "(cancelled,void,refunded)");
+  return count ?? 0;
+}
+
+/** Public order tracking (0047): find one order by code (invoice no / first 8 of id) + phone. */
+export async function findOrderForTracking(code: string, phone: string) {
+  const sb = supabaseServer();
+  const c = code.trim().toLowerCase();
+  const last10 = phone.replace(/\D/g, "").slice(-10);
+  if (!c || last10.length !== 10) return null;
+  const sel = "id,invoice_no,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_name,customer_phone,created_at,dispatched_at,delivered_at";
+  const matchPhone = (o: any) => (o.customer_phone ?? "").replace(/\D/g, "").slice(-10) === last10;
+  // 1) exact invoice number
+  const { data: byInv } = await sb.from("orders").select(sel).ilike("invoice_no", code.trim()).limit(5);
+  const inv = ((byInv as any[]) ?? []).find(matchPhone);
+  if (inv) return inv;
+  // 2) full order id
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(c)) {
+    const { data: byId } = await sb.from("orders").select(sel).eq("id", c).limit(1);
+    const full = ((byId as any[]) ?? []).find(matchPhone);
+    if (full) return full;
+  }
+  // 3) short code (first 8 of the id, as printed on bills) — uuid columns can't be
+  // prefix-filtered via PostgREST, so match this customer's recent orders in JS.
+  if (/^[0-9a-f]{6,12}$/.test(c)) {
+    const { data: recent } = await sb.from("orders").select(sel).order("created_at", { ascending: false }).limit(400);
+    const hit = ((recent as any[]) ?? []).find((o) => String(o.id).toLowerCase().startsWith(c) && matchPhone(o));
+    if (hit) return hit;
+  }
+  return null;
 }

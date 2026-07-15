@@ -763,13 +763,13 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       case "payables": {
         const sb = supabaseServer();
         const [{ data: purch }, { data: pays }, { data: sups }] = await Promise.all([
-          sb.from("purchases").select("supplier_id,total").limit(2000),
+          sb.from("purchases").select("supplier_id,total,return_amount").limit(2000),
           sb.from("supplier_payments").select("supplier_id,amount").limit(2000),
           sb.from("suppliers").select("id,name").limit(500),
         ]);
         const name = new Map(((sups as any[]) ?? []).map((x) => [x.id, x.name]));
         const owed = new Map<string, number>();
-        for (const p of (purch as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) + Number(p.total ?? 0));
+        for (const p of (purch as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) + Number(p.total ?? 0) - Number(p.return_amount ?? 0));
         for (const p of (pays as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) - Number(p.amount ?? 0));
         const rows = [...owed.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
         const total = rows.reduce((s2, [, v]) => s2 + v, 0);

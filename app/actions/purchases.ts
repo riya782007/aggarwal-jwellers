@@ -110,3 +110,24 @@ export async function recordPurchaseAction(input: {
   revalidatePath(`/admin/supplier/${input.supplierId}`); revalidatePath("/admin/cashbook");
   return { ok: true, total };
 }
+
+/** Return goods from a purchase back to the supplier (debit note). Per-line caps and a
+ *  stock-availability guard live in the record_purchase_return RPC (migration 0046);
+ *  payables everywhere are net of purchases.return_amount. */
+export async function recordPurchaseReturnAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("purchases.create"))) return;
+  const purchaseId = String(formData.get("purchase_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim() || "Returned to supplier";
+  const items: { purchase_item_id: string; qty: number }[] = [];
+  for (const [k, v] of formData.entries()) {
+    if (k.startsWith("ret:")) {
+      const qty = Math.floor(Number(v) || 0);
+      if (qty > 0) items.push({ purchase_item_id: k.slice(4), qty });
+    }
+  }
+  if (!purchaseId || items.length === 0) return;
+  const { error } = await supabaseServer().rpc("record_purchase_return", { p_purchase: purchaseId, p_reason: reason, p_items: items });
+  if (error) { console.warn("record_purchase_return failed:", error.message); return; }
+  revalidatePath(`/admin/purchase/${purchaseId}`); revalidatePath("/admin/purchases"); revalidatePath("/admin/inventory");
+  revalidatePath("/admin/returns"); revalidatePath("/admin/stock-movements"); revalidatePath("/admin/suppliers");
+}

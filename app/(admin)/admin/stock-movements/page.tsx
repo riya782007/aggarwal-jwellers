@@ -14,6 +14,9 @@ const KINDS = [
   { key: "opening", label: "Opening stock" },
   { key: "adjustment", label: "Adjustments" },
   { key: "damage", label: "Damage / loss" },
+  { key: "return", label: "Sales returns (in)" },
+  { key: "purchase_return", label: "Purchase returns (out)" },
+  { key: "cancel", label: "Cancellations (in)" },
   { key: "estimate", label: "Estimate reservations" },
 ];
 // Row rendering, document links and click-to-open ledger now live in <StockMovementsTable/>.

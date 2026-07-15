@@ -7,6 +7,9 @@ import { PrintButton } from "@/components/admin/PrintButton";
 import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, gstSplitExclusive, stateCodeFromGstin, stateNameFromCode, bankHasDetails, amountInWords, orderDuePaise } from "@/lib/business";
 import { getSession, can } from "@/lib/auth";
 import { recordPaymentAction, setDocTypeAction, saveOrderNoteAction, setBillTypeAction, setGstModeAction } from "@/app/actions/payments";
+import { cancelOrderAction } from "@/app/actions/billing";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { isDeadOrder } from "@/lib/business";
 
 export const metadata = { title: "Invoice" };
 
@@ -286,6 +289,20 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                     <option value="upi">UPI</option>
                   </select>
                   <button className="btn-primary px-4 py-2 text-sm font-medium">Record</button>
+                </form>
+              </div>
+            )}
+            {isDeadOrder(order.status) && (
+              <div className="bg-rose/10 rounded-2xl p-5 text-rose text-sm font-medium">⊘ This bill is {order.status} — it no longer counts in stock, revenue, Udhaar or the cash book.</div>
+            )}
+            {can(session, "billing.refund") && !isDeadOrder(order.status) && (
+              <div className="bg-white rounded-2xl p-5 shadow-card border border-rose/20">
+                <h2 className="font-medium text-ink mb-1">Cancel this bill</h2>
+                <p className="text-xs text-muted mb-3">Puts every piece back in stock (net of returns), reverses the sale and any money received in the day-book, and removes it from revenue, Udhaar and the cash book.</p>
+                <form action={cancelOrderAction} className="flex items-center gap-2 flex-wrap">
+                  <input type="hidden" name="order_id" value={order.id} />
+                  <input name="reason" placeholder="Reason (optional)" className="rounded-xl border border-sand px-3 py-2 text-sm flex-1 min-w-[160px] outline-none focus:border-emerald" />
+                  <ConfirmSubmit message="Cancel this whole bill? Stock is restored and any recorded payment is reversed. This cannot be undone." className="px-4 py-2 rounded-full bg-rose/10 text-rose text-sm font-medium hover:bg-rose/20">⊘ Cancel bill</ConfirmSubmit>
                 </form>
               </div>
             )}

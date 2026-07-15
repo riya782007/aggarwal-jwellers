@@ -220,3 +220,18 @@ export async function recordReturnAction(input: { orderId: string; reason: strin
   revalidatePath("/admin/returns"); revalidatePath("/admin/dashboard");
   return { ok: true, qty: (data as any)?.qty };
 }
+
+/** Cancel a whole bill (owner/refund permission): restocks every line net of returns,
+ *  reverses the sale + tender in the day-book, marks it cancelled. All downstream views
+ *  (Udhaar, cashbook, dashboard, revenue) already exclude cancelled bills (0045/0046). */
+export async function cancelOrderAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("billing.refund"))) return;
+  const id = String(formData.get("order_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim() || "Cancelled";
+  if (!id) return;
+  const { error } = await supabaseServer().rpc("cancel_order", { p_order: id, p_reason: reason });
+  if (error) { console.warn("cancel_order failed:", error.message); return; }
+  revalidatePath(`/admin/invoice/${id}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/creditors"); revalidatePath("/admin/cashbook"); revalidatePath("/admin/inventory");
+  revalidatePath("/admin/stock-movements"); revalidatePath("/admin/returns");
+}
