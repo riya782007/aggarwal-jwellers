@@ -345,6 +345,48 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
     if (note) return mk(base, [step("remember_note", { note }, "Save to memory")],
       ack(lang, "Saving that to my permanent memory.", "Yaad rakh rahi hun — hamesha ke liye."), 0.9, remember({}));
   }
+  // "Sharma ne 5000 diye" / "received 5000 from Sharma" — record an udhaar collection.
+  {
+    const paymentCue = hasAny(lower, [
+      "ne diye", "ne diya", "ne de diye", "de diye", "paise diye", "payment kiya", "payment ki",
+      "payment aaya", "payment aayi", "payment mila", "paisa aaya", "paise aaye", "jama kiye",
+      "jama kiya", "jama karaye", "payment received", "received", "paid us", "paid", "diye", "diya",
+    ]);
+    if (paymentCue && !/(supplier|kharid|purchase)/.test(lower)) {
+      const amt = extractPriceRupees(command) ?? (() => {
+        const m = /(?<![\d.])(\d{2,8})(?![\d.])/.exec(asciiDigits(lower));
+        return m ? parseInt(m[1], 10) : undefined;
+      })();
+      const mode = /(upi|gpay|google pay|phonepe|paytm)/.test(lower) ? "upi"
+        : /(bank|neft|imps|rtgs|cheque|check|transfer)/.test(lower) ? "bank" : "cash";
+      // Party name: text before " ne ", or after "from"/"se".
+      let party = "";
+      const mNe = /^(.{2,40}?)\s+ne\s/.exec(command.trim());
+      const mFrom = /\bfrom\s+([^\d₹]{2,40}?)\s*$/i.exec(command.trim());
+      if (mNe) party = mNe[1]; else if (mFrom) party = mFrom[1];
+      party = party.replace(/[₹]/g, "").replace(/\b(rs\.?|inr|rupees?)\b/gi, "").replace(/\d+/g, "").replace(/\s{2,}/g, " ").trim();
+      // Fall back to the customer we were just talking about — but only when the text
+      // clearly talks about money (so "50 pcs received" never becomes a payment).
+      if (!party && ctx.lastCustomer && /(payment|paisa|paise|₹|rs\.?|rupee|rupaye|diye|diya|jama)/.test(lower)) party = ctx.lastCustomer;
+      if (party && amt && !/^(kis|kaun|who|which|sab|sabhi|customer|party)$/i.test(party)) {
+        return mk(base, [step("record_party_payment", { party, amount: amt, mode }, `Receive ₹${amt} from ${party} (${mode})`)],
+          ack(lang, `Recording ₹${amt} received from ${party} (${mode}) — confirm and I'll settle their oldest bills first.`,
+            `${party} se ₹${amt} (${mode}) aaya — confirm kijiye, sabse purane bill pehle settle karungi.`), 0.85, remember({ lastCustomer: party }));
+      }
+    }
+  }
+  // "Sharma ka kitna baaki hai" — one party's outstanding (must run before the generic check).
+  {
+    const mParty =
+      /^(.{2,40}?)\s+(?:ka|ki|ke)\s+(?:kitna\s+|kitne\s+)?(?:baaki|baki|udhaar|udhar|outstanding|balance)/.exec(lower) ||
+      /(?:how much (?:does|do))\s+(.{2,40}?)\s+owes?/.exec(lower);
+    const partyName = mParty ? mParty[1].replace(/\b(party|customer|mr|mrs|shri)\b/g, "").trim() : "";
+    if (partyName && !/^(kis|kaun|who|which|sab|sabhi|total|hamara|hamare|apna)$/.test(partyName) &&
+        hasAny(lower, ["baaki", "baki", "udhaar", "udhar", "outstanding", "owe", "balance"])) {
+      return mk(base, [step("receivables", { party: partyName }, `Outstanding — ${partyName}`)],
+        ack(lang, `Checking how much ${partyName} owes us.`, `${partyName} ka kitna baaki hai, dekh rahi hun.`), 0.82, remember({ lastCustomer: partyName }));
+    }
+  }
   if (hasAny(lower, ["baaki", "baki hai", "udhaar", "udhar", "owes us", "owe us", "outstanding", "receivable"]) &&
       hasAny(lower, ["kis", "kaun", "who", "party", "customer", "kitna", "paisa", "money", "dikhao", "batao", "show"])) {
     return mk(base, [step("receivables", {}, "Outstanding — who owes us")],

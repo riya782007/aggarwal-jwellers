@@ -717,20 +717,46 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       }
       case "receivables": {
         const sb = supabaseServer();
-        const { data } = await sb.from("orders").select("customer_name,total,amount_paid,invoice_no,created_at").order("created_at", { ascending: false }).limit(1000);
+        const party = String(args.party ?? "").trim().toLowerCase();
+        const { data } = await sb.from("orders").select("customer_name,total,amount_paid,invoice_no,created_at,status").order("created_at", { ascending: false }).limit(1000);
         const due = new Map<string, number>();
+        const billCount = new Map<string, number>();
         let total = 0;
         for (const o of (data as any[]) ?? []) {
+          if (o.status === "cancelled" || o.status === "void") continue;
           const d = Math.max(0, Number(o.total ?? 0) - Number(o.amount_paid ?? 0));
           if (!d) continue;
-          total += d;
           const who = o.customer_name || "Walk-in / unnamed";
+          if (party && !who.toLowerCase().includes(party)) continue;
+          total += d;
           due.set(who, (due.get(who) ?? 0) + d);
+          billCount.set(who, (billCount.get(who) ?? 0) + 1);
+        }
+        if (party) {
+          if (!total) return { ok: true, message: `"${args.party}" ka kuch baaki nahi — all settled ✓` };
+          const [n, v] = [...due.entries()][0];
+          return { ok: true, data: { party: n, outstanding: v }, message: `${n} owes ${formatPaise(v)} across ${billCount.get(n) ?? 0} open bill(s). Say "${n} ne <amount> diye" when they pay.` };
         }
         if (!total) return { ok: true, message: "Nobody owes us anything right now — sab paisa aa chuka hai 🎉" };
         const top = [...due.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
           .map(([n, v]) => `${n}: ${formatPaise(v)}`).join(" · ");
         return { ok: true, data: { total, parties: due.size }, message: `Outstanding ${formatPaise(total)} from ${due.size} parties. Biggest: ${top}.` };
+      }
+      case "record_party_payment": {
+        const q = String(args.party ?? "").trim();
+        const amount = Math.round((Number(args.amount) || 0) * 100); // ₹ → paise
+        if (!q || amount <= 0) return { ok: false, message: `Whose payment, and how much? e.g. "Sharma ne 5000 diye".` };
+        const rows = await getCustomersDb({ q });
+        if (rows.length === 0) return { ok: false, message: `I couldn't find a party named "${q}". Check the name on the Customers page first.` };
+        const c: any = rows[0];
+        const mode = ["cash", "upi", "bank"].includes(String(args.mode)) ? String(args.mode) : "cash";
+        const sb = supabaseServer();
+        const { data, error } = await sb.rpc("record_party_payment", { p_customer: c.id, p_amount: amount, p_mode: mode, p_note: "via DIVA" });
+        if (error) return { ok: false, message: `Couldn't record it (${error.message}). Has migration 0043_party_ledger been applied?` };
+        const r: any = data ?? {};
+        revalidatePath("/admin/creditors"); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook"); revalidatePath(`/admin/customer/${c.id}`);
+        const adv = Number(r.unallocated ?? 0);
+        return { ok: true, data: r, message: `Received ${formatPaise(amount)} from ${c.name} (${mode}) — settled against ${Number(r.bills ?? 0)} bill(s)${adv > 0 ? `; ${formatPaise(adv)} kept on account as advance` : ""}. ✓` };
       }
       case "payables": {
         const sb = supabaseServer();

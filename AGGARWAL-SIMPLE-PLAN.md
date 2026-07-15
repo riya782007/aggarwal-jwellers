@@ -63,8 +63,13 @@ reference-parity so features can be re-enabled by adding a nav link back.
 
 ## 4. What's next (in order, one module per PR — same discipline as Yogendra)
 
-1. **Udhaar / party ledger** — "kis party ka kitna baaki hai" as a first-class card on Home and a
-   simple list under Grahak/Party. (Schema needs the receivables migration from the reference.)
+1. **Udhaar / party ledger** — ✅ SHIPPED. Live "Udhaar · बाकी" card on Home (taps through to the
+   list), the Creditors page reworked as the Udhaar list with an inline "Paisa aaya? · Receive"
+   form per party, a receive-payment card on the customer page, and DIVA intents:
+   _"Sharma ne 5000 diye"_ (records + allocates oldest-bill-first via `record_party_payment`),
+   _"Sharma ka kitna baaki hai"_, _"kis party ka kitna baaki hai"_.
+   Requires `supabase/migrations/0043_party_ledger.sql` (party_payments, v_party_outstanding,
+   record_party_payment RPC).
 2. **QR labels** — replace Code128 with QR (`lib/qr.ts`), sized to Aggarwal's sticker.
 3. **DIVA → "Aggarwal Ji"** — rebrand + voice input (Hindi speech-to-text) so the owner talks
    instead of types; result cards with deep links.

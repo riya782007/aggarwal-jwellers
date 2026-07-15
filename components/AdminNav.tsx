@@ -35,7 +35,7 @@ const GROUPS: { title: string; links: L[] }[] = [
   { title: "People", links: [
     { href: "/admin/customers", label: "Customers", icon: "♚", perm: "customers.view" },
     { href: "/admin/employees", label: "Employees", icon: "☺", perm: "customers.view" },
-    { href: "/admin/creditors", label: "Creditors", icon: "₹", perm: "customers.view" },
+    { href: "/admin/creditors", label: "Udhaar · Baaki", icon: "⏳", perm: "customers.view" },
     { href: "/admin/suppliers", label: "Suppliers", icon: "⚒", perm: "suppliers.manage" },
     { href: "/admin/reviews", label: "Reviews", icon: "★", perm: "reviews.respond" },
     { href: "/admin/abandoned", label: "Abandoned carts", icon: "⊘", perm: "marketing.manage" },

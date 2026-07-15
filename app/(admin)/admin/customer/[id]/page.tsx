@@ -6,6 +6,7 @@ import { formatPaise } from "@/lib/pricing";
 import { getSession, can } from "@/lib/auth";
 import { upsertCustomerAction, deleteCustomerAction } from "@/app/actions/customers";
 import { approveWholesaleAction, regenWholesaleCodeAction } from "@/app/actions/wholesale";
+import { recordPartyPaymentAction } from "@/app/actions/payments";
 
 export const metadata = { title: "Owner Console · Customer" };
 
@@ -14,6 +15,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
   if (!data) notFound();
   const { customer: c, orders, totalSpent, orderCount, outstanding, creditAdjustment } = data;
   const canManage = can(getSession(), "customers.manage");
+  const canReceive = can(getSession(), "billing.sell");
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
   return (
@@ -41,6 +43,29 @@ export default async function CustomerDetail({ params }: { params: { id: string 
         </div>
         <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-xs uppercase tracking-wide text-muted">GSTIN</p><p className="text-sm font-medium mt-1 break-all">{c.gstin || "—"}</p></div>
       </div>
+
+      {/* Udhaar — receive a payment against this party's open bills (oldest first) */}
+      {canReceive && outstanding > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-card mb-4 border border-rose/20">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-medium text-ink">Paisa aaya? <span className="text-muted text-sm">· receive payment</span></h2>
+              <p className="text-xs text-muted">Settles their oldest bills first; anything extra stays on account as an advance.</p>
+            </div>
+            <form action={recordPartyPaymentAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="customer_id" value={c.id} />
+              <input name="amount" type="number" min="1" step="1" placeholder={`₹ (baaki ${formatPaise(outstanding)})`} required className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-44" />
+              <select name="mode" defaultValue="cash" className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald">
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank">Bank</option>
+              </select>
+              <input name="note" placeholder="Note (optional)" className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-36" />
+              <button className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✓ Received</button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Wholesale access */}
       {c.type === "wholesale" && canManage && (

@@ -115,7 +115,8 @@ export const DIVA_TOOLS: DivaTool[] = [
 
   // ---- Accounting & business health (AI employee upgrade) ----
   { name: "check_cash_bank", kind: "read", permission: "analytics.view", desc: "Cash-in-hand and bank/UPI balance from the cash book.", params: [] },
-  { name: "receivables", kind: "read", permission: "sales.view", desc: "Who owes us money — unpaid or partly-paid bills grouped by customer (udhaar/baaki).", params: [] },
+  { name: "receivables", kind: "read", permission: "sales.view", desc: "Who owes us money — unpaid or partly-paid bills grouped by customer (udhaar/baaki). Optionally for one party.", params: [{ name: "party", type: "string", desc: "party/customer name — omit for everyone" }] },
+  { name: "record_party_payment", kind: "mutate", permission: "billing.sell", confirm: true, desc: "Receive a payment FROM a party (udhaar collection) — 'Sharma ne 5000 diye'. Allocates across their open bills oldest-first; surplus stays as advance.", params: [{ name: "party", type: "string", required: true, desc: "party/customer name" }, { name: "amount", type: "number", required: true, desc: "amount received in rupees" }, { name: "mode", type: "string", desc: "cash | upi | bank (default cash)" }] },
   { name: "payables", kind: "read", permission: "purchases.view", desc: "Suppliers we still owe money to (purchase bills minus payments).", params: [] },
   { name: "business_health", kind: "read", permission: "analytics.view", desc: "One-look business health: today's sales, stock alerts, receivable/payable, accounting drift.", params: [] },
   { name: "inactive_customers", kind: "read", permission: "customers.view", desc: "Customers who haven't purchased recently.", params: [{ name: "days", type: "number", desc: "look-back window in days (default 60)" }] },

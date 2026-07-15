@@ -14,6 +14,21 @@ export async function recordPaymentAction(formData: FormData): Promise<void> {
   revalidatePath(`/admin/invoice/${orderId}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook");
 }
 
+/** Udhaar: receive a lump payment from a PARTY (customer), allocated across their open
+ *  bills oldest-first by the record_party_payment RPC (migration 0043). Amount in rupees.
+ *  Any surplus is kept as an advance on the customer's account. */
+export async function recordPartyPaymentAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("billing.sell"))) return;
+  const customerId = String(formData.get("customer_id") ?? "");
+  const amount = Math.round((Number(formData.get("amount") ?? 0) || 0) * 100);
+  const mode = ["cash", "bank", "upi"].includes(String(formData.get("mode"))) ? String(formData.get("mode")) : "cash";
+  const note = String(formData.get("note") ?? "").trim() || null;
+  if (!customerId || !amount) return;
+  await supabaseServer().rpc("record_party_payment", { p_customer: customerId, p_amount: amount, p_mode: mode, p_note: note });
+  revalidatePath("/admin/creditors"); revalidatePath("/admin/customers"); revalidatePath(`/admin/customer/${customerId}`);
+  revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook");
+}
+
 /** Pillar 9: set the opening cash-in-hand and bank balances for the cash book (₹ → paise). */
 export async function setCashBankOpeningAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("analytics.view"))) return;

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getDashboardData, getDashboardAnalytics, getChannelReport } from "@/lib/supabase/queries";
+import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { AnimatedNumber } from "@/components/admin/AnimatedNumber";
 import { BarChart } from "@/components/admin/BarChart";
@@ -47,7 +47,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   // owner can see exactly which dates the figures cover — the earlier blank-box confusion.
   const fromDate = searchParams.from ?? from.slice(0, 10);
   const toDate = searchParams.to ?? to.slice(0, 10);
-  const [d, a, report] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to)]);
+  const [d, a, report, creditors] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors()]);
+  const udhaarTotal = creditors.reduce((s, r) => s + r.outstanding, 0);
   const label = custom
     ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
     : (PRESETS.find((p) => p.key === preset)?.label ?? "This month");
@@ -95,10 +96,16 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         <Tile label="Pending Approvals" icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
       </div>
 
-      {/* Collections split — cash in hand vs bank/UPI (#14/#37) */}
-      <div className="grid grid-cols-2 gap-4 mb-5 sensitive">
+      {/* Collections split — cash in hand vs bank/UPI (#14/#37) + live udhaar (party ledger) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5 sensitive">
         <Tile label="Cash collected" icon="₹" accent="text-emerald" bar="bg-emerald" sub="counter cash">{formatPaise(d.cashCollected)}</Tile>
         <Tile label="UPI / Bank collected" icon="🏦" bar="bg-wine" sub="online & card">{formatPaise(d.bankCollected)}</Tile>
+        <Link href="/admin/creditors" className="block">
+          <Tile label="Udhaar · बाकी" icon="⏳" accent={udhaarTotal > 0 ? "text-rose" : undefined} bar={udhaarTotal > 0 ? "bg-rose" : "bg-sand"}
+            sub={udhaarTotal > 0 ? `${creditors.length} parties · tap for the list` : "sab settled ✓"}>
+            {formatPaise(udhaarTotal)}
+          </Tile>
+        </Link>
       </div>
 
       {/* Expandable channel reports — headline number, click to see the full report for the range */}
