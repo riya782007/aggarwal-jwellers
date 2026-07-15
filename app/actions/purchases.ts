@@ -131,3 +131,53 @@ export async function recordPurchaseReturnAction(formData: FormData): Promise<vo
   revalidatePath(`/admin/purchase/${purchaseId}`); revalidatePath("/admin/purchases"); revalidatePath("/admin/inventory");
   revalidatePath("/admin/returns"); revalidatePath("/admin/stock-movements"); revalidatePath("/admin/suppliers");
 }
+
+/** 0049 — Bulk paste a supplier bill: one line per item, "SKU  qty  price" in any common
+ *  separator (tab/comma/dash/spaces). SKUs map to products/variants automatically; unmapped
+ *  lines are still recorded (supplier_sku only) so nothing on the paper bill is lost. */
+export async function recordPurchaseFromPasteAction(formData: FormData): Promise<{ ok: boolean; purchaseId?: string; mapped?: number; unmapped?: number; error?: string }> {
+  if (!(await requirePerm("purchases.create"))) return { ok: false, error: "Your role can't record purchases." };
+  const supplierId = String(formData.get("supplier_id") ?? "");
+  const billNo = String(formData.get("bill_no") ?? "").trim();
+  const raw = String(formData.get("lines") ?? "");
+  if (!supplierId) return { ok: false, error: "Choose a supplier." };
+  const sb = supabaseServer();
+
+  type Line = { supplier_sku: string; mapped_product_id: string; variant_id: string; qty: number; unit_cost: number };
+  const lines: Line[] = [];
+  let mapped = 0, unmapped = 0;
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const tokens = line.split(/[\t,]+|\s{2,}|\s+-\s+|\s+/).map((t) => t.trim()).filter(Boolean);
+    if (tokens.length < 2) continue;
+    const sku = tokens[0].toUpperCase();
+    const nums = tokens.slice(1).map((t) => Number(t.replace(/[₹,]/g, ""))).filter((n) => Number.isFinite(n) && n > 0);
+    if (nums.length === 0) continue;
+    // qty = the small integer, price = the bigger figure; a single number = qty 1 at that cost.
+    let qty: number, priceR: number;
+    if (nums.length === 1) { qty = 1; priceR = nums[0]; }
+    else {
+      const [a, b] = nums;
+      if (Number.isInteger(a) && a <= 999 && b > a) { qty = a; priceR = b; } else { qty = Math.max(1, Math.floor(b)); priceR = a; }
+      if (!(Number.isInteger(qty) && qty <= 9999)) { qty = 1; priceR = nums[0]; }
+    }
+    // map SKU → product, else variant → its product
+    let productId = "", variantId = "";
+    const { data: prod } = await sb.from("products").select("id").ilike("sku", sku).maybeSingle();
+    if (prod) productId = (prod as any).id;
+    else {
+      const { data: v } = await sb.from("variants").select("id,product_id").ilike("sku", sku).maybeSingle();
+      if (v) { variantId = (v as any).id; productId = (v as any).product_id; }
+    }
+    if (productId) mapped++; else unmapped++;
+    lines.push({ supplier_sku: sku, mapped_product_id: productId, variant_id: variantId, qty, unit_cost: Math.round(priceR * 100) });
+  }
+  if (!lines.length) return { ok: false, error: "Couldn't read any lines — format each as: SKU  qty  price." };
+
+  const { data, error } = await sb.rpc("record_purchase", { p_supplier_id: supplierId, p_bill_no: billNo || null, p_items: lines });
+  if (error) return { ok: false, error: error.message };
+  const purchaseId = (data as any)?.purchase_id as string | undefined;
+  revalidatePath("/admin/purchases"); revalidatePath("/admin/inventory"); revalidatePath("/admin/stock-movements");
+  return { ok: true, purchaseId, mapped, unmapped };
+}

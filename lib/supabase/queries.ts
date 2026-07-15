@@ -347,7 +347,7 @@ export async function getCustomerSpend(range?: { from?: string; to?: string }): 
  *  Cancelled/void/refunded bills never count. */
 export async function getCreditors(): Promise<{ id: string | null; name: string; phone: string; outstanding: number; bills: number }[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("orders").select("customer_id,customer_name,customer_phone,total,amount_paid,bill_type,gst_mode,return_amount,status");
+  const data = await allRows<any>(() => sb.from("orders").select("customer_id,customer_name,customer_phone,total,amount_paid,bill_type,gst_mode,return_amount,status").order("created_at"));
   const map = new Map<string, { id: string | null; name: string; phone: string; outstanding: number; bills: number }>();
   for (const o of ((data as any[]) ?? [])) {
     if (isDeadOrder(o.status)) continue;
@@ -1290,15 +1290,23 @@ export type StoreProduct = DbProduct & {
 export type Promotion = { id: string; title: string | null; image_path: string; cta_href: string | null; aspect: string | null; category?: { slug?: string; name?: string } | null };
 
 /** Published promo posters for a storefront scope, newest first. */
-export async function getActivePromotions(scope: "retail" | "wholesale"): Promise<Promotion[]> {
+export async function getActivePromotions(scope: "retail" | "wholesale", placement: "hero" | "strip" | "popup" = "hero"): Promise<Promotion[]> {
   const sb = supabaseServer();
   let q = sb.from("promotions")
-    .select("id,title,image_path,cta_href,aspect, category:categories(slug,name)")
+    .select("id,title,headline,coupon_code,image_path,cta_href,aspect,placement,starts_at,ends_at, category:categories(slug,name)")
     .eq("status", "published")
     .order("created_at", { ascending: false });
   q = scope === "retail" ? q.eq("show_retail", true) : q.eq("show_wholesale", true);
   const { data } = await q;
-  return ((data as any[]) ?? []).filter((p) => typeof p.image_path === "string" && p.image_path.startsWith("http")) as Promotion[];
+  const now = Date.now();
+  return ((data as any[]) ?? [])
+    // 0049: only campaigns inside their schedule window, matching the requested placement
+    // (legacy rows have placement 'hero' by default so the hero keeps working unchanged).
+    .filter((p) => ((p.placement ?? "hero") === placement))
+    .filter((p) => !p.starts_at || new Date(p.starts_at).getTime() <= now)
+    .filter((p) => !p.ends_at || new Date(p.ends_at).getTime() >= now)
+    // hero needs an image; strip/popup can run on text alone
+    .filter((p) => placement !== "hero" ? true : (typeof p.image_path === "string" && p.image_path.startsWith("http"))) as Promotion[];
 }
 
 /** Admin: every campaign for the promotions page. */
@@ -1313,13 +1321,17 @@ export async function getStorefront(
 ): Promise<{ products: StoreProduct[]; formula: PF }> {
   const sb = supabaseServer();
   // D2C-safe defaults: only published, and never wholesale-only items (#1, #23).
-  let pq = sb.from("products").select("*, category:categories(id,name,slug)").order("sku");
-  if (!opts.includeDrafts) pq = pq.eq("status", "published");
-  const [{ data: prods }, { data: revs }, { data: pimgs }, { data: vimgs }, formula] = await Promise.all([
-    pq,
-    sb.from("reviews").select("product_id, rating"),
-    sb.from("product_images").select("product_id, path, sort, kind").order("sort", { ascending: true }),
-    sb.from("variants").select("product_id, image_paths"),
+  // 0049: page past the 1000-row PostgREST cap on every catalogue-wide read.
+  const mk = () => {
+    let q = sb.from("products").select("*, category:categories(id,name,slug)").order("sku");
+    if (!opts.includeDrafts) q = q.eq("status", "published");
+    return q;
+  };
+  const [prods, revs, pimgs, vimgs, formula] = await Promise.all([
+    allRows<any>(mk),
+    allRows<any>(() => sb.from("reviews").select("product_id, rating").order("id")),
+    allRows<any>(() => sb.from("product_images").select("product_id, path, sort, kind").order("sort", { ascending: true }).order("id")),
+    allRows<any>(() => sb.from("variants").select("product_id, image_paths").order("id")),
     getPricingFormula(),
   ]);
   const agg = new Map<string, { sum: number; n: number }>();
@@ -1625,9 +1637,24 @@ export async function getRetailers() {
   const { data } = await sb.from("retailers").select("id,name,city,approved").order("name");
   return (data as any[]) ?? [];
 }
+/** Page through PostgREST's 1000-row cap (0049) — use for any product/order-wide read. */
+export async function allRows<T = any>(makeQuery: () => any, pageSize = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
+    if (error || !data?.length) break;
+    out.push(...(data as T[]));
+    if ((data as T[]).length < pageSize) break;
+  }
+  return out;
+}
+
 export async function getAbandonedCarts() {
   const sb = supabaseServer();
-  const { data } = await sb.from("abandoned_carts").select("*").eq("recovered", false).order("created_at", { ascending: false });
+  // 0049: a cart is "abandoned" only after 30 idle minutes — live shoppers aren't leads yet.
+  const idleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { data } = await sb.from("abandoned_carts").select("*").eq("recovered", false)
+    .lt("updated_at", idleBefore).order("updated_at", { ascending: false });
   return (data as any[]) ?? [];
 }
 export async function getSitemapData() {

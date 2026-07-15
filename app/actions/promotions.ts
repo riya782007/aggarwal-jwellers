@@ -129,3 +129,22 @@ export async function deletePromoAction(formData: FormData): Promise<void> {
   await supabaseServer().from("promotions").delete().eq("id", id);
   revalidatePath("/admin/promotions"); revalidatePath("/shop"); revalidatePath("/wholesale");
 }
+
+/** 0049 — campaign settings: where it shows (hero/strip/popup), its schedule window,
+ *  the strip/popup headline and an optional voucher code hook. */
+export async function setPromotionSettingsAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("marketing.manage"))) return;
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const placement = ["hero", "strip", "popup"].includes(String(formData.get("placement"))) ? String(formData.get("placement")) : "hero";
+  const starts = String(formData.get("starts_at") ?? "").trim();
+  const ends = String(formData.get("ends_at") ?? "").trim();
+  const headline = String(formData.get("headline") ?? "").trim() || null;
+  const coupon = String(formData.get("coupon_code") ?? "").trim().toUpperCase() || null;
+  await supabaseServer().from("promotions").update({
+    placement, headline, coupon_code: coupon,
+    starts_at: starts ? new Date(starts + "T00:00:00+05:30").toISOString() : null,
+    ends_at: ends ? new Date(ends + "T23:59:59+05:30").toISOString() : null,
+  }).eq("id", id);
+  revalidatePath("/admin/promotions"); revalidatePath("/shop"); revalidatePath("/trade");
+}

@@ -83,6 +83,7 @@ export default function Checkout() {
     const res = await placeOrderAction({ items: cartItems, customer: f, payment, voucherCode: vState?.ok ? vCode.trim() : undefined });
     setBusy(false);
     if (!res.ok) { setErr(res.error ?? "Something went wrong"); return; }
+    try { const k = localStorage.getItem("aj_cart_key"); if (k) fetch("/api/cart/track", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true, body: JSON.stringify({ cartKey: k, recovered: true }) }).catch(() => {}); } catch {}
     clear(); router.push(`/order/${res.orderId}`);
   }
 

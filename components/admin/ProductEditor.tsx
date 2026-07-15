@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { updateProductAction } from "@/app/actions/updateProduct";
-import { suggestProductTitleAction } from "@/app/actions/aiContent";
+import { suggestProductTitleAction, suggestTitleOptionsAction } from "@/app/actions/aiContent";
 import { computePrices, type PricingFormula } from "@/lib/pricing";
 
 type Cat = { id: string; name: string; slug: string };
@@ -58,6 +58,17 @@ export function ProductEditor({
   // these to build a AggarwalDIVA-style title + description.
   const [specKeywords, setSpecKeywords] = useState("");
   const [suggesting, setSuggesting] = useState(false);
+  const [titleOptions, setTitleOptions] = useState<string[]>([]);
+
+  async function suggestOptions() {
+    setSuggesting(true); setTitleOptions([]);
+    const catName = categories.find((c) => c.id === product.categoryId)?.name;
+    const keywords = specKeywords.split(/[,\n]/).map((k) => k.trim()).filter(Boolean);
+    const res = await suggestTitleOptionsAction({ name, category: catName, keywords, sku: product.sku });
+    setSuggesting(false);
+    if (res.ok && res.titles?.length) setTitleOptions(res.titles);
+    else toast(res.error ?? "Couldn't suggest titles", "error");
+  }
 
   async function suggestTitle() {
     setSuggesting(true);
@@ -212,8 +223,20 @@ export function ProductEditor({
                 className="text-xs px-3 py-1.5 rounded-full bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
                 {suggesting ? "Writing…" : "✨ Generate title & description"}
               </button>
+              <button type="button" onClick={suggestOptions} disabled={suggesting}
+                className="text-xs px-3 py-1.5 rounded-full bg-ink/5 text-ink hover:bg-ink/10 disabled:opacity-50">
+                {suggesting ? "…" : "🎲 3-4 title options"}
+              </button>
               <span className="text-[11px] text-muted">Looks at the product photo + these specs, the name &amp; category. Says which pieces the set includes; no SKU in the title.</span>
             </div>
+            {titleOptions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {titleOptions.map((t) => (
+                  <button key={t} type="button" onClick={() => { setTitle(t); setTitleOptions([]); toast("Title set — save to keep it"); }}
+                    className="text-xs px-3 py-1.5 rounded-full bg-white border border-emerald/40 text-emerald-dark hover:bg-emerald-mist text-left">{t}</button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className={label}>Display title</label>

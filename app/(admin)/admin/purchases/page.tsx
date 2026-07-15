@@ -3,6 +3,7 @@ import { getSuppliers, getProductsForPurchase, getRecentPurchases, getLastPurcha
 import { formatPaise } from "@/lib/pricing";
 import { PurchaseClient } from "@/components/admin/PurchaseClient";
 import { createSupplierAction } from "@/app/actions/purchases";
+import { BulkPurchasePaste } from "@/components/admin/BulkPurchasePaste";
 
 export const metadata = { title: "Owner Console · Purchases" };
 
@@ -14,6 +15,9 @@ export default async function Purchases() {
       <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically.</p>
 
       <PurchaseClient suppliers={suppliers} products={products} lastCosts={lastCosts} />
+
+      {/* 0049 — paste the whole paper bill in one go */}
+      <BulkPurchasePaste suppliers={suppliers as any} />
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-6 shadow-card">

@@ -482,8 +482,23 @@ export function UploadClient({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock, colours and SKUs. Or use a header row (any column order): <code className="bg-cream px-1 rounded">name, sku, base_price, qty, type, colours|pipe</code> — <b>sku is optional</b> (blank = auto BD####). · <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download CSV template</a></p>
-            <input type="file" accept=".csv,text/csv,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setCsv(String(r.result || "")); r.readAsText(f); } }}
+            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock, colours and SKUs. Or use a header row (any column order): <code className="bg-cream px-1 rounded">name, sku, base_price, qty, type, colours|pipe</code> — <b>sku is optional</b> (blank = auto BD####). Excel files (.xlsx) import directly too. · <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download CSV template</a></p>
+            <input type="file" accept=".csv,text/csv,.txt,.xlsx,.xls" onChange={async (e) => {
+              const f = e.target.files?.[0]; if (!f) return;
+              // 0049: Excel workbooks parse client-side (SheetJS, dynamically imported) into the
+              // same text pipeline the CSV path uses — one importer, two formats.
+              if (/\.xlsx?$/i.test(f.name)) {
+                try {
+                  const XLSX = await import("xlsx");
+                  const wb = XLSX.read(await f.arrayBuffer());
+                  const ws = wb.Sheets[wb.SheetNames[0]];
+                  const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+                  setCsv(rows.filter((r) => r.some((c) => String(c).trim() !== "")).map((r) => r.map((c) => String(c).trim()).join(",")).join("\n"));
+                } catch { alert("Couldn't read that Excel file — save it as CSV and try again."); }
+                return;
+              }
+              const r = new FileReader(); r.onload = () => setCsv(String(r.result || "")); r.readAsText(f);
+            }}
               className="block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
             <textarea className={`${input} font-mono text-xs`} rows={6} placeholder={"Kundan Choker, 850, 12, configurable, Red|Green|Blue\nPearl Studs 160 rs 40pcs\nMeena bangles - 540 - 25 - red,green"} value={csv} onChange={(e) => setCsv(e.target.value)} />
             <button onClick={buildFromList} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Building…" : "✨ Build inventory with AI"}</button>

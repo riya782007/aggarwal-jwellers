@@ -25,7 +25,9 @@ type SP = { sort?: string; min?: string; max?: string; stock?: string; sub?: str
 
 export default async function CategoryPage({ params, searchParams }: { params: { slug: string }; searchParams: SP }) {
   const sb = supabaseServer();
-  const [{ products, formula }, allCats, allPromos] = await Promise.all([getStorefront(), getCategories(), getActivePromotions("retail")]);
+  const [{ products: allProducts, formula }, allCats, allPromos] = await Promise.all([getStorefront(), getCategories(), getActivePromotions("retail")]);
+  // 0049: photo-less products never render on the storefront.
+  const products = allProducts.filter((p: any) => p.image);
   const cat = allCats.find((c) => c.slug === params.slug);
   const catPromos = (allPromos ?? []).filter((p) => p.category?.slug === params.slug);
   let items = products.filter((p) => p.category.slug === params.slug);

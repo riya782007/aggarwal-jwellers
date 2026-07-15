@@ -38,7 +38,7 @@ export default async function TradeDashboard() {
       sku: p.sku, name: p.name, category: p.category.name, qty: p.qty,
       price: ps.wholesaleRate, mrp: ps.mrp, image: imgBy.get((p as any).id) ?? null,
     };
-  });
+  }).filter((x) => x.image); // 0049: photo-less designs stay off the dealer panel too
   const history = await getWholesaleOrderHistory(session.id).catch(() => []);
   const tradeQuickLinks = (
     <div className="flex flex-wrap gap-2 my-4">

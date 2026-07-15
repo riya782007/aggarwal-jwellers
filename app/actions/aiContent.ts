@@ -81,3 +81,25 @@ export async function generateAllContentAction(): Promise<{ total: number; ok: n
   revalidatePath("/admin/catalogue");
   return { total: products.length, ok: results.filter((r) => r.ok).length, results };
 }
+
+/** 0049 — suggest 3-4 title options; the owner picks one and name/description follow. */
+export async function suggestTitleOptionsAction(input: { name: string; category?: string; keywords?: string[]; sku?: string }): Promise<{ ok: boolean; titles?: string[]; error?: string }> {
+  if (!(await requirePerm("catalog.edit"))) return { ok: false, error: "not permitted" };
+  const name = (input.name ?? "").trim();
+  if (!name) return { ok: false, error: "Enter a product name first" };
+  try {
+    let imageBase64: string | undefined, imageMime: string | undefined;
+    if (input.sku) {
+      const p = await getProductBySku(input.sku);
+      if (p) ({ imageBase64, imageMime } = await fetchProductImage(p));
+    }
+    const { generateTitleOptions } = await import("@/lib/ai/listingAgent");
+    const { titles } = await generateTitleOptions({
+      name, sku: input.sku || name, categoryName: input.category, colors: [],
+      keywords: (input.keywords ?? []).map((k) => k.trim()).filter(Boolean), imageBase64, imageMime,
+    });
+    return { ok: true, titles };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not suggest titles" };
+  }
+}

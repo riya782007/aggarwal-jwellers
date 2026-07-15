@@ -15,7 +15,9 @@ export const metadata = {
 };
 
 export default async function Shop() {
-  const [{ products, formula }, reviews, reels, promos] = await Promise.all([getStorefront(), getFeaturedReviews(), getShoppableReels(), getActivePromotions("retail")]);
+  const [{ products: allProducts, formula }, reviews, reels, promos] = await Promise.all([getStorefront(), getFeaturedReviews(), getShoppableReels(), getActivePromotions("retail")]);
+  // 0049: never show a photo-less card on the storefront — drafts stay in the console until shot.
+  const products = allProducts.filter((p: any) => p.image);
   const cats = Array.from(new Map(products.map((p) => [p.category.slug, p.category])).values());
   const bestsellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
   const trending = products.slice(0, 8);

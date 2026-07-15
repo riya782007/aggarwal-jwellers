@@ -102,3 +102,18 @@ export async function generateProductContent(p: ProductLike): Promise<{ content:
 export function aiProvidersStatus() {
   return { groq: groqConfigured(), openai: openaiConfigured() };
 }
+
+/** 0049 — several distinct title options for the picker (name/description align with the
+ *  chosen one via the normal generate path). One model call; deterministic fallback. */
+export async function generateTitleOptions(p: ProductLike, n = 4): Promise<{ titles: string[]; provider: string }> {
+  const base = await generateProductContent(p);
+  const first = base.content.title;
+  const titles = new Set<string>([first]);
+  // Deterministic extra options: re-seed the name pool so each option leads differently.
+  const NAMES = ["Aaradhya", "Myra", "Vanya", "Khyati", "Ananya", "Drishika", "Tanisha", "Nidhi", "Gitanjali", "Rutvika"];
+  const words = first.split(" ");
+  for (let i = 0; titles.size < n && i < NAMES.length; i++) {
+    if (/^[A-Z][a-z]+$/.test(words[0])) titles.add([NAMES[i], ...words.slice(1)].join(" "));
+  }
+  return { titles: [...titles].slice(0, n), provider: base.provider };
+}
