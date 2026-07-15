@@ -1555,7 +1555,7 @@ export async function searchProducts(q: string) {
 // ---------- RBAC ----------
 export async function getRoles() {
   const sb = supabaseServer();
-  const { data } = await sb.from("roles").select("id,name,permissions,passcode").order("name");
+  const { data } = await sb.from("roles").select("id,name,permissions,passcode,lang").order("name");
   return (data as any[]) ?? [];
 }
 /** Pillar — typeahead suggestions for the shareable catalogue search box.

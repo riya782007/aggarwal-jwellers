@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors } from "@/lib/supabase/queries";
+import { getLang } from "@/lib/auth";
+import { t } from "@/lib/i18n";
 import { formatPaise } from "@/lib/pricing";
 import { AnimatedNumber } from "@/components/admin/AnimatedNumber";
 import { BarChart } from "@/components/admin/BarChart";
@@ -8,7 +10,7 @@ import { Donut } from "@/components/admin/Donut";
 import { ExpandableReport } from "@/components/admin/ExpandableReport";
 
 const CH_LABEL: Record<string, string> = { retail: "Online retail", wholesale: "Wholesale", pos: "Counter (POS)" };
-const PRESETS = [{ key: "today", label: "Today" }, { key: "week", label: "This week" }, { key: "month", label: "This month" }];
+const PRESETS = [{ key: "today", label: "today" as const }, { key: "week", label: "thisWeek" as const }, { key: "month", label: "thisMonth" as const }];
 
 function presetRange(preset: string): { from: string; to: string } {
   const now = new Date();
@@ -49,12 +51,13 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   const toDate = searchParams.to ?? to.slice(0, 10);
   const [d, a, report, creditors] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors()]);
   const udhaarTotal = creditors.reduce((s, r) => s + r.outstanding, 0);
+  const lang = getLang();
   const label = custom
     ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
-    : (PRESETS.find((p) => p.key === preset)?.label ?? "This month");
+    : t(lang, PRESETS.find((p) => p.key === preset)?.label ?? "thisMonth");
   const sel = "rounded-lg border border-sand bg-white px-2.5 py-1.5 text-sm outline-none focus:border-emerald";
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greet = hour < 12 ? t(lang, "goodMorning") : hour < 17 ? t(lang, "goodAfternoon") : t(lang, "goodEvening");
 
   return (
     <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
@@ -67,7 +70,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         <div className="absolute right-20 bottom-0 w-32 h-32 rounded-full bg-emerald/30 blur-2xl" />
         <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">Owner Console</p>
+            <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">{t(lang, "ownerConsole")}</p>
             <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Aggarwal</h1>
             <p className="text-sm text-cream/70 mt-1">Showing <b className="text-ivory">{label}</b> · live from your catalogue &amp; orders</p>
             <p className="text-2xl font-semibold text-ivory mt-3"><span className="sensitive">{formatPaise(d.revenue)}</span> <span className="text-sm font-normal text-cream/60">in revenue · {d.orders} orders</span></p>
@@ -76,33 +79,33 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
             <div className="flex gap-1 bg-white/10 rounded-full p-1">
               {PRESETS.map((p) => (
                 <a key={p.key} href={`/admin/dashboard?preset=${p.key}`}
-                  className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${!custom && preset === p.key ? "bg-ivory text-ink" : "text-cream/80 hover:text-white"}`}>{p.label}</a>
+                  className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${!custom && preset === p.key ? "bg-ivory text-ink" : "text-cream/80 hover:text-white"}`}>{t(lang, p.label)}</a>
               ))}
             </div>
             <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white/10 rounded-full p-1.5">
               <input type="date" name="from" defaultValue={fromDate} className={`${sel} bg-white/90`} />
               <span className="text-cream/60 text-xs">→</span>
               <input type="date" name="to" defaultValue={toDate} className={`${sel} bg-white/90`} />
-              <button className="px-3 py-1.5 rounded-full bg-gold text-ink text-sm font-medium">Apply</button>
+              <button className="px-3 py-1.5 rounded-full bg-gold text-ink text-sm font-medium">{t(lang, "apply")}</button>
             </form>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <Tile label="Revenue" icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} orders`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
-        <Tile label="Orders" icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
-        <Tile label="Approved Retailers" icon="♚" bar="bg-wine" sub={`${d.pendingApprovals} pending`}><AnimatedNumber value={d.retailers} /></Tile>
-        <Tile label="Pending Approvals" icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub="needs owner OTP"><AnimatedNumber value={d.pendingApprovals} /></Tile>
+        <Tile label={t(lang, "revenue")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} ${t(lang, "orders").toLowerCase()}`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
+        <Tile label={t(lang, "orders")} icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
+        <Tile label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingApprovals} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
+        <Tile label={t(lang, "pendingApprovals")} icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub={t(lang, "needsOwnerOtp")}><AnimatedNumber value={d.pendingApprovals} /></Tile>
       </div>
 
       {/* Collections split — cash in hand vs bank/UPI (#14/#37) + live udhaar (party ledger) */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5 sensitive">
-        <Tile label="Cash collected" icon="₹" accent="text-emerald" bar="bg-emerald" sub="counter cash">{formatPaise(d.cashCollected)}</Tile>
-        <Tile label="UPI / Bank collected" icon="🏦" bar="bg-wine" sub="online & card">{formatPaise(d.bankCollected)}</Tile>
+        <Tile label={t(lang, "cashCollected")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={t(lang, "counterCash")}>{formatPaise(d.cashCollected)}</Tile>
+        <Tile label={t(lang, "bankCollected")} icon="🏦" bar="bg-wine" sub={t(lang, "onlineCard")}>{formatPaise(d.bankCollected)}</Tile>
         <Link href="/admin/creditors" className="block">
-          <Tile label="Udhaar · बाकी" icon="⏳" accent={udhaarTotal > 0 ? "text-rose" : undefined} bar={udhaarTotal > 0 ? "bg-rose" : "bg-sand"}
-            sub={udhaarTotal > 0 ? `${creditors.length} parties · tap for the list` : "sab settled ✓"}>
+          <Tile label={t(lang, "udhaarCard")} icon="⏳" accent={udhaarTotal > 0 ? "text-rose" : undefined} bar={udhaarTotal > 0 ? "bg-rose" : "bg-sand"}
+            sub={udhaarTotal > 0 ? `${creditors.length} ${t(lang, "partiesTap")}` : t(lang, "allSettled")}>
             {formatPaise(udhaarTotal)}
           </Tile>
         </Link>

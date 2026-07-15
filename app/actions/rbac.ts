@@ -19,7 +19,8 @@ export async function createRoleAction(formData: FormData) {
   if (!(await requirePerm("roles.manage"))) return;
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
-  await supabaseServer().from("roles").insert({ name, permissions: selectedPerms(formData), passcode: genPasscode() });
+  const lang = String(formData.get("lang")) === "hi" ? "hi" : "en";
+  await supabaseServer().from("roles").insert({ name, permissions: selectedPerms(formData), passcode: genPasscode(), lang });
   revalidatePath("/admin/roles");
 }
 
@@ -28,7 +29,8 @@ export async function updateRoleAction(formData: FormData) {
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
-  await supabaseServer().from("roles").update({ name, permissions: selectedPerms(formData) }).eq("id", id);
+  const lang = String(formData.get("lang")) === "hi" ? "hi" : "en";
+  await supabaseServer().from("roles").update({ name, permissions: selectedPerms(formData), lang }).eq("id", id);
   revalidatePath("/admin/roles");
 }
 

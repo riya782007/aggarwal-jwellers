@@ -30,6 +30,12 @@ export function getSession(): Session {
   };
 }
 
+/** Console language for this request — set at login from the role / owner preference,
+ *  switchable any time via the sidebar toggle (setLangAction). */
+export function getLang(): "en" | "hi" {
+  return cookies().get("bd_lang")?.value === "hi" ? "hi" : "en";
+}
+
 /** Does this session grant `perm`? Owner always true; undefined perm = open to all signed-in. */
 export function can(session: Session, perm?: string): boolean {
   if (!perm) return true;

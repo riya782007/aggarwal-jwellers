@@ -13,7 +13,7 @@ export default async function Roles() {
     <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-5xl">
       <h1 className="font-display text-4xl text-ink mb-1">Roles &amp; Permissions</h1>
       <p className="text-sm text-muted mb-2">Discord-style granular control. Grant exactly what a role can do — e.g. a stock clerk who can <b>add</b> stock but never <b>remove</b> it.</p>
-      <p className="text-sm text-muted mb-6 bg-emerald-mist/60 rounded-xl px-4 py-2.5">Each role has its own <b>passcode</b> (below). Share it with that staff member — they sign in at the same console login page with it and see only their permitted sections. Your owner passcode always unlocks everything.</p>
+      <p className="text-sm text-muted mb-6 bg-emerald-mist/60 rounded-xl px-4 py-2.5">Each role has its own <b>passcode</b> (below). Share it with that staff member — they sign in at the same console login page with it and see only their permitted sections. Your owner passcode always unlocks everything. Each role also picks its <b>console language</b> (English / हिन्दी) — applied at login, switchable any time from the sidebar.</p>
 
       <div className="bg-white rounded-2xl p-6 shadow-card mb-8">
         <h2 className="font-medium text-ink mb-4">Create a role</h2>
@@ -31,6 +31,7 @@ export default async function Roles() {
                   <p className="font-medium text-ink">{r.name}</p>
                   <span className="text-[10px] uppercase tracking-wide text-muted">passcode</span>
                   <PasscodeChip code={r.passcode ?? "—"} />
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-gold/15 text-gold-dark">{r.lang === "hi" ? "हिन्दी" : "English"}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {(r.permissions ?? []).length === 0 && <span className="text-xs text-muted">No permissions</span>}
@@ -43,7 +44,7 @@ export default async function Roles() {
               <span className="text-muted text-sm">Edit ⌄</span>
             </summary>
             <div className="border-t border-sand px-5 py-4">
-              <RoleForm action={updateRoleAction} id={r.id} initialName={r.name} initialPerms={r.permissions ?? []} submitLabel="Save changes" />
+              <RoleForm action={updateRoleAction} id={r.id} initialName={r.name} initialPerms={r.permissions ?? []} initialLang={r.lang ?? "en"} submitLabel="Save changes" />
               <div className="mt-3 flex items-center gap-4">
                 <form action={regenerateRolePasscodeAction}>
                   <input type="hidden" name="id" value={r.id} />

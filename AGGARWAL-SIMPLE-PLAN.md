@@ -63,14 +63,21 @@ reference-parity so features can be re-enabled by adding a nav link back.
 
 ## 4. What's next (in order, one module per PR — same discipline as Yogendra)
 
-1. **Udhaar / party ledger** — ✅ SHIPPED. Live "Udhaar · बाकी" card on Home (taps through to the
-   list), the Creditors page reworked as the Udhaar list with an inline "Paisa aaya? · Receive"
+1. **Udhaar / party ledger** — ✅ SHIPPED. Live "Udhaar" card on Home (taps through to the
+   list), the Creditors page reworked as the Udhaar list with an inline receive-payment
    form per party, a receive-payment card on the customer page, and DIVA intents:
    _"Sharma ne 5000 diye"_ (records + allocates oldest-bill-first via `record_party_payment`),
    _"Sharma ka kitna baaki hai"_, _"kis party ka kitna baaki hai"_.
-   Requires `supabase/migrations/0043_party_ledger.sql` (party_payments, v_party_outstanding,
-   record_party_payment RPC).
-2. **QR labels** — replace Code128 with QR (`lib/qr.ts`), sized to Aggarwal's sticker.
+   Requires `supabase/migrations/0043_party_ledger.sql`.
+2. **QR labels** — ✅ SHIPPED. `lib/qr.ts` (self-contained encoder, byte mode, ECC M, v1–5,
+   verified bit-identical to a reference implementation and decoded with an independent
+   reader) + `<QrCode/>`; the Labels page now defaults to QR with Code-128 still available
+   for legacy 1D scanners.
+2b. **Console language (English / हिन्दी)** — ✅ SHIPPED (replaces the hardcoded Hinglish
+   labels). Per-role language on the Roles page + owner preference, quick EN/हिन्दी toggle
+   in the sidebar, `lib/i18n.ts` dictionary applied to the nav, dashboard headline and the
+   Udhaar page; remaining pages adopt the same `t(lang, key)` pattern incrementally.
+   Requires `supabase/migrations/0044_language_pref.sql`.
 3. **DIVA → "Aggarwal Ji"** — rebrand + voice input (Hindi speech-to-text) so the owner talks
    instead of types; result cards with deep links.
 4. **Photo-first stock entry** — upload page trimmed to: photo → category → cost → qty → done

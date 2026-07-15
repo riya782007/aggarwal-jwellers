@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Barcode } from "@/components/admin/Barcode";
+import { QrCode } from "@/components/admin/QrCode";
 import { QtyField } from "@/components/admin/QtyField";
 
 type P = {
@@ -40,6 +41,9 @@ export function BarcodeSheet({ products }: { products: P[] }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [paper, setPaper] = useState("65");
+  // QR is the default label — phone cameras and 2D scanners read it natively and the error
+  // correction survives smudged stickers. Code-128 stays available for legacy 1D scanners.
+  const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
   const [opts, setOpts] = useState({ sku: true, name: false, price: true, special: false, wholesale: true, currency: false });
 
   const matches = useMemo(
@@ -170,7 +174,14 @@ export function BarcodeSheet({ products }: { products: P[] }) {
         )}
 
         {/* Paper size + options */}
-        <div className="grid sm:grid-cols-2 gap-5 mt-5 pt-4 border-t border-sand">
+        <div className="grid sm:grid-cols-3 gap-5 mt-5 pt-4 border-t border-sand">
+          <div>
+            <p className="text-xs font-medium text-muted mb-1">Label Type</p>
+            <select value={labelType} onChange={(e) => setLabelType(e.target.value as "qr" | "code128")} className="w-full rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald">
+              <option value="qr">QR code — phone camera & 2D scanner</option>
+              <option value="code128">Barcode (Code-128) — legacy 1D scanner</option>
+            </select>
+          </div>
           <div>
             <p className="text-xs font-medium text-muted mb-1">Paper Size</p>
             <select value={paper} onChange={(e) => setPaper(e.target.value)} className="w-full rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald">
@@ -207,7 +218,9 @@ export function BarcodeSheet({ products }: { products: P[] }) {
               return (
                 <div key={i} className="barcode-label text-center bg-white break-inside-avoid">
                   {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
-                  <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />
+                  {labelType === "qr"
+                    ? <QrCode value={it.sku} size={cols >= 8 ? 34 : 44} />
+                    : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
                   {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
                   {line && <p className="bc-price font-medium text-ink">{line}</p>}
                 </div>

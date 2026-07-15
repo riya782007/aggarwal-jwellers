@@ -5,9 +5,9 @@ import { PERMISSION_GROUPS } from "@/lib/permissions";
 type Action = (fd: FormData) => void | Promise<void>;
 
 export function RoleForm({
-  action, id, initialName = "", initialPerms = [], submitLabel = "Save role", compact = false,
+  action, id, initialName = "", initialPerms = [], initialLang = "en", submitLabel = "Save role", compact = false,
 }: {
-  action: Action; id?: string; initialName?: string; initialPerms?: string[]; submitLabel?: string; compact?: boolean;
+  action: Action; id?: string; initialName?: string; initialPerms?: string[]; initialLang?: string; submitLabel?: string; compact?: boolean;
 }) {
   const [checked, setChecked] = useState<Set<string>>(new Set(initialPerms));
   const toggle = (k: string) => setChecked((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
@@ -19,8 +19,19 @@ export function RoleForm({
       {/* hidden inputs carry the checked state to the server action */}
       {[...checked].map((k) => <input key={k} type="hidden" name={`perm:${k}`} value="on" />)}
 
-      <input name="name" defaultValue={initialName} placeholder="Role name (e.g. Counter Staff)" required
-        className="w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald" />
+      <div className="grid sm:grid-cols-[1fr_auto] gap-3">
+        <input name="name" defaultValue={initialName} placeholder="Role name (e.g. Counter Staff)" required
+          className="w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald" />
+        {/* Console language for everyone signing in with this role's passcode. */}
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Language · भाषा
+          <select name="lang" defaultValue={initialLang === "hi" ? "hi" : "en"}
+            className="rounded-xl border border-sand px-3 py-2.5 text-sm bg-white outline-none focus:border-emerald">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+          </select>
+        </label>
+      </div>
 
       <div className={`grid gap-3 ${compact ? "" : "sm:grid-cols-2"}`}>
         {PERMISSION_GROUPS.map((g) => {
