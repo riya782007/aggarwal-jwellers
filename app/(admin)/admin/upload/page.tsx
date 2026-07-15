@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { getCategoryTree, getVariantOptions, getStyles } from "@/lib/supabase/queries";
 import { COLOR_CATALOG } from "@/lib/colors";
 import { AddInventoryTabs } from "@/components/admin/AddInventoryTabs";
+import { getLang } from "@/lib/auth";
 
 export const metadata = { title: "Owner Console · Upload" };
 
@@ -34,6 +35,7 @@ export default async function UploadPage() {
         styles={styles}
         variantOptions={variantOptions}
         colorCodes={colorCodes}
+        lang={getLang()}
       />
     </main>
   );

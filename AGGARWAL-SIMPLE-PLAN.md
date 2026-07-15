@@ -80,8 +80,12 @@ reference-parity so features can be re-enabled by adding a nav link back.
    Requires `supabase/migrations/0044_language_pref.sql`.
 3. **DIVA → "Aggarwal Ji"** — rebrand + voice input (Hindi speech-to-text) so the owner talks
    instead of types; result cards with deep links.
-4. **Photo-first stock entry** — upload page trimmed to: photo → category → cost → qty → done
-   (assistant fills the rest), per the client questionnaire's top wish.
+4. **Photo-first stock entry** — ✅ SHIPPED. "⚡ Quick add" is now the DEFAULT tab on Add
+   Inventory: photo (camera opens directly on phones) → category → cost → qty → done. The AI
+   writes the name/description/SEO from the photo (deterministic fallback without a key),
+   SKU auto-generates, prices come from the formula, and it lands as a draft for publish.
+   Also: the privacy toggle was reworked — it now drops a frosted-glass blur over the ENTIRE
+   screen (nav, content, DIVA) on every admin page instead of masking individual numbers.
 5. **WhatsApp rate-list broadcast** — one command sends the filtered catalogue to parties.
 
 ## 5. Verification gate

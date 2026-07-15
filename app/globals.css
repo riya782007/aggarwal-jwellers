@@ -16,9 +16,18 @@ body {
 }
 .font-display { font-family: "Playfair Display", Georgia, serif; }
 
-/* Privacy mode: blur sensitive money figures when the toggle is on. */
+/* Privacy mode: blur sensitive money figures when the toggle is on. (Legacy per-number
+   rule kept for compatibility; the shield now uses the full-screen overlay below.) */
 .privacy-on .sensitive { filter: blur(10px); user-select: none; pointer-events: none; transition: filter .2s ease; }
 @media print { .privacy-on .sensitive { filter: none; } }
+
+/* Privacy shield: frosted-glass layer over the WHOLE interface when the toggle is on. */
+.privacy-overlay {
+  backdrop-filter: blur(18px) saturate(0.8);
+  -webkit-backdrop-filter: blur(18px) saturate(0.8);
+  background: rgba(250, 247, 240, 0.45);
+}
+@media print { .privacy-overlay { display: none !important; } }
 
 /* gold gradient text */
 .text-gold-gradient {

@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AdminNav perms={s.permissions} roleName={s.roleName} lang={lang} badges={{ "/admin/submissions": pendingSubmissions }} />
       {/* pt-14 clears the fixed mobile top bar; lg has the in-flow sidebar instead.
           PrivacyShield wraps the content so the "Hide figures" toggle + Ctrl+Shift+H work on EVERY page. */}
-      <PrivacyShield className="flex-1 min-w-0 pt-14 lg:pt-0">{children}</PrivacyShield>
+      <PrivacyShield className="flex-1 min-w-0 pt-14 lg:pt-0" lang={lang}>{children}</PrivacyShield>
       <Diva roleName={s.roleName} />
     </div>
   );

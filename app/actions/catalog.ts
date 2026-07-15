@@ -7,6 +7,7 @@ import { requirePerm } from "@/lib/auth";
 import { generateContentAction } from "@/app/actions/aiContent";
 import { barcodeCodeForColor } from "@/lib/colors";
 import { logActivity } from "@/lib/audit";
+import { generateProductContent } from "@/lib/ai/listingAgent";
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -321,6 +322,59 @@ export async function createProductWithImageAction(formData: FormData): Promise<
   revalidatePath("/admin/catalogue"); revalidatePath("/shop");
   if (res.ok && res.sku) await logActivity({ action: "product_created", ref: res.sku, detail: `Added ${n.name} (${res.sku}) · draft (awaiting owner publish).` });
   return res;
+}
+
+/** Photo-first stock entry (the owner's top wish): photo → category → cost → qty, DONE.
+ *  Everything else is drafted automatically — the AI looks at the photo and writes the
+ *  name/description/SEO (deterministic fallback when no AI key), the SKU is auto-generated,
+ *  and wholesale/retail/MRP come from the pricing formula. Lands as a DRAFT for review. */
+export async function quickAddProductAction(formData: FormData): Promise<RowResult & { name?: string }> {
+  if (!(await requirePerm("catalog.create"))) return { row: 0, ok: false, error: "Your role can't add products." };
+  const sb = supabaseServer();
+  const categoryId = String(formData.get("categoryId") ?? "");
+  const price = Number(formData.get("price")) || 0; // cost / base ₹ — the formula builds the rest
+  const qty = Math.max(0, Math.floor(Number(formData.get("qty")) || 0));
+  const file = formData.get("image") as File | null;
+  if (!categoryId) return { row: 0, ok: false, error: "Pick a category." };
+  if (!(price > 0)) return { row: 0, ok: false, error: "Enter the cost / base price (₹)." };
+  if (!file || typeof file !== "object" || file.size === 0) return { row: 0, ok: false, error: "A photo is required — that's the whole point ✨" };
+
+  // 1) The AI looks at the photo and names the piece. Falls back to "New {category}".
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const imageBase64 = bytes.toString("base64");
+  const imageMime = file.type || "image/jpeg";
+  const { data: cat } = await sb.from("categories").select("name").eq("id", categoryId).maybeSingle();
+  const catName = (cat as any)?.name as string | undefined;
+  let name = `New ${(catName ?? "Jewellery").replace(/s$/i, "")}`;
+  let generated: any = null;
+  try {
+    const { content } = await generateProductContent({
+      name, sku: "NEW", categoryName: catName, colors: [], keywords: [], imageBase64, imageMime,
+    });
+    if (content?.title) name = content.title;
+    generated = content;
+  } catch { /* fallback name still creates a valid draft */ }
+
+  // 2) Create the draft through the standard pipeline (auto SKU + formula pricing).
+  const [formula, skuNum] = await Promise.all([getPricingFormula(), nextSku(sb)]);
+  const res = await insertOne(sb, formula, { categoryId, name, basePriceRupees: price, qty, type: "simple", colors: [] }, skuNum, false);
+  if (!res.ok || !res.sku) return res;
+
+  // 3) Attach the photo + persist the AI-drafted page content.
+  await ensureMediaBucket(sb);
+  const ext = ((imageMime.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+  const path = `${res.sku}/source.${ext}`;
+  const up = await sb.storage.from(BUCKET).upload(path, bytes, { contentType: imageMime, upsert: true });
+  if (!up.error) {
+    const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
+    const { data: prod } = await sb.from("products").select("id").eq("sku", res.sku).single();
+    if (prod) await sb.from("product_images").insert({ product_id: (prod as any).id, path: pub.publicUrl, kind: "flatlay", sort: 0 });
+  }
+  if (generated) { try { await sb.from("products").update({ generated_content: generated }).eq("sku", res.sku); } catch { /* content is best-effort */ } }
+
+  revalidatePath("/admin/catalogue"); revalidatePath("/shop");
+  await logActivity({ action: "product_created", ref: res.sku, detail: `Photo-first quick add: ${name} (${res.sku}) · draft (awaiting owner publish).` });
+  return { ...res, name };
 }
 
 // ---- Live-progress inventory build: parse first, then insert one row at a time ----

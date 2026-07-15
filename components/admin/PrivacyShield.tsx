@@ -1,20 +1,17 @@
 "use client";
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { t, type Lang } from "@/lib/i18n";
 
 /**
- * Privacy toggle. When ON it blurs every element marked `.sensitive` (revenue, collections, prices,
- * sales figures) so the screen is safe to show in-store. Mounted in the admin layout, but the toggle
- * and blur only apply on the money-heavy pages the owner asked for — Dashboard, Bank & Cash, Sales
- * Records and Purchases — and are hidden everywhere else. Toggle via the floating button OR the
- * keyboard shortcut Ctrl/⌘ + Shift + H. The choice is remembered on this device and synced across tabs.
+ * Privacy toggle — one tap hides the WHOLE screen. Instead of blurring individual
+ * `.sensitive` numbers (which missed figures on some pages), turning it on now drops a
+ * full-viewport frosted-glass layer over the entire interface — content, sidebar, DIVA,
+ * everything — so it is always safe to show in-store, on every admin page.
+ *
+ * Toggle via the floating button OR Ctrl/⌘ + Shift + H. The choice is remembered on this
+ * device and synced across tabs. Printing ignores the shield.
  */
-const PRIVACY_ROUTES = ["/admin/dashboard", "/admin/cashbook", "/admin/sales", "/admin/purchase"];
-
-export function PrivacyShield({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  const pathname = usePathname();
-  // Prefix match so /admin/purchase and /admin/purchases (list + a single purchase) both count.
-  const active = PRIVACY_ROUTES.some((p) => (pathname ?? "").startsWith(p));
+export function PrivacyShield({ children, className = "", lang = "en" }: { children: React.ReactNode; className?: string; lang?: Lang }) {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => { setHidden(typeof window !== "undefined" && localStorage.getItem("bd_privacy") === "1"); }, []);
@@ -36,15 +33,23 @@ export function PrivacyShield({ children, className = "" }: { children: React.Re
   }, []);
 
   return (
-    <div className={`${className} ${active && hidden ? "privacy-on" : ""}`}>
-      {active && (
-        <button onClick={toggle} title="Hide / show money figures (Ctrl/⌘ + Shift + H)"
-          className="no-print fixed bottom-24 right-5 z-[55] px-4 py-2.5 rounded-full bg-ink text-white text-sm shadow-luxe hover:bg-ink/90 transition-colors flex items-center gap-1.5">
-          {hidden ? "🙈 Figures hidden" : "👁 Hide figures"}
-          <kbd className="text-[9px] font-sans opacity-60 border border-white/30 rounded px-1 leading-none py-0.5">⌃⇧H</kbd>
-        </button>
-      )}
+    <div className={className}>
       {children}
+      {/* Frosted layer over the ENTIRE viewport (nav + content + assistant). */}
+      {hidden && (
+        <div className="privacy-overlay no-print fixed inset-0 z-[54] flex items-center justify-center" aria-hidden>
+          <div className="text-center select-none">
+            <p className="text-5xl mb-3">🔒</p>
+            <p className="text-ink font-medium">{t(lang, "privacyHiddenMsg")}</p>
+            <p className="text-xs text-muted mt-1">Ctrl/⌘ + Shift + H</p>
+          </div>
+        </div>
+      )}
+      <button onClick={toggle} title={`${hidden ? t(lang, "privacyShow") : t(lang, "privacyHide")} (Ctrl/⌘ + Shift + H)`}
+        className="no-print fixed bottom-24 right-5 z-[56] px-4 py-2.5 rounded-full bg-ink text-white text-sm shadow-luxe hover:bg-ink/90 transition-colors flex items-center gap-1.5">
+        {hidden ? `🙈 ${t(lang, "privacyShow")}` : `👁 ${t(lang, "privacyHide")}`}
+        <kbd className="text-[9px] font-sans opacity-60 border border-white/30 rounded px-1 leading-none py-0.5">⌃⇧H</kbd>
+      </button>
     </div>
   );
 }
