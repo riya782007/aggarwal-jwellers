@@ -9,6 +9,7 @@ import { getSession, can } from "@/lib/auth";
 import { recordPaymentAction, setDocTypeAction, saveOrderNoteAction, setBillTypeAction, setGstModeAction } from "@/app/actions/payments";
 import { cancelOrderAction } from "@/app/actions/billing";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { UpiQr } from "@/components/UpiQr";
 import { isDeadOrder } from "@/lib/business";
 
 export const metadata = { title: "Invoice" };
@@ -279,6 +280,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               <div className="bg-white rounded-2xl p-5 shadow-card">
                 <h2 className="font-medium text-ink mb-1">Record a payment</h2>
                 <p className="text-xs text-muted mb-3">Balance due {formatPaise(balanceDue)}. Log an advance or part-payment.</p>
+                {/* Scan-to-pay the exact balance (0048; shows only when BUSINESS_UPI_VPA is set) */}
+                <div className="mb-3"><UpiQr amountPaise={balanceDue} note={`Bill ${invNo}`} /></div>
                 <form action={recordPaymentAction} className="flex items-center gap-2 flex-wrap">
                   <input type="hidden" name="order_id" value={order.id} />
                   <span className="text-muted">₹</span>

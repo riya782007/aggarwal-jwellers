@@ -14,6 +14,7 @@
  * the browser can't fake a paid order.
  */
 import { supabaseServer } from "@/lib/supabase/server";
+import { validateVoucher, applyVoucherToOrder } from "@/lib/vouchers";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices } from "@/lib/pricing";
 import { createRazorpayOrder, verifyRazorpaySignature, isRazorpayConfigured, razorpayPublicKeyId } from "@/lib/payments/razorpay";
@@ -58,12 +59,17 @@ async function quoteItemsPaise(items: CartItem[]): Promise<number> {
 export async function createRazorpayOrderAction(
   items: CartItem[],
   customer?: Customer,
+  voucherCode?: string,
 ): Promise<{ ok: boolean; error?: string; orderId?: string; amount?: number; currency?: string; keyId?: string }> {
   if (!isRazorpayConfigured()) return { ok: false, error: "Online payment isn't set up yet. Please choose Cash on Delivery." };
   if (!items?.length) return { ok: false, error: "Your bag is empty." };
   const itemsTotal = await quoteItemsPaise(items);
   if (itemsTotal <= 0) return { ok: false, error: "Couldn't price your bag — please refresh." };
-  const amount = itemsTotal + shippingPaise(itemsTotal);
+  // Voucher (0048): the CHARGED amount uses the same server-side validation that will be
+  // re-run at finalize time — client input never decides money.
+  const vc = await validateVoucher(voucherCode ?? "", itemsTotal, "retail");
+  const discounted = itemsTotal - (vc.ok ? vc.discountPaise : 0);
+  const amount = discounted + shippingPaise(discounted);
   const order = await createRazorpayOrder(amount, `rcpt_${Date.now()}`);
   if (!order) return { ok: false, error: "Couldn't start the payment. Please try again or use Cash on Delivery." };
 
@@ -79,6 +85,7 @@ export async function createRazorpayOrderAction(
         customer,
         amount: order.amount,
         status: "pending",
+        voucher_code: vc.ok ? vc.code : null,
       });
     } catch {
       /* non-blocking — the browser handler path still records the order */
@@ -107,7 +114,7 @@ async function finalizeOnlineOrder(args: {
     .update({ status: "placing" })
     .eq("razorpay_order_id", args.razorpayOrderId)
     .eq("status", "pending")
-    .select("items,customer")
+    .select("items,customer,voucher_code")
     .maybeSingle();
 
   let items = args.items;
@@ -145,7 +152,21 @@ async function finalizeOnlineOrder(args: {
     return { ok: false, error: error.message, retry: true };
   }
   const orderId = (data as any)?.order_id as string;
-  const total = (data as any)?.total as number;
+  let total = (data as any)?.total as number;
+
+  // Voucher (0048): re-validated + redeemed server-side; rewrites orders.total + day-book.
+  const voucherCode = (claimed as any)?.voucher_code as string | null | undefined;
+  if (voucherCode) {
+    const disc = await applyVoucherToOrder(orderId, voucherCode, "retail").catch(() => 0);
+    total -= disc;
+  }
+  // Book the shipping the customer was charged (extra_courier folds into total).
+  const ship = shippingPaise(total);
+  if (ship > 0) {
+    await sb.from("orders").update({ total: total + ship, extra_courier: ship }).eq("id", orderId);
+    await sb.from("ledger").insert({ kind: "sales", ref_id: orderId, credit: ship, note: "Shipping charge" });
+    total += ship;
+  }
 
   // Mark fully paid + record the Razorpay payment id. Razorpay/UPI settles to bank → bank book.
   await sb.from("orders").update({

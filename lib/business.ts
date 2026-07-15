@@ -30,6 +30,8 @@ export const BUSINESS = {
     account: process.env.BLYTHE_BANK_ACCOUNT || "9868104364",
     ifsc: process.env.BLYTHE_BANK_IFSC || "KKBK0000208",
     branch: process.env.BLYTHE_BANK_BRANCH || "Pitampura, Delhi",
+    /** UPI VPA for scan-to-pay QR on bills (leave blank to hide the QR). */
+    upi: process.env.BUSINESS_UPI_VPA || "",
   },
   terms: [
     "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",

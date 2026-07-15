@@ -68,7 +68,39 @@ export async function placeWholesaleOrderAction(items: { sku: string; qty: numbe
   const { data, error } = await sb.rpc("place_wholesale_order", { p_customer: sess.id, p_items: clean, p_allow_oversell: false });
   if (error) return { ok: false, error: error.message };
   const orderId = (data as any)?.order_id;
-  if (orderId) await sb.rpc("assign_invoice_no", { p_order: orderId });
+  let total = (data as any)?.total as number;
+
+  // Quantity-break tiers (0048): per-line % off by that line's qty (largest tier wins),
+  // applied on unit_price with unit_mrp keeping the list rate — the invoice's existing
+  // Rate → Disc → Amount rendering shows it transparently, and orders.total + day-book
+  // are adjusted so every downstream figure stays consistent.
+  if (orderId) {
+    try {
+      const { data: ps } = await sb.from("pricing_settings").select("wholesale_tiers").limit(1).maybeSingle();
+      const tiers = (Array.isArray((ps as any)?.wholesale_tiers) ? (ps as any).wholesale_tiers : []) as { min_qty: number; pct_off: number }[];
+      if (tiers.length) {
+        const { data: lines } = await sb.from("order_items").select("id,qty,unit_price,unit_mrp").eq("order_id", orderId);
+        let discTotal = 0;
+        for (const l of (lines as any[]) ?? []) {
+          const tier = tiers.filter((t) => l.qty >= Number(t.min_qty) && Number(t.pct_off) > 0)
+            .sort((a, b) => Number(b.min_qty) - Number(a.min_qty))[0];
+          const pct = tier ? Math.min(50, Math.max(0, Number(tier.pct_off))) : 0;
+          if (!pct) continue;
+          const newUnit = Math.round((l.unit_price * (100 - pct)) / 100);
+          const disc = (l.unit_price - newUnit) * l.qty;
+          if (disc <= 0) continue;
+          await sb.from("order_items").update({ unit_mrp: Math.max(l.unit_mrp ?? 0, l.unit_price), unit_price: newUnit, line_total: newUnit * l.qty }).eq("id", l.id);
+          discTotal += disc;
+        }
+        if (discTotal > 0) {
+          await sb.from("orders").update({ total: Math.max(0, total - discTotal), tier_discount: discTotal }).eq("id", orderId);
+          await sb.from("ledger").insert({ kind: "sales", ref_id: orderId, debit: discTotal, note: "Quantity-break discount" });
+          total = Math.max(0, total - discTotal);
+        }
+      }
+    } catch { /* tiers are best-effort; the bill stands at list rates if anything hiccups */ }
+    await sb.rpc("assign_invoice_no", { p_order: orderId });
+  }
   revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
-  return { ok: true, orderId, total: (data as any)?.total };
+  return { ok: true, orderId, total };
 }

@@ -8,6 +8,7 @@ import { formatPaise } from "@/lib/pricing";
 import { Back } from "@/components/site/Back";
 import { placeOrderAction } from "@/app/actions/orders";
 import { createRazorpayOrderAction, confirmRazorpayAction } from "@/app/actions/checkoutOnline";
+import { checkVoucherAction } from "@/app/actions/vouchers";
 
 export default function Checkout() {
   const { items, total, clear } = useCart();
@@ -16,7 +17,18 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [f, setF] = useState({ name: "", phone: "", address: "", pincode: "", city: "" });
-  const shipping = total >= 99900 || total === 0 ? 0 : 5000;
+  // Voucher preview — display only; the server re-validates and applies at order time (0048).
+  const [vCode, setVCode] = useState("");
+  const [vState, setVState] = useState<{ ok: boolean; discountPaise: number; message: string } | null>(null);
+  const vDisc = vState?.ok ? vState.discountPaise : 0;
+  const discounted = Math.max(0, total - vDisc);
+  const shipping = discounted >= 99900 || discounted === 0 ? 0 : 5000;
+
+  async function applyVoucher() {
+    const code = vCode.trim();
+    if (!code) { setVState(null); return; }
+    try { setVState(await checkVoucherAction(code, total)); } catch { setVState({ ok: false, discountPaise: 0, message: "Couldn't check the code — try again." }); }
+  }
 
   // Honour the method chosen via a "Buy Now" / "Cash on Delivery" button on the product page
   // (e.g. /checkout?pay=online). Read from the URL on mount to avoid a Suspense boundary.
@@ -31,7 +43,7 @@ export default function Checkout() {
 
     // ---- Pay Online (Razorpay) ----
     if (payment === "online") {
-      const created = await createRazorpayOrderAction(cartItems, f);
+      const created = await createRazorpayOrderAction(cartItems, f, vState?.ok ? vCode.trim() : undefined);
       if (!created.ok) { setBusy(false); setErr(created.error ?? "Couldn't start the payment."); return; }
       const RZP = (window as any).Razorpay;
       if (!RZP) { setBusy(false); setErr("Payment is still loading — please try again in a moment."); return; }
@@ -68,7 +80,7 @@ export default function Checkout() {
     }
 
     // ---- Cash on Delivery ----
-    const res = await placeOrderAction({ items: cartItems, customer: f, payment });
+    const res = await placeOrderAction({ items: cartItems, customer: f, payment, voucherCode: vState?.ok ? vCode.trim() : undefined });
     setBusy(false);
     if (!res.ok) { setErr(res.error ?? "Something went wrong"); return; }
     clear(); router.push(`/order/${res.orderId}`);
@@ -126,8 +138,18 @@ export default function Checkout() {
           </div>
           <div className="border-t border-sand pt-3 space-y-1 text-sm">
             <div className="flex justify-between text-muted"><span>Subtotal</span><span>{formatPaise(total)}</span></div>
+            {/* Voucher (0048) — preview only; the server re-validates at order time */}
+            <div className="pt-1">
+              <div className="flex gap-2">
+                <input value={vCode} onChange={(e) => { setVCode(e.target.value.toUpperCase()); setVState(null); }} placeholder="Voucher code"
+                  className="flex-1 rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald font-mono uppercase" />
+                <button type="button" onClick={applyVoucher} className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Apply</button>
+              </div>
+              {vState && <p className={`text-xs mt-1 ${vState.ok ? "text-emerald-dark" : "text-rose"}`}>{vState.message}</p>}
+            </div>
+            {vDisc > 0 && <div className="flex justify-between text-emerald-dark"><span>Voucher discount</span><span>− {formatPaise(vDisc)}</span></div>}
             <div className="flex justify-between text-muted"><span>Shipping</span><span>{shipping === 0 ? "Free" : formatPaise(shipping)}</span></div>
-            <div className="flex justify-between font-semibold text-ink pt-1"><span>Total</span><span>{formatPaise(total + shipping)}</span></div>
+            <div className="flex justify-between font-semibold text-ink pt-1"><span>Total</span><span>{formatPaise(discounted + shipping)}</span></div>
           </div>
         </div>
       </div>

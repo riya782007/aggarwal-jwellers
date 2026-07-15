@@ -55,6 +55,8 @@ const STR = {
   abandonedCarts: { en: "Abandoned carts", hi: "छूटी हुई कार्ट" },
   notifyMe: { en: "Notify-Me", hi: "नोटिफ़ाई-मी" },
   promotions: { en: "Promotions", hi: "प्रमोशन" },
+  vouchers: { en: "Vouchers", hi: "वाउचर / कूपन" },
+  quotes: { en: "Quote Requests", hi: "रेट पूछताछ" },
   reels: { en: "Reels", hi: "रील्स" },
   approvals: { en: "Approvals", hi: "मंज़ूरी" },
   notifications: { en: "Notifications", hi: "सूचनाएँ" },

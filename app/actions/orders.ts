@@ -2,12 +2,19 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { notifyOrderPlaced } from "@/lib/whatsapp";
+import { applyVoucherToOrder } from "@/lib/vouchers";
 
 export type PlaceOrderInput = {
   items: { sku: string; qty: number; color?: string }[];
   customer: { name: string; phone: string; address: string; pincode: string; city?: string };
   payment: "cod" | "online";
+  voucherCode?: string;
 };
+
+/** COD ceiling (₹, env-overridable) — big COD parcels get refused too often; push them to prepaid. */
+const COD_MAX_PAISE = () => Math.max(0, Math.round(Number(process.env.COD_MAX_RUPEES ?? 5000))) * 100;
+/** Free shipping over ₹999, else ₹50 — the checkout UI mirrors this. */
+const retailShippingPaise = (itemsPaise: number) => (itemsPaise >= 99900 || itemsPaise === 0 ? 0 : 5000);
 
 export async function placeOrderAction(input: PlaceOrderInput): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
   if (!input.items?.length) return { ok: false, error: "Cart is empty" };
@@ -22,7 +29,32 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<{ ok: bo
     p_tier: "retail",
   });
   if (error) return { ok: false, error: error.message };
-  const orderId = (data as any)?.order_id, total = (data as any)?.total;
+  const orderId = (data as any)?.order_id as string;
+  let total = (data as any)?.total as number;
+
+  // Voucher (0048): validated + redeemed server-side; rewrites orders.total and posts the
+  // day-book offset, so GST/receivables/dashboards all see the discounted figure.
+  if (input.voucherCode) {
+    const disc = await applyVoucherToOrder(orderId, input.voucherCode, "retail").catch(() => 0);
+    total -= disc;
+  }
+
+  // COD ceiling — checked on the priced order; the guard order is cancelled cleanly (0046)
+  // so stock and the day-book reverse and nothing lingers in any report.
+  if (input.payment === "cod" && COD_MAX_PAISE() > 0 && total + retailShippingPaise(total) > COD_MAX_PAISE()) {
+    await sb.rpc("cancel_order", { p_order: orderId, p_reason: "COD above limit" }).catch(() => {});
+    return { ok: false, error: `Cash on Delivery is available up to ₹${Math.round(COD_MAX_PAISE() / 100)}. Please pay online for this order.` };
+  }
+
+  // Shipping the customer pays is BOOKED on the bill (extra_courier folds into total — 0048
+  // fixes the gap where ₹50 shipping was collected but never entered the books).
+  const ship = retailShippingPaise(total);
+  if (ship > 0) {
+    await sb.from("orders").update({ total: total + ship, extra_courier: ship }).eq("id", orderId);
+    await sb.from("ledger").insert({ kind: "sales", ref_id: orderId, credit: ship, note: "Shipping charge" });
+    total += ship;
+  }
+
   await notifyOrderPlaced({
     orderId, customerName: input.customer.name, customerPhone: input.customer.phone,
     totalPaise: total, payment: input.payment, itemCount: input.items.reduce((n, i) => n + i.qty, 0),

@@ -40,6 +40,12 @@ export default async function TradeDashboard() {
     };
   });
   const history = await getWholesaleOrderHistory(session.id).catch(() => []);
+  const tradeQuickLinks = (
+    <div className="flex flex-wrap gap-2 my-4">
+      <a href="/trade/line-sheet" className="px-4 py-2 rounded-full bg-ink text-white text-sm">📄 Printable line sheet</a>
+      <a href="/trade/quote" className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium">💬 Request a bulk quote</a>
+    </div>
+  );
   const categories = (await getCategories()).map((c) => ({ id: c.id, name: c.name }));
   const promos = await getActivePromotions("wholesale").catch(() => []);
 
@@ -47,7 +53,8 @@ export default async function TradeDashboard() {
     <div className="max-w-7xl mx-auto px-5 py-8">
       {promos.length > 0 && <div className="rounded-2xl overflow-hidden mb-6 shadow-card"><PromoHero promos={promos} /></div>}
       <h1 className="font-display text-4xl text-ink mb-1">Dealer Dashboard</h1>
-      <p className="text-sm text-muted mb-6">Factory-direct trade rates. Enter quantities and place your order — ₹{minRupees} minimum. Your margin vs MRP is shown on every line.</p>
+      <p className="text-sm text-muted mb-2">Factory-direct trade rates. Enter quantities and place your order — ₹{minRupees} minimum. Your margin vs MRP is shown on every line.</p>
+      {tradeQuickLinks}
       <WholesaleCatalog products={list} customerName={session.name} minOrder={minOrder} history={history} />
 
       {/* Trade partners can offer their own designs for us to stock. */}

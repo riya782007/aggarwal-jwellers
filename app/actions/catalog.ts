@@ -324,6 +324,23 @@ export async function createProductWithImageAction(formData: FormData): Promise<
   return res;
 }
 
+/** Wholesale quantity-break tiers (0048): up to 3 rows of {min_qty, pct_off}, applied
+ *  per line at trade-order time. Empty rows are dropped; tiers are stored sorted. */
+export async function saveWholesaleTiersAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("catalog.price_edit"))) return;
+  const tiers: { min_qty: number; pct_off: number }[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const min = Math.floor(Number(formData.get(`tier_min_${i}`)) || 0);
+    const pct = Math.min(50, Math.max(0, Number(formData.get(`tier_pct_${i}`)) || 0));
+    if (min > 1 && pct > 0) tiers.push({ min_qty: min, pct_off: pct });
+  }
+  tiers.sort((a, b) => a.min_qty - b.min_qty);
+  const sb = supabaseServer();
+  const { data: row } = await sb.from("pricing_settings").select("id").limit(1).maybeSingle();
+  if ((row as any)?.id) await sb.from("pricing_settings").update({ wholesale_tiers: tiers }).eq("id", (row as any).id);
+  revalidatePath("/admin/pricing");
+}
+
 /** Photo-first stock entry (the owner's top wish): photo → category → cost → qty, DONE.
  *  Everything else is drafted automatically — the AI looks at the photo and writes the
  *  name/description/SEO (deterministic fallback when no AI key), the SKU is auto-generated,

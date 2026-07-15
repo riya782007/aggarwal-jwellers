@@ -27,6 +27,7 @@ const GROUPS: { title: I18nKey; links: L[] }[] = [
   { title: "navSales", links: [
     { href: "/admin/billing", label: "billingPos", icon: "₹", perm: "billing.sell" },
     { href: "/admin/orders", label: "websiteOrders", icon: "🛒", perm: "sales.view" },
+    { href: "/admin/quotes", label: "quotes", icon: "💬", perm: "sales.view" },
     { href: "/admin/sales", label: "salesRecords", icon: "❑", perm: "sales.view" },
     { href: "/admin/backorders", label: "backorders", icon: "⏳", perm: "sales.view" },
     { href: "/admin/estimates", label: "estimates", icon: "≈", perm: "estimates.create" },
@@ -45,6 +46,7 @@ const GROUPS: { title: I18nKey; links: L[] }[] = [
   ]},
   { title: "navGrowth", links: [
     { href: "/admin/promotions", label: "promotions", icon: "🎉", perm: "marketing.manage" },
+    { href: "/admin/vouchers", label: "vouchers", icon: "🎟", perm: "marketing.manage" },
     { href: "/admin/reels", label: "reels", icon: "▷", perm: "reels.manage" },
   ]},
   { title: "navControl", links: [
