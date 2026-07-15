@@ -5,6 +5,7 @@ import { formatPaise } from "@/lib/pricing";
 import { getSession, can, getLang } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { recordPartyPaymentAction } from "@/app/actions/payments";
+import { SubmitOnce } from "@/components/admin/SubmitOnce";
 
 export const metadata = { title: "Owner Console · Udhaar / Receivables" };
 
@@ -60,7 +61,7 @@ export default async function Creditors() {
                           <option value="upi">{t(lang, "upiWord")}</option>
                           <option value="bank">{t(lang, "bankWord")}</option>
                         </select>
-                        <button className="px-2.5 py-1.5 rounded-lg bg-emerald text-white text-xs font-medium hover:bg-emerald-dark">{t(lang, "receivedBtn")}</button>
+                        <SubmitOnce className="px-2.5 py-1.5 rounded-lg bg-emerald text-white text-xs font-medium hover:bg-emerald-dark">{t(lang, "receivedBtn")}</SubmitOnce>
                       </form>
                     ) : (
                       <span className="text-[11px] text-muted">{t(lang, "walkInNote")}</span>

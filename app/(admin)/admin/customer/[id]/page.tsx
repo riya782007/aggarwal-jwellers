@@ -7,6 +7,7 @@ import { getSession, can } from "@/lib/auth";
 import { upsertCustomerAction, deleteCustomerAction } from "@/app/actions/customers";
 import { approveWholesaleAction, regenWholesaleCodeAction } from "@/app/actions/wholesale";
 import { recordPartyPaymentAction } from "@/app/actions/payments";
+import { SubmitOnce } from "@/components/admin/SubmitOnce";
 
 export const metadata = { title: "Owner Console · Customer" };
 
@@ -61,7 +62,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
                 <option value="bank">Bank</option>
               </select>
               <input name="note" placeholder="Note (optional)" className="rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-36" />
-              <button className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✓ Received</button>
+              <SubmitOnce className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✓ Received</SubmitOnce>
             </form>
           </div>
         </div>

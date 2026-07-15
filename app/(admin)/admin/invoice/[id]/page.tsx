@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
-import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, gstSplitExclusive, stateCodeFromGstin, stateNameFromCode, bankHasDetails, amountInWords } from "@/lib/business";
+import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, gstSplitExclusive, stateCodeFromGstin, stateNameFromCode, bankHasDetails, amountInWords, orderDuePaise } from "@/lib/business";
 import { getSession, can } from "@/lib/auth";
 import { recordPaymentAction, setDocTypeAction, saveOrderNoteAction, setBillTypeAction, setGstModeAction } from "@/app/actions/payments";
 
@@ -44,10 +44,11 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const payable = isCash ? total : gstExclusive ? total + g.tax : total;
   const roundedTotal = Math.round(payable / 100) * 100;
   const roundOff = roundedTotal - payable;
-  // Compare paid against the ROUNDED grand total the customer actually pays — so collecting the
-  // shown amount settles the bill exactly (no 5–10 paise phantom balance from GST rounding).
-  const balanceDue = Math.max(0, roundedTotal - paid);
-  const payStatus = paid <= 0 ? "Unpaid" : paid >= roundedTotal ? "Paid" : "Partial";
+  // Balance due comes from the ONE shared formula (lib/business orderDuePaise): grand total,
+  // NET OF RETURNED GOODS, minus paid — so this page, Udhaar and the party ledger always agree.
+  const returnAmount = (order.return_amount as number) || 0;
+  const balanceDue = orderDuePaise({ total, bill_type: order.bill_type, gst_mode: gstMode, return_amount: returnAmount, amount_paid: paid });
+  const payStatus = paid <= 0 ? "Unpaid" : balanceDue <= 0 ? "Paid" : "Partial";
 
   const docTitle = isCash ? "CASH MEMO" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
   const invNo = order.invoice_no || ((isCash ? "CM-" : "INV-") + String(order.id).slice(0, 8).toUpperCase());
@@ -189,6 +190,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               {(order.pay_cash > 0 || order.pay_bank > 0) && (order.pay_cash > 0 && order.pay_bank > 0) && (
                 <div className="flex justify-between text-[11px] text-muted"><span>— Cash {formatPaise(order.pay_cash)} · UPI/Bank {formatPaise(order.pay_bank)}</span><span /></div>
               )}
+              {returnAmount > 0 && <div className="flex justify-between text-muted"><span>Less: goods returned</span><span>− {formatPaise(returnAmount)}</span></div>}
               {balanceDue > 0 && <div className="flex justify-between font-semibold text-rose"><span>Balance due</span><span>{formatPaise(balanceDue)}</span></div>}
             </div>
           </div>

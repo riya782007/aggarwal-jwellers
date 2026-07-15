@@ -65,6 +65,43 @@ export function stateNameFromCode(code?: string | null): string {
 export const HSN_JEWELLERY = "7117";
 export const GST_RATE = 3; // percent, for imitation jewellery
 
+/** Money fields of an order that decide what the customer actually owes. */
+export type OrderMoney = {
+  total: number | null;
+  bill_type?: string | null;      // 'cash' | 'gst'
+  gst_mode?: string | null;       // null(auto=exclusive) | 'exclusive' | 'inclusive'
+  return_amount?: number | null;  // pre-tax value of goods returned against this bill (paise)
+  amount_paid?: number | null;
+};
+
+/**
+ * GRAND total the customer actually pays for a bill (paise) — the ONE formula shared by
+ * the invoice page, the DB cap trigger (0034) and every receivables computation (0045):
+ *   • cash memo                    → total
+ *   • GST bill, gst_mode inclusive → total (already tax-inclusive)
+ *   • GST bill, exclusive/auto     → total + 3% GST
+ * always net of returned goods, rounded to the nearest ₹1 (matches the printed Grand Total).
+ * Mirrored in SQL by public.order_grand_paise() — keep the two in sync.
+ */
+export function orderGrandPaise(o: OrderMoney): number {
+  const base = Math.max(0, (o.total ?? 0) - (o.return_amount ?? 0));
+  const payable = o.bill_type === "gst" && o.gst_mode !== "inclusive"
+    ? base + Math.round((base * GST_RATE) / 100)
+    : base;
+  return Math.round(payable / 100) * 100;
+}
+
+/** ₹ still owed on a bill (paise) — grand total (net of returns) minus what's been paid. */
+export function orderDuePaise(o: OrderMoney): number {
+  return Math.max(0, orderGrandPaise(o) - (o.amount_paid ?? 0));
+}
+
+/** Order statuses that must never count towards receivables / revenue. */
+export const DEAD_ORDER_STATUSES = ["cancelled", "void", "refunded"] as const;
+export function isDeadOrder(status?: string | null): boolean {
+  return DEAD_ORDER_STATUSES.includes((status ?? "") as any);
+}
+
 /** Split an inclusive total (paise) into taxable value + GST at GST_RATE. */
 export function splitGstInclusive(totalPaise: number) {
   const taxable = Math.round(totalPaise / (1 + GST_RATE / 100));

@@ -22,6 +22,7 @@ import { generateContentAction } from "@/app/actions/aiContent";
 import { generateOneAction, generateAdImageAction } from "@/app/actions/images";
 import { computePrices, isValidPriceSet } from "@/lib/pricing";
 import { createProductAction, createCategoryJsonAction } from "@/app/actions/catalog";
+import { orderDuePaise, isDeadOrder } from "@/lib/business";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/audit";
 
@@ -718,13 +719,14 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       case "receivables": {
         const sb = supabaseServer();
         const party = String(args.party ?? "").trim().toLowerCase();
-        const { data } = await sb.from("orders").select("customer_name,total,amount_paid,invoice_no,created_at,status").order("created_at", { ascending: false }).limit(1000);
+        const { data } = await sb.from("orders").select("customer_name,total,amount_paid,bill_type,gst_mode,return_amount,invoice_no,created_at,status").order("created_at", { ascending: false }).limit(1000);
         const due = new Map<string, number>();
         const billCount = new Map<string, number>();
         let total = 0;
         for (const o of (data as any[]) ?? []) {
-          if (o.status === "cancelled" || o.status === "void") continue;
-          const d = Math.max(0, Number(o.total ?? 0) - Number(o.amount_paid ?? 0));
+          if (isDeadOrder(o.status)) continue;
+          // GST-aware due — same formula as the invoice's "Balance due" (lib/business).
+          const d = orderDuePaise(o);
           if (!d) continue;
           const who = o.customer_name || "Walk-in / unnamed";
           if (party && !who.toLowerCase().includes(party)) continue;
