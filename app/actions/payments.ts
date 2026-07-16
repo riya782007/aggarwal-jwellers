@@ -91,3 +91,18 @@ export async function setGstModeAction(formData: FormData): Promise<void> {
   await supabaseServer().from("orders").update({ gst_mode }).eq("id", orderId);
   revalidatePath(`/admin/invoice/${orderId}`);
 }
+
+/** Refund excess money on an over-collected bill (post-return / over-tender). The
+ *  record_refund RPC (0051) clamps to the true refundable excess, reverses the right
+ *  tender bucket, posts the day-book debit and audit-logs it. Amount in rupees. */
+export async function recordRefundAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("billing.refund"))) return;
+  const orderId = String(formData.get("order_id") ?? "");
+  const amount = Math.round((Number(formData.get("amount") ?? 0) || 0) * 100);
+  const mode = String(formData.get("mode")) === "bank" ? "bank" : "cash";
+  if (!orderId || !amount) return;
+  const { error } = await supabaseServer().rpc("record_refund", { p_order: orderId, p_amount: amount, p_mode: mode });
+  if (error) { console.warn("record_refund failed:", error.message); return; }
+  revalidatePath(`/admin/invoice/${orderId}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/cashbook"); revalidatePath("/admin/creditors");
+}

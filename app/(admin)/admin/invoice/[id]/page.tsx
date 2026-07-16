@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
-import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, gstSplitExclusive, stateCodeFromGstin, stateNameFromCode, bankHasDetails, amountInWords, orderDuePaise } from "@/lib/business";
+import { BUSINESS, HSN_JEWELLERY, GST_RATE, gstSplit, gstSplitExclusive, stateCodeFromGstin, stateNameFromCode, bankHasDetails, amountInWords, orderDuePaise, orderGrandPaise } from "@/lib/business";
 import { getSession, can } from "@/lib/auth";
-import { recordPaymentAction, setDocTypeAction, saveOrderNoteAction, setBillTypeAction, setGstModeAction } from "@/app/actions/payments";
+import { recordPaymentAction, recordRefundAction, setDocTypeAction, saveOrderNoteAction, setBillTypeAction, setGstModeAction } from "@/app/actions/payments";
 import { cancelOrderAction } from "@/app/actions/billing";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { UpiQr } from "@/components/UpiQr";
@@ -52,6 +52,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   // NET OF RETURNED GOODS, minus paid — so this page, Udhaar and the party ledger always agree.
   const returnAmount = (order.return_amount as number) || 0;
   const balanceDue = orderDuePaise({ total, bill_type: order.bill_type, gst_mode: gstMode, return_amount: returnAmount, amount_paid: paid });
+  // Money held BEYOND the grand total (after returns / over-tender) → refund due (0051).
+  const refundDue = Math.max(0, paid - orderGrandPaise({ total, bill_type: order.bill_type, gst_mode: gstMode, return_amount: returnAmount }));
   const payStatus = paid <= 0 ? "Unpaid" : balanceDue <= 0 ? "Paid" : "Partial";
 
   const docTitle = isCash ? "CASH MEMO" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
@@ -292,6 +294,22 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                     <option value="upi">UPI</option>
                   </select>
                   <button className="btn-primary px-4 py-2 text-sm font-medium">Record</button>
+                </form>
+              </div>
+            )}
+            {can(session, "billing.refund") && refundDue > 0 && !isDeadOrder(order.status) && (
+              <div className="bg-white rounded-2xl p-5 shadow-card border border-gold/40">
+                <h2 className="font-medium text-ink mb-1">Refund due <span className="text-gold-dark">{formatPaise(refundDue)}</span></h2>
+                <p className="text-xs text-muted mb-3">This bill holds more money than its grand total (returned goods / over-collection). Record the money you hand back so the cash book stays true.</p>
+                <form action={recordRefundAction} className="flex items-center gap-2 flex-wrap">
+                  <input type="hidden" name="order_id" value={order.id} />
+                  <span className="text-muted">₹</span>
+                  <input name="amount" type="number" min={1} max={Math.ceil(refundDue / 100)} placeholder={String(Math.round(refundDue / 100))} className="rounded-xl border border-sand px-3 py-2 text-sm w-28 outline-none focus:border-emerald" />
+                  <select name="mode" className="rounded-xl border border-sand px-3 py-2 text-sm outline-none focus:border-emerald">
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank / UPI</option>
+                  </select>
+                  <ConfirmSubmit message="Record this refund? amount_paid and the cash/bank book will come down." className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium hover:bg-gold-dark">↩ Record refund</ConfirmSubmit>
                 </form>
               </div>
             )}

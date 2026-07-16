@@ -7,7 +7,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
       <div className="max-w-7xl mx-auto px-5 py-14 grid md:grid-cols-4 gap-10">
         <div>
           <p className="font-display text-3xl text-ivory">Aggarwal Jewellers</p>
-          <p className="text-sm mt-3 text-cream/60 leading-relaxed">Where elegance meets empowerment. Handcrafted artificial jewellery from Sadar Bazar, Delhi.</p>
+          <p className="text-sm mt-3 text-cream/60 leading-relaxed">Bridal · AD · Anti-Tarnish · Daily-wear jewellery, from Sadar Bazar, Delhi.</p>
           <div className="flex gap-3 mt-5">
             <a href={waHref()} target="_blank" rel="noopener" aria-label="WhatsApp" title="WhatsApp"
               className="w-9 h-9 grid place-items-center rounded-full bg-white/10 hover:bg-gold hover:text-ink transition-colors">
@@ -51,7 +51,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
             <input placeholder="Your email" className="flex-1 rounded-l-full px-4 py-2 text-sm text-ink outline-none" />
             <button className="btn-gold rounded-l-none px-4 text-sm font-medium">Join</button>
           </form>
-          <p className="text-xs text-cream/50 mt-4">WhatsApp orders: +91 98731 51767</p>
+          <p className="text-xs text-cream/50 mt-4">WhatsApp orders: +91 11 4004 7222</p>
         </div>
       </div>
       <div className="border-t border-white/10">

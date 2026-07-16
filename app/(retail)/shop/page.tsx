@@ -11,7 +11,7 @@ import { ReelsSection } from "@/components/site/ReelsSection";
 
 export const metadata = {
   title: "Premium Artificial Jewellery — Kundan, Meena, Temple",
-  description: "Shop handcrafted artificial jewellery from Aggarwal Jewellers, Sadar Bazar Delhi. Necklaces, earrings, bracelets, anklets & rings with COD and free shipping over ₹999.",
+  description: "Shop bridal, AD, anti-tarnish & daily-wear jewellery from Aggarwal Jewellers, Sadar Bazar Delhi. Necklaces, earrings, bangles, anklets & rings with COD and free shipping over ₹999.",
 };
 
 export default async function Shop() {
@@ -31,7 +31,7 @@ export default async function Shop() {
       <section className="relative overflow-hidden bg-gradient-to-b from-cream to-ivory">
         <div className="max-w-7xl mx-auto px-5 py-14 md:py-20 grid md:grid-cols-2 gap-10 items-center">
           <div className="animate-fadeUp">
-            <p className="text-gold-dark tracking-[0.3em] uppercase text-xs mb-4">Aggarwal Jewellers · Since Sadar Bazar</p>
+            <p className="text-gold-dark tracking-[0.3em] uppercase text-xs mb-4">Aggarwal Jewellers · Bridal · AD · Anti-Tarnish · Daily-wear</p>
             <h1 className="font-display text-5xl md:text-6xl leading-[1.05] text-ink">
               Adorn your <span className="text-gold-gradient">every</span> moment.
             </h1>
