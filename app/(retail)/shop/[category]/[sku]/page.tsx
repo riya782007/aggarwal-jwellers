@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { waHref as waBiz } from "@/lib/business";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -62,7 +63,7 @@ export default async function ProductPage({ params }: Params) {
     else if (i === -1) galleryImages.unshift({ path: coverPath, kind: "cover" });
   }
   const waText = `Please place an order for ${p.name} (SKU:${p.sku})`;
-  const waHref = `https://wa.me/919873151767?text=${encodeURIComponent(waText)}`;
+  const waHrefUrl = waBiz(waText);
   
 
   const jsonLd = {
@@ -101,7 +102,7 @@ export default async function ProductPage({ params }: Params) {
           </div>
           <p className="text-xs text-muted mt-1">Inclusive of all taxes · You save {formatPaise(o.savings)}</p>
 
-          <BuyBox variants={variantsForBuy} waText={waText} waHref={waHref} item={{ sku: p.sku, name: p.name, price: o.price, category: catSlug, qty: (p as any).qty }} />
+          <BuyBox variants={variantsForBuy} waText={waText} waHref={waHrefUrl} item={{ sku: p.sku, name: p.name, price: o.price, category: catSlug, qty: (p as any).qty }} />
 
           <div className="mt-7 border-t border-sand pt-5">
             <p className="text-ink/80 leading-relaxed">{content.description}</p>

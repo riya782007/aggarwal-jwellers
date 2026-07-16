@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCatalogProducts, getCategoryTree, getCatalogSuggestions, getStyles } from "@/lib/supabase/queries";
 import { CatalogSearch } from "@/components/site/CatalogSearch";
 import { SelectableCatalog } from "@/components/site/SelectableCatalog";
-import { BUSINESS } from "@/lib/business";
+import { BUSINESS, waHref } from "@/lib/business";
 import { getSession } from "@/lib/auth";
 import { getWholesaleSession } from "@/lib/wholesale";
 
@@ -121,7 +121,7 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
 
       <div className="bg-ink text-cream/70 text-center text-sm py-6 mt-6 catalog-dark">
         <p className="text-ivory font-display text-2xl">{BUSINESS.brand}</p>
-        <p className="mt-1">Order on WhatsApp: <a href={`https://wa.me/91${BUSINESS.phone.replace(/\D/g, "").slice(-10)}`} className="text-gold-light">{BUSINESS.phone}</a> · {BUSINESS.address}</p>
+        <p className="mt-1">Order on WhatsApp: <a href={waHref()} className="text-gold-light">+91 11 4004 7222</a> · {BUSINESS.address}</p>
       </div>
     </main>
   );

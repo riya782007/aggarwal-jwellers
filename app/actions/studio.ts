@@ -292,7 +292,7 @@ export async function publishGenerationAction(formData: FormData): Promise<void>
   if (sku) { revalidatePath(`/shop/${slug}/${sku}`); revalidatePath(`/admin/products/${gen.product_id}`); }
 }
 
-/** Store a client-composited BRANDED image (the "aggarwaldiva" wordmark was drawn onto the
+/** Store a client-composited BRANDED image (the "Aggarwal Jewellers" wordmark was drawn onto the
  *  AI stand shot in the browser) and publish it — attached to the variant if given. */
 export async function uploadBrandedImageAction(input: {
   productId: string; variantId?: string | null; base64: string; mime?: string; shotType?: string;

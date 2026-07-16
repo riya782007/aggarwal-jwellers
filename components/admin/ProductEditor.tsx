@@ -55,7 +55,7 @@ export function ProductEditor({
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description);
   // Owner's spec keywords (e.g. "necklace set, earrings, maang tikka, uncut kundan") → the AI uses
-  // these to build a AggarwalDIVA-style title + description.
+  // these to build a Aggarwal Jewellers-style title + description.
   const [specKeywords, setSpecKeywords] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [titleOptions, setTitleOptions] = useState<string[]>([]);
@@ -212,7 +212,7 @@ export function ProductEditor({
         <h2 className="font-display text-xl text-ink mb-1">Storefront content</h2>
         <p className="text-xs text-muted mb-4">What the customer reads on the product page.</p>
         <div className="space-y-4">
-          {/* Spec keywords → AI title + description in AggarwalDIVA house style */}
+          {/* Spec keywords → AI title + description in Aggarwal Jewellers house style */}
           <div className="rounded-xl border border-emerald/30 bg-emerald-mist/20 p-3">
             <label className={`${label} mb-1`}>Jewellery specifications <span className="text-muted/70">— 3–4 keywords for the AI</span></label>
             <input value={specKeywords} onChange={(e) => setSpecKeywords(e.target.value)}

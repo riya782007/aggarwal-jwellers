@@ -10,7 +10,7 @@ import { openaiChat } from "./providers";
 export type PromoBrief = { title: string; refinedPrompt: string; categorySlug: string | null };
 
 const REFINE_SYSTEM =
-  `You are the senior creative director for "AggarwalDIVA", a premium Indian artificial/imitation jewellery brand (Sadar Bazar, Delhi). ` +
+  `You are the senior creative director for "Aggarwal Jewellers", a Sadar Bazar (Delhi) jewellery house — bridal, AD (American Diamond), anti-tarnish and daily-wear artificial jewellery. ` +
   `You turn the owner's rough idea into ONE richly detailed prompt for an AI image generator (Google Gemini / Nano Banana) that will produce a STUNNING, high-conversion PROMOTIONAL POSTER used as the storefront hero banner. Return only valid minified JSON.`;
 
 export async function refinePromoPrompt(input: {
@@ -22,7 +22,7 @@ export async function refinePromoPrompt(input: {
   const hints = (input.productHints ?? []).filter(Boolean).slice(0, 12).join(", ");
   const user = [
     `OWNER'S ROUGH IDEA: "${input.idea.trim()}"`,
-    `BRAND: AggarwalDIVA — premium Kundan, Uncut Kundan, Polki, Meenakari, Temple, Pearl & AD (American Diamond) artificial jewellery. Palette: royal gold, deep maroon, emerald green, ivory/cream. Audience: Indian women shopping for festive, bridal and party jewellery.`,
+    `BRAND: Aggarwal Jewellers — premium Kundan, Uncut Kundan, Polki, Meenakari, Temple, Pearl & AD (American Diamond) artificial jewellery. Palette: royal gold, deep maroon, emerald green, ivory/cream. Audience: Indian women shopping for festive, bridal and party jewellery.`,
     `AVAILABLE CATEGORIES (choose the ONE most relevant to this promo, return its slug): ${cats || "necklace, earrings"}.`,
     hints ? `SOME LIVE PRODUCTS / THEMES for grounding: ${hints}.` : ``,
     ``,
@@ -35,7 +35,7 @@ export async function refinePromoPrompt(input: {
     `   – the brand palette (royal gold, maroon, emerald, ivory), premium editorial studio lighting, rich depth and gleam on the metal and stones;`,
     `   – CLEARLY LEGIBLE promotional TEXT reproducing the EXACT offer/greeting the owner implied (e.g. the discount like "UP TO 40% OFF", "FESTIVE SALE", or a festival greeting) in an elegant modern serif/display font with strong contrast and correct spelling — keep the text SHORT (a headline + the offer);`,
     `   – composition: a wide 16:9 hero banner with a clear focal area on one side and clean negative space for the headline on the other; photorealistic, ultra-detailed, 4K, advertising-grade.`,
-    `   Do NOT invent a fake third-party logo; you MAY include the wordmark "AggarwalDIVA" subtly. Spell every word exactly. Keep on-image text minimal and correctly spelled.`,
+    `   Do NOT invent a fake third-party logo; you MAY include the wordmark "Aggarwal Jewellers" subtly. Spell every word exactly. Keep on-image text minimal and correctly spelled.`,
   ].filter(Boolean).join("\n");
 
   const raw = await openaiChat({ system: REFINE_SYSTEM, user, json: true, timeoutMs: 30_000 });

@@ -5,7 +5,7 @@ import { FeedbackForm } from "@/components/site/FeedbackForm";
 export const metadata = { title: "Share your feedback — Aggarwal Jewellers" };
 
 export default function FeedbackPage({ searchParams }: { searchParams: { ref?: string } }) {
-  const phone = BUSINESS.phone.replace(/\D/g, "").slice(-10);
+  const phone = BUSINESS.whatsapp.slice(-10); // official business WhatsApp
   return (
     <main className="min-h-screen bg-ivory grid place-items-center p-5">
       <div className="w-full max-w-lg bg-white rounded-3xl shadow-luxe p-7">

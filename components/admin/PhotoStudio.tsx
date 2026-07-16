@@ -260,7 +260,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
     }
   }
 
-  /** Draw the "aggarwaldiva" wordmark onto a generated stand shot (client canvas), then publish it. */
+  /** Draw the "Aggarwal Jewellers" wordmark onto a generated stand shot (client canvas), then publish it. */
   async function brandAndPublish(imageUrl: string, variantId: string | null, key: string) {
     setErr(""); addBusy(key);
     try {
@@ -275,7 +275,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "rgba(20,18,16,0.92)";
       ctx.font = `600 ${Math.round(w * 0.055)}px Georgia, 'Times New Roman', serif`;
-      ctx.fillText("aggarwaldiva", w / 2, h - Math.round(h * 0.045));
+      ctx.fillText("Aggarwal Jewellers", w / 2, h - Math.round(h * 0.045));
       ctx.fillStyle = "rgba(160,130,60,0.9)";
       ctx.font = `${Math.round(w * 0.02)}px Georgia, serif`;
       ctx.fillText("A R T I F I C I A L   J E W E L L E R Y", w / 2, h - Math.round(h * 0.02));
@@ -472,7 +472,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                   <button onClick={() => genAllVariants("branded_stand")} disabled={!ready} className="px-2.5 py-1 rounded-full bg-ink/80 text-white disabled:opacity-40">Generate all — Stand</button>
                 </div>
               </div>
-              <p className="text-[11px] text-muted mb-2">Generates from each colour&apos;s own photo. <b>Tip:</b> use <b>Upload raw</b> on a colour to give the AI the true photo instead of letting it assume the colourway. The stand shot gets the <b>aggarwaldiva</b> wordmark on publish. You can queue several at once.</p>
+              <p className="text-[11px] text-muted mb-2">Generates from each colour&apos;s own photo. <b>Tip:</b> use <b>Upload raw</b> on a colour to give the AI the true photo instead of letting it assume the colourway. The stand shot gets the <b>Aggarwal Jewellers</b> wordmark on publish. You can queue several at once.</p>
               <div className="space-y-2">
                 {variants.map((v) => {
                   const vModel = data.generations.find((g) => g.variant_id === v.id && g.shot_type === "model" && g.output_path && g.status !== "rejected" && g.status !== "archived");

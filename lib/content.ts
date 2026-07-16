@@ -27,7 +27,7 @@ export type ProductLike = {
 const LOCATION = ["Sadar Bazar", "Rui Mandi", "Delhi", "artificial jewellery wholesale Delhi", "imitation jewellery online India"];
 const OCCASIONS = ["wedding", "festive", "party wear", "daily wear", "gifting"];
 
-// AggarwalDIVA house style: every product title STARTS with a unique Indian girl's first name.
+// Aggarwal Jewellers house style: every product title STARTS with a unique Indian girl's first name.
 // Used by the deterministic fallback (the AI picks its own from a wider set).
 export const DIVA_NAMES = [
   "Ananya", "Dhyani", "Rutvika", "Khyati", "Nashvika", "Drishika", "Gitanjali", "Tanisha", "Rumatra",
@@ -101,14 +101,14 @@ function westernHints(name: string, keywords?: string[]): string[] {
   return [...new Set(t)];
 }
 
-// Signals that tip a piece from AggarwalDIVA's default ethnic/bridal register into a western/daily one.
+// Signals that tip a piece from Aggarwal Jewellers's default ethnic/bridal register into a western/daily one.
 const WESTERN_RE = /western|daily ?wear|\bdaily\b|office|work ?wear|corporate|casual|minimal|everyday|contemporary|modern|\bchic\b|trendy|anti[- ]?tarnish|waterproof|college|\bjeans\b|dress(es)?\b|co-?ord/;
 const BRIDAL_RE = /kundan|polki|temple|meenakari|choker|maang|tikka|rani ?haar|matha|bridal|dulhan|jhumk|chandbali|sabyasachi/;
 
 // ---- Spec-keyword parsing so the title mirrors what the owner typed, cleanly ordered ----
 // Jewellery TYPE words (removed from descriptors — the type is appended once at the end).
 const TYPE_WORD_RE = /\b(necklaces?|chokers?|earrings?|jhumkas?|jhumki|danglers?|studs?|rings?|bracelets?|kada|bangles?|pendants?|maang ?tikka|mangtikka|nose ?pins?|nath|haathphool|sets?|jewellery|jewelry|collection)\b/gi;
-// Pure "vibe" filler that clutters a title — dropped (AggarwalDIVA titles don't carry these).
+// Pure "vibe" filler that clutters a title — dropped (Aggarwal Jewellers titles don't carry these).
 const FILLER_WORDS = new Set(["ethnic","elegant","royal","beautiful","designer","fancy","latest","new","gorgeous","stylish","premium","trendy","classic","piece","women","womens","women's","girls","ladies","the","a","an","for","with","and","in","of","style","look","wear","artificial","imitation"]);
 // A phrase mentioning any of these is a MATERIAL/STONE (goes after the style adjectives).
 const MATERIAL_RE = /kundan|polki|meenakari|temple|moissanite|turkish|monalisa|mona ?lisa|crystal|pearl|stone|diamond|zircon|american diamond|\bad\b|\bcz\b|gold|silver|rose ?gold|rhodium|oxidis|oxidiz|brass|glass|acrylic|bead|enamel|jadau|jadtar|kemp/i;
@@ -136,7 +136,7 @@ function parseSpecKeywords(keywords?: string[]): { styles: string[]; materials: 
     else others.push(tc);
   }
   const uniq = (a: string[]) => [...new Set(a)];
-  // order: style adjectives → other descriptors → materials/stones (AggarwalDIVA reads best this way)
+  // order: style adjectives → other descriptors → materials/stones (Aggarwal Jewellers reads best this way)
   return { styles: uniq(styles), materials: uniq(materials), ordered: uniq([...styles, ...others, ...materials]) };
 }
 
@@ -185,7 +185,7 @@ export function templateContent(p: ProductLike): GeneratedContent {
     const finish = wStyles.find((s) => /gold|silver|rose|american diamond|zircon/i.test(s));
     const antiTarnish = /anti[- ]?tarnish/.test(blob);
     description =
-      `Make everyday styling effortless with ${title} by AggarwalDIVA. ` +
+      `Make everyday styling effortless with ${title} by Aggarwal Jewellers. ` +
       `${finish ? `Finished in a ${finish.toLowerCase()} tone, it` : "It"} carries a clean, contemporary look that's light on the skin and easy to carry from work to evenings out. ` +
       `${antiTarnish ? "Its anti-tarnish plating keeps the shine and colour lasting through regular, everyday use. " : ""}` +
       `This ${catL} pairs effortlessly with dresses, jeans, kurtis, co-ords and western outfits — an easy pick for daily wear, office, college and casual outings. ` +
@@ -196,7 +196,7 @@ export function templateContent(p: ProductLike): GeneratedContent {
     const includesLine = pieces.length ? `The set includes ${joinAnd(pieces.map((x) => x.toLowerCase()))}, making it a complete jewellery choice ` : "This piece is a graceful choice ";
     const materialLine = material ? `${material.toLowerCase()} detailing that gives a rich traditional and bridal appeal` : "elegant craftsmanship with a rich traditional appeal";
     description =
-      `Add royal elegance to your festive look with ${title} by AggarwalDIVA. ` +
+      `Add royal elegance to your festive look with ${title} by Aggarwal Jewellers. ` +
       `Designed in a graceful ${(styleWord || "classic").toLowerCase()} style, this ${catL} features ${materialLine}. ` +
       `${includesLine}for weddings, engagement ceremonies, sangeet, haldi-mehendi functions, festive celebrations and family occasions. ` +
       `Its elegant ethnic design pairs beautifully with sarees, lehengas, anarkalis, shararas and bridal outfits. ` +
@@ -237,8 +237,8 @@ export function templateContent(p: ProductLike): GeneratedContent {
     specs,
     tags,
     seo: {
-      metaTitle: `${title} | AggarwalDIVA`.slice(0, 60),
-      metaDescription: `Buy ${title} — ${descriptorStr || "artificial"} ${catL} at retail & wholesale from AggarwalDIVA, Sadar Bazar Delhi. COD, easy returns.`.slice(0, 158),
+      metaTitle: `${title} | Aggarwal Jewellers`.slice(0, 60),
+      metaDescription: `Buy ${title} — ${descriptorStr || "artificial"} ${catL} at retail & wholesale from Aggarwal Jewellers, Sadar Bazar Delhi. COD, easy returns.`.slice(0, 158),
       keywords,
     },
   };

@@ -12,24 +12,27 @@
  * the invoice template hides the Bank details block when both are blank.
  */
 export const BUSINESS = {
+  // ✅ Registration details from the client's Getting Started questionnaire (15 Jul 2026).
   brand: "Aggarwal Jewellers",
-  legalName: "Aggarwal Jewellers (India)",
-  address: "5150-B, Rui Mandi, Sadar Bazar, Delhi-110006",
+  legalName: "Aggarwal Jewellers",
+  tagline: "Bridal · AD · Anti-Tarnish · Daily-wear Jewellery",
+  address: "5005, Rui Mandi, Sadar Bazar, Delhi-110006",
   stateName: "Delhi",
   stateCode: "07", // GST state code for Delhi
-  gstin: "07AAIPJ3244P1ZD",
-  pan: "AAIPJ3244P",
-  tin: "07200035767",
-  phone: "+91 98731 51767",
-  email: "hello@aggarwaldiva.in",
+  gstin: "07AAMFA0395E1ZK",
+  pan: "AAMFA0395E",
+  tin: "", // GST era — legacy TIN not used; leave blank so documents hide it
+  phone: "+91 83750 23077",
+  /** Official business WhatsApp (Q11) — digits only, used for every wa.me link. */
+  whatsapp: (process.env.BUSINESS_WHATSAPP || "911140047222").replace(/\D/g, ""),
+  email: "aggarwaljewellers5005@gmail.com",
   bank: {
-    // Aggarwal Jewellers (India) current account — confirmed by the owner. These print on
-    // every GST tax invoice (not confidential — it's how customers pay). Env vars still
-    // override if you ever want to change them without a redeploy.
-    name: process.env.BLYTHE_BANK_NAME || "Kotak Mahindra Bank",
-    account: process.env.BLYTHE_BANK_ACCOUNT || "9868104364",
-    ifsc: process.env.BLYTHE_BANK_IFSC || "KKBK0000208",
-    branch: process.env.BLYTHE_BANK_BRANCH || "Pitampura, Delhi",
+    // Aggarwal Jewellers current account (questionnaire Q8) — prints on every GST tax
+    // invoice (not confidential — it's how customers pay). Env vars still override.
+    name: process.env.BLYTHE_BANK_NAME || "ICICI Bank",
+    account: process.env.BLYTHE_BANK_ACCOUNT || "629505040579",
+    ifsc: process.env.BLYTHE_BANK_IFSC || "ICIC0006295",
+    branch: process.env.BLYTHE_BANK_BRANCH || "",
     /** UPI VPA for scan-to-pay QR on bills (leave blank to hide the QR). */
     upi: process.env.BUSINESS_UPI_VPA || "",
   },
@@ -39,6 +42,11 @@ export const BUSINESS = {
     "Subject to Delhi jurisdiction only.",
   ],
 } as const;
+
+/** wa.me link to the OFFICIAL business WhatsApp (single source for every "message us"). */
+export function waHref(message?: string): string {
+  return `https://wa.me/${BUSINESS.whatsapp}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+}
 
 /** True when the bank block has enough information to be useful on a printed invoice. */
 export function bankHasDetails(): boolean {
