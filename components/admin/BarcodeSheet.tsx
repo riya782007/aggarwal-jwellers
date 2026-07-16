@@ -44,7 +44,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
   // QR is the default label — phone cameras and 2D scanners read it natively and the error
   // correction survives smudged stickers. Code-128 stays available for legacy 1D scanners.
   const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
-  // Q27 defaults: name + retail (coded .51) + wholesale cost code = "name and 2 prices".
+  // Q27 defaults: name + the combined price code A·7{wholesale}7·{retail}·51 = "name and 2 prices".
   const [opts, setOpts] = useState({ sku: true, name: true, price: true, special: false, wholesale: true, currency: false });
   // Q27: the sticker QR opens the LIVE product page (short /p/<sku> link → small symbol).
   // POS scanning still works — the counter search extracts the SKU from a scanned URL.
@@ -86,27 +86,21 @@ export function BarcodeSheet({ products }: { products: P[] }) {
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
   const cell = "w-24 rounded-lg border border-sand px-2 py-1 text-sm text-right outline-none focus:border-emerald";
 
-  // Retail printed with a fixed ".51" suffix — the owner's way of masking the true price inside the
-  // code. e.g. 120 -> "120.51", 319 -> "319.51". (Any decimals the owner typed are dropped first.)
-  const codeRetail = (v: string) => {
-    const int = (v ?? "").trim().split(".")[0].replace(/[^\d]/g, "");
-    return int ? `${int}.51` : "";
-  };
-  // Wholesale / cost printed as a private code (7·price·7) so a customer glancing at the tag can't
-  // read the trade price — staff decode it at a glance. e.g. 100 -> "71007".
+  // Owner's price-code scheme (client spec, 16 Jul):
+  //   A  +  7{wholesale}7  +  {retail}  +  51
+  // Starts with "A", wholesale sits between the two 7s, retail follows, always ends "51".
+  // e.g. wholesale 500, retail 1000 -> "A75007100051". Staff decode at a glance; a customer
+  // glancing at the tag can't read either true price. Decimals the owner typed are dropped.
+  const intOf = (v: string) => (v ?? "").trim().split(".")[0].replace(/[^\d]/g, "");
   const codeWholesale = (v: string) => {
-    const n = Math.round(Number((v ?? "").trim()));
-    return Number.isFinite(n) && n > 0 ? `7${n}7` : "";
+    const n = intOf(v);
+    return n && Number(n) > 0 ? `7${n}7` : "";
   };
-  // The owner's coded price string — concatenated with NO separators:
-  //   {retail}.51  +  {fixed special = 23}  +  7{wholesale}7
-  // e.g. retail 120, wholesale 100 -> "120.51" + "23" + "71007" = "120.512371007".
   const priceLine = (r: Row) => {
-    let out = "";
-    if (opts.price) out += codeRetail(r.price);
-    if (opts.special) out += (r.special.trim() || SPECIAL_FIXED);
-    if (opts.wholesale) out += codeWholesale(r.wholesale);
-    return out;
+    const w = opts.wholesale ? codeWholesale(r.wholesale) : "";
+    const p = opts.price ? intOf(r.price) : "";
+    if (!w && !p) return "";
+    return `A${w}${p}51`;
   };
 
   return (
@@ -154,7 +148,6 @@ export function BarcodeSheet({ products }: { products: P[] }) {
                   <th className="py-2 pr-3">Product</th>
                   <th className="py-2 pr-3 text-center">Barcode Qty</th>
                   <th className="py-2 pr-3 text-right">Price</th>
-                  <th className="py-2 pr-3 text-right">Special Price</th>
                   <th className="py-2 pr-3 text-right">Wholesale Price</th>
                   <th className="py-2 text-right">Action</th>
                 </tr>
@@ -168,7 +161,6 @@ export function BarcodeSheet({ products }: { products: P[] }) {
                       <QtyField value={r.qty} onChange={(n) => patch(r.sku, { qty: Math.max(1, Math.floor(n || 1)) })} className="w-16 rounded-lg border border-sand px-2 py-1 text-center" />
                     </td>
                     <td className="py-2 pr-3 text-right"><input className={cell} inputMode="decimal" value={r.price} onChange={(e) => patch(r.sku, { price: e.target.value })} /></td>
-                    <td className="py-2 pr-3 text-right"><input className={cell} inputMode="decimal" placeholder="—" value={r.special} onChange={(e) => patch(r.sku, { special: e.target.value })} /></td>
                     <td className="py-2 pr-3 text-right"><input className={cell} inputMode="decimal" value={r.wholesale} onChange={(e) => patch(r.sku, { wholesale: e.target.value })} /></td>
                     <td className="py-2 text-right"><button onClick={() => rm(r.sku)} className="text-xs px-3 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20">Delete</button></td>
                   </tr>
@@ -196,7 +188,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
           <div>
             <p className="text-xs font-medium text-muted mb-1">Barcode Options</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-              {([["sku", "Show SKU"], ["name", "Show Product Name"], ["price", "Show Price"], ["special", "Show Special Price"], ["wholesale", "Show cost code (7·x·7)"], ["currency", "Show Currency"]] as const).map(([k, label]) => (
+              {([["sku", "Show SKU"], ["name", "Show Product Name"], ["price", "Retail in code"], ["wholesale", "Wholesale in code (7·x·7)"], ["currency", "Show Currency"]] as const).map(([k, label]) => (
                 <label key={k} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={(opts as any)[k]} onChange={(e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))} className="accent-emerald" />
                   {label}
