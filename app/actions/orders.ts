@@ -219,7 +219,11 @@ export async function posSaleAction(input: {
     ? (pmResolved.find((p) => p.kind !== "cash")?.name ?? pmResolved[0]?.name ?? null)
     : (input.paymentMethod ?? null);
 
-  await sb.from("orders").update({
+  // MONEY-CRITICAL update. Supabase updates are all-or-nothing: one unknown column silently
+  // discards the whole payload (QA 16 Jul: missing buyer_gstin column ate amount_paid /
+  // customer link / salesperson on every POS bill). So: log failures loudly, and retry the
+  // essential money fields alone if the full payload is rejected.
+  const fullPatch: Record<string, unknown> = {
     bill_type: billType,
     buyer_gstin: input.buyerGstin?.trim() || null,
     buyer_address: input.buyerAddress?.trim() || null,
@@ -231,7 +235,18 @@ export async function posSaleAction(input: {
     payment_mode: payMode,
     pay_cash: payCash,
     pay_bank: payBank,
-  }).eq("id", orderId);
+  };
+  {
+    const { error: updErr } = await sb.from("orders").update(fullPatch).eq("id", orderId);
+    if (updErr) {
+      console.warn("POS post-billing update failed (retrying essentials only):", updErr.message);
+      const { error: coreErr } = await sb.from("orders").update({
+        bill_type: billType, customer_id: customerId, total,
+        amount_paid: amountPaid, payment_mode: payMode, pay_cash: payCash, pay_bank: payBank,
+      }).eq("id", orderId);
+      if (coreErr) console.error("POS essential money update ALSO failed:", coreErr.message);
+    }
+  }
 
   // Itemised charge breakdown — best-effort; needs migration 0021. Never breaks a sale.
   if (xCharges !== 0) {

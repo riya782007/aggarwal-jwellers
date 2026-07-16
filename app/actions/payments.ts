@@ -10,7 +10,8 @@ export async function recordPaymentAction(formData: FormData): Promise<void> {
   const amount = Math.round((Number(formData.get("amount") ?? 0) || 0) * 100);
   const mode = ["cash", "bank", "upi"].includes(String(formData.get("mode"))) ? String(formData.get("mode")) : "cash";
   if (!orderId || !amount) return;
-  await supabaseServer().rpc("record_payment", { p_order: orderId, p_amount: amount, p_mode: mode });
+  const { error } = await supabaseServer().rpc("record_payment", { p_order: orderId, p_amount: amount, p_mode: mode });
+  if (error) { console.error("record_payment failed:", error.message); return; }
   revalidatePath(`/admin/invoice/${orderId}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook");
 }
 
@@ -24,7 +25,8 @@ export async function recordPartyPaymentAction(formData: FormData): Promise<void
   const mode = ["cash", "bank", "upi"].includes(String(formData.get("mode"))) ? String(formData.get("mode")) : "cash";
   const note = String(formData.get("note") ?? "").trim() || null;
   if (!customerId || !amount) return;
-  await supabaseServer().rpc("record_party_payment", { p_customer: customerId, p_amount: amount, p_mode: mode, p_note: note });
+  const { error } = await supabaseServer().rpc("record_party_payment", { p_customer: customerId, p_amount: amount, p_mode: mode, p_note: note });
+  if (error) { console.error("record_party_payment failed:", error.message); return; }
   revalidatePath("/admin/creditors"); revalidatePath("/admin/customers"); revalidatePath(`/admin/customer/${customerId}`);
   revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook");
 }

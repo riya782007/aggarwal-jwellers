@@ -1189,7 +1189,7 @@ export type StudioData = NonNullable<Awaited<ReturnType<typeof getStudioData>>>;
 
 // ---------- dashboard + inventory intelligence (Req 6, 7; aggarwal.pdf §8) ----------
 import { classify, type InventoryRule, DEFAULT_RULE } from "../inventory";
-import { orderDuePaise, isDeadOrder } from "../business";
+import { orderDuePaise, orderGrandPaise, isDeadOrder } from "../business";
 import { computePrices, type PricingFormula as PF } from "../pricing";
 
 export type DashboardData = {
@@ -1397,12 +1397,15 @@ export type Analytics = {
 
 export async function getDashboardAnalytics(fromISO: string, toISO: string): Promise<Analytics> {
   const sb = supabaseServer();
+  // QA 16 Jul: cancelled/void/refunded orders were counted here (channel donut ₹4,450 vs the
+  // header's correct ₹2,195) — dead orders must never count towards revenue, and the figure
+  // shown is the GST-aware grand (net of returns), same as every other money surface.
   const [{ data: orders }, { data: items }] = await Promise.all([
-    sb.from("orders").select("total,channel,created_at").gte("created_at", fromISO).lte("created_at", toISO),
-    sb.from("order_items").select("line_total,qty,order:orders(created_at,channel),product:products(name,category:categories(name))"),
+    sb.from("orders").select("total,channel,created_at,status,bill_type,gst_mode,return_amount").gte("created_at", fromISO).lte("created_at", toISO),
+    sb.from("order_items").select("line_total,qty,order:orders(created_at,channel,status),product:products(name,category:categories(name))"),
   ]);
-  const os = (orders as any[]) ?? [];
-  const its = ((items as any[]) ?? []).filter((i) => i.order && i.order.created_at >= fromISO && i.order.created_at <= toISO);
+  const os = ((orders as any[]) ?? []).filter((o) => !isDeadOrder(o.status));
+  const its = ((items as any[]) ?? []).filter((i) => i.order && !isDeadOrder(i.order.status) && i.order.created_at >= fromISO && i.order.created_at <= toISO);
 
   // weekly buckets (8)
   const weeks = 8;
@@ -1411,11 +1414,11 @@ export async function getDashboardAnalytics(fromISO: string, toISO: string): Pro
   for (const o of os) {
     const ageDays = (now - new Date(o.created_at).getTime()) / 86400000;
     const idx = weeks - 1 - Math.min(weeks - 1, Math.floor(ageDays / 7));
-    if (idx >= 0 && idx < weeks) wk[idx].revenue += o.total ?? 0;
+    if (idx >= 0 && idx < weeks) wk[idx].revenue += orderGrandPaise(o);
   }
 
   const chMap = new Map<string, { count: number; revenue: number }>();
-  for (const o of os) { const c = chMap.get(o.channel) ?? { count: 0, revenue: 0 }; c.count++; c.revenue += o.total ?? 0; chMap.set(o.channel, c); }
+  for (const o of os) { const c = chMap.get(o.channel) ?? { count: 0, revenue: 0 }; c.count++; c.revenue += orderGrandPaise(o); chMap.set(o.channel, c); }
   const channels = ["retail", "wholesale", "pos"].map((c) => ({ channel: c, ...(chMap.get(c) ?? { count: 0, revenue: 0 }) }));
 
   const catMap = new Map<string, number>();
@@ -1450,20 +1453,21 @@ export async function getProductSalesStats(sku: string) {
 export async function getChannelReport(fromISO: string, toISO: string) {
   const sb = supabaseServer();
   const { data } = await sb.from("orders")
-    .select("id,total,channel,customer_name,created_at,bill_type,payment_mode")
+    .select("id,total,channel,customer_name,created_at,bill_type,payment_mode,status,gst_mode,return_amount")
     .gte("created_at", fromISO).lte("created_at", toISO)
     .order("created_at", { ascending: false }).limit(1000);
-  const rows = (data as any[]) ?? [];
+  // Dead orders excluded + GST-aware grand (QA 16 Jul — matched to the dashboard header).
+  const rows = ((data as any[]) ?? []).filter((r) => !isDeadOrder(r.status));
   const channels = ["retail", "wholesale", "pos"].map((ch) => {
     const list = rows.filter((r) => r.channel === ch);
     return {
       channel: ch,
-      revenue: list.reduce((s, r) => s + (r.total ?? 0), 0),
+      revenue: list.reduce((s, r) => s + orderGrandPaise(r), 0),
       count: list.length,
       orders: list.slice(0, 50),
     };
   });
-  const grand = rows.reduce((s, r) => s + (r.total ?? 0), 0);
+  const grand = rows.reduce((s, r) => s + orderGrandPaise(r), 0);
   return { channels, grand, count: rows.length };
 }
 
@@ -1513,8 +1517,11 @@ export async function getEstimate(id: string) {
 }
 export async function getRecentOrders(limit = 12) {
   const sb = supabaseServer();
+  // Cancelled/void/refunded bills excluded — you can't take a sales return against a bill
+  // that was already reversed (QA 16 Jul: a cancelled ₹2,255 order showed in the picker).
   const { data } = await sb.from("orders")
-    .select("id,total,channel,payment_mode,customer_name,created_at,order_items(qty,product:products(id,name,sku),variant:variants(sku,color))")
+    .select("id,total,channel,payment_mode,status,customer_name,created_at,order_items(qty,product:products(id,name,sku),variant:variants(sku,color))")
+    .not("status", "in", "(cancelled,void,refunded)")
     .order("created_at", { ascending: false }).limit(limit);
   return (data as any[]) ?? [];
 }

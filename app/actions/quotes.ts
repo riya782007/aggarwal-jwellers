@@ -12,8 +12,8 @@ export async function createQuoteRequestAction(formData: FormData): Promise<{ ok
   const phoneIn = String(formData.get("phone") ?? "").replace(/\D/g, "").slice(-10);
   if (!items) return { ok: false, message: "Tell us what you need — designs/SKUs and quantities." };
   const sess = await getWholesaleSession().catch(() => null);
-  const name = (sess as any)?.name ?? nameIn;
-  const phone = (sess as any)?.phone ?? phoneIn;
+  const name = ((sess as any)?.name || nameIn).trim();
+  const phone = ((sess as any)?.phone || phoneIn).trim();
   if (!name || !phone) return { ok: false, message: "Name and phone are required." };
   await supabaseServer().from("quote_requests").insert({ customer_id: (sess as any)?.id ?? null, name, phone, items, note });
   revalidatePath("/admin/quotes");
