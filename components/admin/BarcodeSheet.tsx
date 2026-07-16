@@ -44,7 +44,12 @@ export function BarcodeSheet({ products }: { products: P[] }) {
   // QR is the default label — phone cameras and 2D scanners read it natively and the error
   // correction survives smudged stickers. Code-128 stays available for legacy 1D scanners.
   const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
-  const [opts, setOpts] = useState({ sku: true, name: false, price: true, special: false, wholesale: true, currency: false });
+  // Q27 defaults: name + retail (coded .51) + wholesale cost code = "name and 2 prices".
+  const [opts, setOpts] = useState({ sku: true, name: true, price: true, special: false, wholesale: true, currency: false });
+  // Q27: the sticker QR opens the LIVE product page (short /p/<sku> link → small symbol).
+  // POS scanning still works — the counter search extracts the SKU from a scanned URL.
+  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://aggarwaljewellers.com").replace(/\/$/, "");
+  const qrValue = (sku: string) => `${SITE}/p/${encodeURIComponent(sku)}`;
 
   const matches = useMemo(
     () => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 10) : []),
@@ -178,7 +183,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
           <div>
             <p className="text-xs font-medium text-muted mb-1">Label Type</p>
             <select value={labelType} onChange={(e) => setLabelType(e.target.value as "qr" | "code128")} className="w-full rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald">
-              <option value="qr">QR code — phone camera & 2D scanner</option>
+              <option value="qr">QR code — opens the product page; scans at POS too</option>
               <option value="code128">Barcode (Code-128) — legacy 1D scanner</option>
             </select>
           </div>
@@ -219,7 +224,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
                 <div key={i} className="barcode-label text-center bg-white break-inside-avoid">
                   {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
                   {labelType === "qr"
-                    ? <QrCode value={it.sku} size={cols >= 8 ? 34 : 44} />
+                    ? <QrCode value={qrValue(it.sku)} size={cols >= 8 ? 34 : 44} />
                     : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
                   {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
                   {line && <p className="bc-price font-medium text-ink">{line}</p>}

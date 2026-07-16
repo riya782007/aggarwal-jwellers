@@ -121,9 +121,16 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   function setLineDisc(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, disc: val } : l)); }
   function rm(sku: string) { setLines((p) => p.filter((l) => l.sku !== sku)); }
 
-  /** One box for scan + search: Enter adds the exact SKU match, else the first result. */
+  /** One box for scan + search: Enter adds the exact SKU match, else the first result.
+   *  QR stickers encode the product-page URL (…/p/AJ1004-RED) — extract the SKU so the
+   *  same sticker both opens the page on a phone AND bills at the counter. */
+  function skuFromScan(raw: string): string {
+    const m = raw.match(/\/p\/([A-Za-z0-9%._-]+)/);
+    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+    return raw;
+  }
   function submitSearch() {
-    const code = q.trim();
+    const code = skuFromScan(q.trim());
     if (!code) return;
     const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
     const p = exact ?? matches[0];
