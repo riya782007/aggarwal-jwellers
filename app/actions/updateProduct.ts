@@ -99,6 +99,8 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
       retail_only: String(formData.get("visibility") ?? "all") === "retail",
       base_wholesale: Math.round(basePriceRupees * 100),
       qty,
+      // Q22 — how the item is counted/sold (pc | pair | set | dozen); shows on bills & storefront.
+      unit: ["pc", "pair", "set", "dozen"].includes(String(formData.get("unit"))) ? String(formData.get("unit")) : "pc",
       generated_content,
       last_movement_at: new Date().toISOString(),
     })

@@ -100,6 +100,23 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
         </div>
       </div>
 
+      {/* Your code + unit — the owner keeps their own codes (Q21); bangles sell in sets (Q22) */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm font-medium text-ink mb-2">{t(lang, "qaSku")}</p>
+          <input name="sku" placeholder={t(lang, "qaSkuHint")} className={`${fld} font-mono uppercase`} />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-ink mb-2">{t(lang, "qaUnit")}</p>
+          <select name="unit" defaultValue="pc" className={fld}>
+            <option value="pc">{t(lang, "unitPc")}</option>
+            <option value="pair">{t(lang, "unitPair")}</option>
+            <option value="set">{t(lang, "unitSet")}</option>
+            <option value="dozen">{t(lang, "unitDozen")}</option>
+          </select>
+        </div>
+      </div>
+
       {error && <p className="text-sm text-rose bg-rose/10 rounded-xl px-4 py-2.5">{error}</p>}
 
       <button disabled={busy} className="btn-primary w-full py-4 text-lg font-medium disabled:opacity-60">

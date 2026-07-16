@@ -81,7 +81,7 @@ export default async function EstimatePrint({ params }: { params: { id: string }
                 <tr key={i} className="border-b border-sand/60">
                   <td className={`${td} text-muted`}>{i + 1}</td>
                   <td className={`${td} text-ink`}>{it.product?.name}{it.variant?.color ? <span className="text-ink"> · {it.variant.color}</span> : ""}<span className="text-muted text-xs"> · {it.variant?.sku ?? it.product?.sku}</span></td>
-                  <td className={`${td} text-right`}>{it.qty}</td>
+                  <td className={`${td} text-right`}>{it.qty}{it.product?.unit && it.product.unit !== "pc" ? <span className="text-[10px] text-muted"> {it.product.unit}</span> : null}</td>
                   <td className={`${td} text-right`}>{formatPaise(it.unit_price)}</td>
                   <td className={`${td} text-right`}>{formatPaise(it.line_total)}</td>
                 </tr>

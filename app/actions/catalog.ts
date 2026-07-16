@@ -107,9 +107,9 @@ async function insertOne(sb: ReturnType<typeof supabaseServer>, formula: any, n:
   if (!n.categoryId) return { row: skuNum, ok: false, error: "Missing category" };
   const prices = computePrices(n.basePriceRupees * 100, formula);
   if (!isValidPriceSet(prices)) return { row: skuNum, ok: false, error: "Computed price invalid — flagged" };
-  // Use a manually-entered SKU if provided, else auto-generate BD####.
+  // Use the owner's OWN code when given (questionnaire Q21: "we keep codes"), else auto AJ####.
   const manual = n.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
-  const sku = manual || `BD${skuNum}`;
+  const sku = manual || `AJ${skuNum}`;
   if (manual) {
     const { data: dup } = await sb.from("products").select("id").eq("sku", manual).maybeSingle();
     if (dup) return { row: skuNum, ok: false, error: `SKU ${manual} already exists` };
@@ -351,6 +351,10 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
   const categoryId = String(formData.get("categoryId") ?? "");
   const price = Number(formData.get("price")) || 0; // cost / base ₹ — the formula builds the rest
   const qty = Math.max(0, Math.floor(Number(formData.get("qty")) || 0));
+  // Q21: the owner keeps their OWN item codes — optional; blank auto-generates AJ####.
+  const manualSku = String(formData.get("sku") ?? "").trim().toUpperCase().replace(/\s+/g, "-") || undefined;
+  // Q22: how this item is counted — pc (default) | pair | set (bangles) | dozen.
+  const unit = ["pc", "pair", "set", "dozen"].includes(String(formData.get("unit"))) ? String(formData.get("unit")) : "pc";
   const file = formData.get("image") as File | null;
   if (!categoryId) return { row: 0, ok: false, error: "Pick a category." };
   if (!(price > 0)) return { row: 0, ok: false, error: "Enter the cost / base price (₹)." };
@@ -374,8 +378,9 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
 
   // 2) Create the draft through the standard pipeline (auto SKU + formula pricing).
   const [formula, skuNum] = await Promise.all([getPricingFormula(), nextSku(sb)]);
-  const res = await insertOne(sb, formula, { categoryId, name, basePriceRupees: price, qty, type: "simple", colors: [] }, skuNum, false);
+  const res = await insertOne(sb, formula, { categoryId, name, basePriceRupees: price, qty, type: "simple", colors: [], manualSku }, skuNum, false);
   if (!res.ok || !res.sku) return res;
+  if (unit !== "pc") { try { await sb.from("products").update({ unit }).eq("sku", res.sku); } catch { /* pre-0050 DB */ } }
 
   // 3) Attach the photo + persist the AI-drafted page content.
   await ensureMediaBucket(sb);
@@ -897,7 +902,7 @@ export async function createProductFullAction(
   // ---- SKU ----
   const skuNum = await nextSku(sb);
   const manual = payload.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
-  const sku = manual || `BD${skuNum}`;
+  const sku = manual || `AJ${skuNum}`;
   if (manual) {
     const { data: dup } = await sb.from("products").select("id").eq("sku", manual).maybeSingle();
     if (dup) return { ok: false, error: `SKU ${manual} already exists.` };

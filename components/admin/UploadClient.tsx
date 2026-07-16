@@ -81,7 +81,7 @@ export function UploadClient({
    *  Mirrors the server's autoSku() logic exactly so what you see here is what
    *  prints later. Falls back to a derived suffix if a colour isn't in the master. */
   const previewSku = (v: VariantRow): string => {
-    const parent = (form.sku.trim() || "BD####").toUpperCase();
+    const parent = (form.sku.trim() || "AJ####").toUpperCase();
     if (v.sku.trim()) return v.sku.trim().toUpperCase().replace(/\s+/g, "-");
     const colorCode = v.color.trim()
       ? (colorCodes[v.color.trim().toLowerCase()] ?? v.color.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))
@@ -323,7 +323,7 @@ export function UploadClient({
                 title={showVariantsEditor && realVariants.length > 0 ? "Stock is the sum of your variant rows" : undefined}
               />
             </div>
-            <input className={`${input} font-mono`} placeholder="SKU (optional — leave blank to auto-generate BD####)" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            <input className={`${input} font-mono`} placeholder="Your code / SKU (optional — blank = auto AJ####)" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <select className={input} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "simple" | "configurable" })}>
                 <option value="simple">Simple (one item)</option>
@@ -482,7 +482,7 @@ export function UploadClient({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock, colours and SKUs. Or use a header row (any column order): <code className="bg-cream px-1 rounded">name, sku, base_price, qty, type, colours|pipe</code> — <b>sku is optional</b> (blank = auto BD####). Excel files (.xlsx) import directly too. · <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download CSV template</a></p>
+            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock, colours and SKUs. Or use a header row (any column order): <code className="bg-cream px-1 rounded">name, sku, base_price, qty, type, colours|pipe</code> — <b>sku is optional</b> (blank = auto AJ####; your own codes are kept as-is). Excel files (.xlsx) import directly too. · <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download CSV template</a></p>
             <input type="file" accept=".csv,text/csv,.txt,.xlsx,.xls" onChange={async (e) => {
               const f = e.target.files?.[0]; if (!f) return;
               // 0049: Excel workbooks parse client-side (SheetJS, dynamically imported) into the

@@ -149,7 +149,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                     <td className={`${td} text-muted`}>{i + 1}</td>
                     <td className={`${td} text-ink`}>{it.product?.name}{it.variant?.color ? ` – ${it.variant.color}` : ""} <span className="font-mono font-semibold text-ink bg-cream border border-sand rounded px-1.5 py-0.5 text-[11px] whitespace-nowrap">{it.variant?.sku ?? it.product?.sku}</span></td>
                     {!isCash && <td className={`${td} text-center text-muted`}>{HSN_JEWELLERY}</td>}
-                    <td className={`${td} text-right`}>{it.qty}</td>
+                    <td className={`${td} text-right`}>{it.qty}{it.product?.unit && it.product.unit !== "pc" ? <span className="text-[10px] text-muted"> {it.product.unit}</span> : null}</td>
                     <td className={`${td} text-right ${discPct > 0 ? "text-muted line-through" : ""}`}>{formatPaise(origUnit)}</td>
                     <td className={`${td} text-right ${discPct > 0 ? "text-emerald-dark" : "text-muted"}`}>{discPct > 0 ? `${discPct}%` : "—"}</td>
                     <td className={`${td} text-right`}>{formatPaise(lineTaxable)}</td>

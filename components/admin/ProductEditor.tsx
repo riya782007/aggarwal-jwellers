@@ -185,6 +185,15 @@ export function ProductEditor({
               <input name="qty" type="number" min={0} step="1" defaultValue={product.qty} className={field} />
             )}
           </div>
+          <div>
+            <label className={label}>Counted as <span className="text-muted/70">— shows on bills &amp; store</span></label>
+            <select name="unit" defaultValue={(product as any).unit ?? "pc"} className={field}>
+              <option value="pc">Piece</option>
+              <option value="pair">Pair</option>
+              <option value="set">Set (bangles)</option>
+              <option value="dozen">Dozen</option>
+            </select>
+          </div>
         </div>
 
         {/* price preview — show the REAL selling price. If custom prices are pinned (e.g. from

@@ -97,6 +97,7 @@ export default async function ProductPage({ params }: Params) {
 
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="text-3xl font-semibold text-ink leading-none">{formatPaise(o.price)}</span>
+            {(p as any).unit && (p as any).unit !== "pc" && <span className="text-xs text-muted ml-1.5">per {(p as any).unit}</span>}
             {o.hasOffer && <span className="text-lg text-muted line-through leading-none">{formatPaise(o.mrp)}</span>}
             {o.hasOffer && <span className="text-sm font-semibold text-white bg-rose px-2 py-0.5 rounded-full leading-none">{o.offerPct}% OFF</span>}
           </div>
