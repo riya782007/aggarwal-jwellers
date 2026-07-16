@@ -1779,15 +1779,22 @@ export async function getProductsWithMedia() {
 /** Website orders (retail + wholesale channels; POS excluded) for the fulfillment queue (0047). */
 export async function getWebsiteOrders(tab: "new" | "accepted" | "dispatched" | "all" = "new") {
   const sb = supabaseServer();
-  let q = sb.from("orders")
-    .select("id,channel,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_id,customer_name,customer_phone,created_at,dispatched_at,delivered_at, items:order_items(qty), customer:customers(address,city)")
-    .neq("channel", "pos")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (tab === "new") q = q.is("fulfillment", null).not("status", "in", "(cancelled,void,refunded)");
-  else if (tab === "accepted") q = q.eq("fulfillment", "accepted").is("dispatched_at", null).not("status", "in", "(cancelled,void,refunded)");
-  else if (tab === "dispatched") q = q.eq("status", "dispatched").is("delivered_at", null);
-  const { data } = await q;
+  const SEL = "id,channel,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_id,customer_name,customer_phone,created_at,dispatched_at,delivered_at, items:order_items(qty)";
+  const mk = (withCustomer: boolean) => {
+    let q = sb.from("orders")
+      .select(withCustomer ? `${SEL}, customer:customers(address,city)` : SEL)
+      .neq("channel", "pos")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (tab === "new") q = q.is("fulfillment", null).not("status", "in", "(cancelled,void,refunded)");
+    else if (tab === "accepted") q = q.eq("fulfillment", "accepted").is("dispatched_at", null).not("status", "in", "(cancelled,void,refunded)");
+    else if (tab === "dispatched") q = q.eq("status", "dispatched").is("delivered_at", null);
+    return q;
+  };
+  // Resilient: if the customers embed can't resolve (e.g. address column missing pre-0052),
+  // fall back to the plain select so the queue NEVER renders empty because of a join.
+  let { data, error } = await mk(true);
+  if (error) ({ data } = await mk(false));
   return ((data as any[]) ?? []).map((o) => ({ ...o, itemCount: ((o.items as any[]) ?? []).reduce((s, x) => s + (x.qty ?? 0), 0) }));
 }
 

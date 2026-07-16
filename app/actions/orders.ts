@@ -42,7 +42,7 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<{ ok: bo
   // COD ceiling — checked on the priced order; the guard order is cancelled cleanly (0046)
   // so stock and the day-book reverse and nothing lingers in any report.
   if (input.payment === "cod" && COD_MAX_PAISE() > 0 && total + retailShippingPaise(total) > COD_MAX_PAISE()) {
-    await sb.rpc("cancel_order", { p_order: orderId, p_reason: "COD above limit" }).catch(() => {});
+    await sb.rpc("cancel_order", { p_order: orderId, p_reason: "COD above limit" }).then(() => {}, () => {});
     return { ok: false, error: `Cash on Delivery is available up to ₹${Math.round(COD_MAX_PAISE() / 100)}. Please pay online for this order.` };
   }
 

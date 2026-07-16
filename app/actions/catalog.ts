@@ -395,6 +395,9 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
     const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
     const { data: prod } = await sb.from("products").select("id").eq("sku", res.sku).single();
     if (prod) await sb.from("product_images").insert({ product_id: (prod as any).id, path: pub.publicUrl, kind: "flatlay", sort: 0 });
+    // The owner's photo IS the product photo until an AI shot replaces it — set it as the
+    // storefront cover (thumbnail_path wins over the AI-images-only card pick).
+    await sb.from("products").update({ thumbnail_path: pub.publicUrl }).eq("sku", res.sku);
   }
   if (generated) { try { await sb.from("products").update({ generated_content: generated }).eq("sku", res.sku); } catch { /* content is best-effort */ } }
 
