@@ -121,7 +121,7 @@ function stripSkus(text: string): string {
 export function extractQuantity(textRaw: string): number | undefined {
   const text = stripSkus(asciiDigits(textRaw).toLowerCase());
   // Prefer a number that sits next to a stock/qty word, else the first standalone integer.
-  const near = /(\d{1,6})\s*(?:pcs|pc|piece|pieces|units?|nos?|qty|stock|maal|adad|pieces?)/.exec(text)
+  const near = /(\d{1,6})\s*(?:pcs|pc|piece|pieces|units?|nos?|qty|stock|maal|adad|pees|sets?|pairs?|jodi|dozen|darjan|पीस|नग|पीसेस|सेट|जोड़ी|दर्जन)/.exec(text)
     || /(?:add|badhao|badha|jodo|daal|stock|qty|quantity|set|kar do)\D{0,12}?(\d{1,6})/.exec(text);
   if (near) return parseInt(near[1], 10);
   const digit = /(?<![\d.])(\d{1,6})(?![\d.])/.exec(text);
@@ -137,7 +137,7 @@ export function extractPriceRupees(textRaw: string): number | undefined {
     /(?:₹|rs\.?|inr|rupees?)\s*(\d{2,7})/.exec(text) ||
     /(\d{2,7})\s*(?:₹|rs\.?|rupees?|rupaye|rupiya|\/-)/.exec(text) ||
     /(\d{2,7})\s*(?:ka|ki|me|mein|par)\b/.exec(text) ||
-    /(?:price|rate|daam|keemat|mrp|wholesale|retail|cost)\D{0,8}?(\d{2,7})/.exec(text);
+    /(?:price|rate|daam|keemat|mrp|wholesale|retail|cost|lagat|लागत|क़ीमत|कीमत|दाम|रेट)\D{0,8}?(\d{2,7})/.exec(text);
   return m ? parseInt(m[1], 10) : undefined;
 }
 

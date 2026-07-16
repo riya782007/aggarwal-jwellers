@@ -355,6 +355,8 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
   const manualSku = String(formData.get("sku") ?? "").trim().toUpperCase().replace(/\s+/g, "-") || undefined;
   // Q22: how this item is counted — pc (default) | pair | set (bangles) | dozen.
   const unit = ["pc", "pair", "set", "dozen"].includes(String(formData.get("unit"))) ? String(formData.get("unit")) : "pc";
+  // Q20-b: what the owner SAID while adding — the AI grounds the title/description in it.
+  const voiceNote = String(formData.get("voice_note") ?? "").trim();
   const file = formData.get("image") as File | null;
   if (!categoryId) return { row: 0, ok: false, error: "Pick a category." };
   if (!(price > 0)) return { row: 0, ok: false, error: "Enter the cost / base price (₹)." };
@@ -370,7 +372,9 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
   let generated: any = null;
   try {
     const { content } = await generateProductContent({
-      name, sku: "NEW", categoryName: catName, colors: [], keywords: [], imageBase64, imageMime,
+      name, sku: "NEW", categoryName: catName, colors: [],
+      keywords: voiceNote ? voiceNote.split(/[,·]/).map((k) => k.trim()).filter(Boolean) : [],
+      imageBase64, imageMime,
     });
     if (content?.title) name = content.title;
     generated = content;

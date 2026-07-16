@@ -2,6 +2,8 @@
 import { useRef, useState } from "react";
 import { quickAddProductAction } from "@/app/actions/catalog";
 import { t, type Lang } from "@/lib/i18n";
+import { useSpeech } from "@/components/useSpeech";
+import { extractQuantity, extractPriceRupees } from "@/lib/diva/nlu";
 
 type Cat = { id: string; name: string };
 type Done = { sku: string; name: string };
@@ -16,6 +18,41 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [voiceNote, setVoiceNote] = useState("");
+  const [voiceLang, setVoiceLang] = useState<"hi-IN" | "en-IN">("hi-IN");
+
+  /** Q20-b: "photo AND speak the details" — parse the spoken line and fill the form.
+   *  Reuses DIVA's offline extractors (qty near pcs-words, ₹ near cost-words), matches the
+   *  category by name, catches pair/set/dozen and an item code; the full transcript also
+   *  rides along so the AI writes the listing from what the owner SAID + the photo. */
+  function applyVoice(text: string) {
+    setVoiceNote((v) => (v ? v + " · " : "") + text);
+    const form = formRef.current;
+    if (!form) return;
+    const lower = text.toLowerCase();
+    const qty = extractQuantity(text);
+    const price = extractPriceRupees(text);
+    if (price && (form.elements.namedItem("price") as HTMLInputElement)) (form.elements.namedItem("price") as HTMLInputElement).value = String(price);
+    if (qty && qty !== price && (form.elements.namedItem("qty") as HTMLInputElement)) (form.elements.namedItem("qty") as HTMLInputElement).value = String(qty);
+    // unit words (English + Hindi/Hinglish)
+    const unitSel = form.elements.namedItem("unit") as HTMLSelectElement | null;
+    if (unitSel) {
+      if (/(pair|jodi|जोड़ी)/.test(lower)) unitSel.value = "pair";
+      else if (/(dozen|darjan|दर्जन)/.test(lower)) unitSel.value = "dozen";
+      else if (/\b(set|सेट)\b/.test(lower)) unitSel.value = "set";
+    }
+    // category by name match (either direction, so "jhumka earrings" hits "Earrings")
+    const catSel = form.elements.namedItem("categoryId") as HTMLSelectElement | null;
+    if (catSel) {
+      const hit = categories.find((c) => lower.includes(c.name.toLowerCase()) || c.name.toLowerCase().split(/\s+/).some((w) => w.length > 3 && lower.includes(w)));
+      if (hit) catSel.value = hit.id;
+    }
+    // an item code like AJ1004 / KN-2210 spoken or spelled
+    const code = /\b([A-Z]{2,4}-?\d{2,5}[A-Z0-9-]*)\b/i.exec(text.replace(/\s+/g, ""));
+    const skuInp = form.elements.namedItem("sku") as HTMLInputElement | null;
+    if (code && skuInp && !skuInp.value) skuInp.value = code[1].toUpperCase();
+  }
+  const speech = useSpeech(applyVoice, voiceLang);
 
   const onFile = (f: File | null) => {
     setError(null);
@@ -41,7 +78,7 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
   }
 
   function reset() {
-    setDone(null); setError(null); setPreview(null);
+    setDone(null); setError(null); setPreview(null); setVoiceNote("");
     formRef.current?.reset();
   }
 
@@ -65,6 +102,29 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
   return (
     <form ref={formRef} onSubmit={onSubmit} className="max-w-xl bg-white rounded-2xl p-6 shadow-card space-y-5">
       <p className="text-sm text-muted">{t(lang, "qaIntro")}</p>
+      <input type="hidden" name="voice_note" value={voiceNote} />
+
+      {/* 🎤 Speak the details (Q20-b) — fills cost/qty/category/unit/code; hidden if unsupported */}
+      {speech.supported && (
+        <div className={`rounded-2xl border ${speech.listening ? "border-rose bg-rose/5" : "border-emerald/30 bg-emerald-mist/20"} p-3`}>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => (speech.listening ? speech.stop() : speech.start(voiceLang))}
+              className={`h-11 w-11 rounded-full text-xl shrink-0 ${speech.listening ? "bg-rose text-white animate-pulse" : "bg-emerald text-white"}`}>
+              {speech.listening ? "◼" : "🎤"}
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-ink font-medium">{speech.listening ? t(lang, "qaVoiceListening") : t(lang, "qaVoiceTitle")}</p>
+              <p className="text-[11px] text-muted truncate">{speech.interim || voiceNote || t(lang, "qaVoiceHint")}</p>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              {(["hi-IN", "en-IN"] as const).map((l) => (
+                <button key={l} type="button" onClick={() => setVoiceLang(l)}
+                  className={`text-[11px] px-2 py-1 rounded-full ${voiceLang === l ? "bg-ink text-white" : "bg-white border border-sand text-muted"}`}>{l === "hi-IN" ? "हिं" : "EN"}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1 · Photo — the camera opens directly on phones */}
       <div>

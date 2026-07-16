@@ -153,12 +153,13 @@ export async function notifyOrderPlaced(args: {
     }
   }
 
-  // Owner alert (plain text; owner has an open session with the business number).
-  const owner = toE164(process.env.OWNER_WHATSAPP_NUMBER);
-  if (owner) {
-    await sendWhatsAppText(
-      owner,
-      `🛒 New ${STORE()} order #${shortId}\n${args.customerName || "Customer"} (${args.customerPhone || "no phone"})\n${args.itemCount} item(s) · ${rupees(args.totalPaise)} · ${paid}`,
-    ).catch(() => {});
-  }
+  // New-order alerts (plain text). The client wants these going to STAFF (questionnaire
+  // Q12) — set STAFF_WHATSAPP_NUMBER (comma-separate several); OWNER_WHATSAPP_NUMBER still
+  // works and both can be set at once. Duplicates are collapsed.
+  const alertMsg = `🛒 New ${STORE()} order #${shortId}\n${args.customerName || "Customer"} (${args.customerPhone || "no phone"})\n${args.itemCount} item(s) · ${rupees(args.totalPaise)} · ${paid}`;
+  const recipients = new Set(
+    [process.env.OWNER_WHATSAPP_NUMBER, ...(process.env.STAFF_WHATSAPP_NUMBER ?? "").split(",")]
+      .map((n) => toE164(n)).filter(Boolean) as string[],
+  );
+  for (const to of recipients) await sendWhatsAppText(to, alertMsg).catch(() => {});
 }
