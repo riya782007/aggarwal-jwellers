@@ -60,7 +60,7 @@ function prompt(p: ProductLike) {
     ``,
     `specs (object) MUST include: Category, Material, Work/Style, Occasion, Care${colors ? ", Colours" : ""}, and Includes (if it's a set). DO NOT include the SKU.`,
     `tags: 8-12 short search tags mixing type, style, material, occasion.`,
-    `seo.metaTitle <= 60 chars (title + " | Aggarwal Jewellers"); seo.metaDescription <= 155 chars, compelling; seo.keywords 8-12 long-tail phrases like "kundan necklace set for wedding", "artificial jewellery online India", "bridal jewellery Delhi".`,
+    `seo.metaTitle <= 60 chars (the product title ALONE — do NOT append any brand/site name; the site layout adds " | Aggarwal Jewellers" automatically); seo.metaDescription <= 155 chars, compelling; seo.keywords 8-12 long-tail phrases like "kundan necklace set for wedding", "artificial jewellery online India", "bridal jewellery Delhi".`,
     `Return ONLY the JSON object, minified, no markdown.`,
   ].filter(Boolean).join("\n");
 }

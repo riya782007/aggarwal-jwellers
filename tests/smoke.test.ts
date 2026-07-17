@@ -45,7 +45,9 @@ describe("demo smoke: seeded happy path", () => {
       expect(c.title.length).toBeGreaterThan(0);
       expect(c.description.length).toBeGreaterThan(40);
       expect(c.seo.keywords.length).toBeGreaterThan(0);
-      expect(c.seo.metaTitle).toContain("Aggarwal Jewellers");
+      // metaTitle is the product title ALONE — the layout template appends " | Aggarwal Jewellers".
+      expect(c.seo.metaTitle.length).toBeGreaterThan(0);
+      expect(c.seo.metaTitle).not.toContain("| Aggarwal Jewellers");
     }
   });
 

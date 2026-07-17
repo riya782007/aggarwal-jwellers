@@ -237,7 +237,8 @@ export function templateContent(p: ProductLike): GeneratedContent {
     specs,
     tags,
     seo: {
-      metaTitle: `${title} | Aggarwal Jewellers`.slice(0, 60),
+      // Title ALONE — the site layout's title template appends " | Aggarwal Jewellers" itself.
+      metaTitle: title.slice(0, 60),
       metaDescription: `Buy ${title} — ${descriptorStr || "artificial"} ${catL} at retail & wholesale from Aggarwal Jewellers, Sadar Bazar Delhi. COD, easy returns.`.slice(0, 158),
       keywords,
     },
