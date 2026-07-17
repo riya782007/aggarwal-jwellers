@@ -1,10 +1,23 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { createHash } from "crypto";
 import { supabaseServer } from "@/lib/supabase/server";
 
-/** Owner gets full access; staff get a per-role scoped session. */
-export const OWNER_TOKEN = () => process.env.ADMIN_SESSION_TOKEN ?? "bd-owner-session-v1";
-export const STAFF_TOKEN = () => (process.env.ADMIN_SESSION_TOKEN ?? "bd-owner-session-v1") + "-staff";
+/** Owner gets full access; staff get a per-role scoped session.
+ *
+ * SECURITY (fixed 17 Jul): the session cookie VALUE must not be a fixed, public string.
+ * This repo is public, so the old default "bd-owner-session-v1" let anyone set that cookie
+ * and walk into the owner console with no passcode. The token is now a SHA-256 derived from
+ * the deployment's SECRETS (ADMIN_SESSION_TOKEN and the owner passcode) — unguessable from the
+ * source alone, and it automatically rotates if either secret changes. A random per-boot salt
+ * would log everyone out on redeploy, so we derive deterministically from configured secrets
+ * instead. Set ADMIN_SESSION_TOKEN (and a custom OWNER_PASSCODE) in the environment. */
+const secretSeed = () =>
+  `${process.env.ADMIN_SESSION_TOKEN ?? ""}|${process.env.OWNER_PASSCODE ?? ""}|aj-session-v2`;
+const derive = (scope: string) => createHash("sha256").update(scope + "|" + secretSeed()).digest("hex");
+
+export const OWNER_TOKEN = () => derive("owner");
+export const STAFF_TOKEN = () => derive("staff");
 
 export type Session = {
   authed: boolean;

@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const OWNER = process.env.ADMIN_SESSION_TOKEN ?? "bd-owner-session-v1";
-const STAFF = OWNER + "-staff";
+// SECURITY (17 Jul): session token is a SHA-256 derived from deployment secrets, NOT a fixed
+// public string — must match lib/auth.ts derive() byte-for-byte. Edge runtime → Web Crypto.
+const SESSION_SEED = `${process.env.ADMIN_SESSION_TOKEN ?? ""}|${process.env.OWNER_PASSCODE ?? ""}|aj-session-v2`;
+async function sha256hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+const ownerToken = () => sha256hex("owner|" + SESSION_SEED);
+const staffToken = () => sha256hex("staff|" + SESSION_SEED);
 
 /** Longest-prefix → required permission(s). An array means ANY of those perms grants access.
  *  Paths not listed are open to any signed-in user. */
@@ -37,8 +44,9 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/roles", "roles.manage"],
 ];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  const [OWNER, STAFF] = await Promise.all([ownerToken(), staffToken()]);
 
   // ---- TRADE (wholesale) portal ----------------------------------------------------------
   // Completely separate auth domain from /admin. Dealers carry a `bd_wholesale` cookie set by
