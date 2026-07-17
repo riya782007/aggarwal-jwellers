@@ -35,20 +35,20 @@ export default async function StockMovements({ searchParams }: { searchParams: {
     (kind === "all" || kind === "estimate") ? getOpenEstimateReservations() : Promise.resolve([] as any[]),
   ]);
   const reservedTotal = (reservations as any[]).reduce((s, e) => s + e.qty, 0);
-  const sel = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
+  const sel = "h-11 rounded-xl border border-sand bg-white px-3 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Stock Movement History</h1>
-      <p className="text-sm text-muted mb-5">Every stock in &amp; out across all products. Click a row to open its purchase or sale bill.</p>
+      <p className="text-sm text-muted mb-4">Every stock in &amp; out across all products. Click a row to open its purchase or sale bill.</p>
 
       <form action="/admin/stock-movements" className="flex flex-wrap gap-2 mb-4 items-center">
-        <input name="q" defaultValue={q} placeholder="Search SKU…" className="rounded-xl border border-sand bg-white px-4 py-2 text-sm outline-none focus:border-emerald flex-1 min-w-[160px]" />
+        <input name="q" defaultValue={q} placeholder="Search a SKU…" className="h-11 rounded-xl border border-sand bg-white px-4 text-[15px] outline-none focus:border-emerald flex-1 min-w-[200px]" />
         <select name="kind" defaultValue={kind} className={sel}>{KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
         <label className="text-xs text-muted flex items-center gap-1">From <input type="date" name="from" defaultValue={from} className={sel} /></label>
         <label className="text-xs text-muted flex items-center gap-1">To <input type="date" name="to" defaultValue={to} className={sel} /></label>
-        <button className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Filter</button>
-        {(q || kind !== "all" || from || to) && <Link href="/admin/stock-movements" className="px-3 py-2 text-sm text-muted hover:text-ink">Clear</Link>}
+        <button className="h-11 px-5 rounded-xl bg-ink text-white text-sm">Filter</button>
+        {(q || kind !== "all" || from || to) && <Link href="/admin/stock-movements" className="h-11 grid place-items-center px-3 text-sm text-muted hover:text-ink">Clear</Link>}
       </form>
 
       {reservations.length > 0 && (

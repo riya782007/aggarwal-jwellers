@@ -33,33 +33,34 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
   const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
-      <h1 className="font-display text-4xl text-ink mb-1">Inventory Intelligence</h1>
-      <p className="text-sm text-muted mb-5">Rule: <b>Dead</b> = no movement in <b>{deadDays}</b> days · <b>Low</b> = ≤ <b>{lowQty}</b> pcs · <b>Inactive</b> = never sold or moved even once (checked first — an item can only be Dead or Low once it's had at least one movement). Change the numbers below and the classification updates live.</p>
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
+      <h1 className="font-display text-4xl text-ink mb-1">Inventory</h1>
+      <p className="text-sm text-muted mb-4"><b>Dead</b> = no movement in {deadDays} days · <b>Low</b> = ≤ {lowQty} pcs · <b>Inactive</b> = never sold. Adjust the thresholds below and it re-classifies live.</p>
 
       <StockAdjust />
 
       <form className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-2xl p-4 shadow-card border border-sand">
-        <label className="text-sm text-muted">Dead after (days)
-          <input name="deadDays" defaultValue={deadDays} type="number" className="mt-1 block w-28 rounded-xl border border-sand px-3 py-2 text-ink" />
+        <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search a product or SKU…" className="h-11 flex-1 min-w-[220px] rounded-xl border border-sand px-4 text-[15px] outline-none focus:border-emerald" />
+        <label className="text-xs text-muted">Dead after (days)
+          <input name="deadDays" defaultValue={deadDays} type="number" className="mt-0.5 block h-11 w-28 rounded-xl border border-sand px-3 text-ink" />
         </label>
-        <label className="text-sm text-muted">Low at or below (pcs)
-          <input name="lowQty" defaultValue={lowQty} type="number" className="mt-1 block w-28 rounded-xl border border-sand px-3 py-2 text-ink" />
+        <label className="text-xs text-muted">Low at or below (pcs)
+          <input name="lowQty" defaultValue={lowQty} type="number" className="mt-0.5 block h-11 w-28 rounded-xl border border-sand px-3 text-ink" />
         </label>
-        <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search name or SKU…" className="flex-1 min-w-[160px] rounded-xl border border-sand px-4 py-2 text-sm outline-none focus:border-emerald" />
-        <button className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Apply</button>
+        <button className="h-11 px-5 rounded-xl bg-ink text-white text-sm">Apply</button>
+        {(searchParams.q || cls) && <Link href="/admin/inventory" className="h-11 grid place-items-center px-3 text-sm text-muted hover:text-ink">Clear</Link>}
       </form>
 
       <div className="flex flex-wrap gap-2 mb-4">
         {["dead", "low", "inactive", "healthy"].map((c) => (
           <Link key={c} href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}&cls=${c}`}
-            className={`px-3 py-1.5 rounded-full text-sm capitalize ${BADGE[c]} ${cls === c ? "ring-2 ring-ink/20" : ""}`}>{c} · {counts[c] ?? 0}</Link>
+            className={`px-3.5 py-2 rounded-full text-sm capitalize ${BADGE[c]} ${cls === c ? "ring-2 ring-ink/20" : ""}`}>{c} · {counts[c] ?? 0}</Link>
         ))}
-        <Link href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}`} className="px-3 py-1.5 rounded-full text-sm bg-white border border-sand text-muted">All · {rows.length}</Link>
+        <Link href={`/admin/inventory?deadDays=${deadDays}&lowQty=${lowQty}`} className={`px-3.5 py-2 rounded-full text-sm bg-white border border-sand text-muted ${!cls ? "ring-2 ring-ink/20" : ""}`}>All · {rows.length}</Link>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
-        <table className="w-full text-sm">
+        <table className="w-full text-[15px]">
           <thead className="bg-cream text-muted text-left">
             <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Last movement</th><th className="p-3">Health</th><th className="p-3">Visibility</th><th className="p-3 text-right">Actions</th></tr>
           </thead>

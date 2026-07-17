@@ -30,7 +30,7 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
   const canRefund = can(session, "billing.refund");
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Website Orders</h1>
       <p className="text-sm text-muted mb-5">Orders placed on the storefront &amp; trade portal. Accept to start preparing (customer gets a WhatsApp), reject to cancel — stock and money reverse automatically. Delivering a COD order records the cash collected.</p>
 

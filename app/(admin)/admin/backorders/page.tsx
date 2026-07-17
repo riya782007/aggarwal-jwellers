@@ -28,7 +28,7 @@ export default async function Backorders() {
   const pending = rows.reduce((s, r) => s + Math.max(0, (r.total ?? 0) - (r.amount_paid ?? 0)), 0);
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Backorders</h1>
       <p className="text-sm text-muted mb-5">
         Sales billed beyond available stock (you ticked &ldquo;bill anyway as a backorder&rdquo; at the counter).

@@ -24,7 +24,7 @@ export default async function SupplierLedger({ params }: { params: { id: string 
   const rows = events.map((e) => { run += e.debit - e.credit; return { ...e, balance: run }; });
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <Link href="/admin/suppliers" className="text-sm text-muted hover:text-ink">← Suppliers</Link>
       <div className="flex items-center gap-3 mt-1 flex-wrap mb-1">
         <h1 className="font-display text-4xl text-ink">{supplier.name}</h1>

@@ -20,7 +20,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <Link href="/admin/customers" className="text-sm text-muted hover:text-ink">← Customers</Link>
       <div className="flex items-center gap-3 mt-1 mb-5">
         <h1 className="font-display text-4xl text-ink">{c.name}</h1>

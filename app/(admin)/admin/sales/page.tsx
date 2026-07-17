@@ -55,7 +55,7 @@ export default async function SalesRecords({ searchParams }: { searchParams: { p
   const thLink = "inline-flex items-center gap-0.5 hover:text-ink";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Sales Records</h1>
       <p className="text-sm text-muted mb-5">Every sale across all channels. Click an order to open its bill &amp; full detail.</p>
       {gstOnly && <div className="mb-5 rounded-xl border border-emerald/30 bg-emerald-mist/40 px-4 py-2 text-sm text-emerald-dark">Compliance view — showing <b>GST tax invoices only</b>. Cash memos and estimates are hidden for this role.</div>}

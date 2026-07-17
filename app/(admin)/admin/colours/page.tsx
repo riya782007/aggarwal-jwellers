@@ -47,7 +47,7 @@ export default async function ColoursPage({ searchParams }: { searchParams: { q?
   const seededCount = (color as any[]).filter((c) => c.barcode_code).length;
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
         <h1 className="font-display text-4xl text-ink">Colours &amp; Options</h1>
         <SeedColoursButton seeded={seededCount} total={(color as any[]).length} />

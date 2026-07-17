@@ -10,7 +10,7 @@ export const metadata = { title: "Owner Console · Roles & Permissions" };
 export default async function Roles() {
   const roles = await getRoles();
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-5xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-5xl">
       <h1 className="font-display text-4xl text-ink mb-1">Roles &amp; Permissions</h1>
       <p className="text-sm text-muted mb-2">Discord-style granular control. Grant exactly what a role can do — e.g. a stock clerk who can <b>add</b> stock but never <b>remove</b> it.</p>
       <p className="text-sm text-muted mb-6 bg-emerald-mist/60 rounded-xl px-4 py-2.5">Each role has its own <b>passcode</b> (below). Share it with that staff member — they sign in at the same console login page with it and see only their permitted sections. Your owner passcode always unlocks everything. Each role also picks its <b>console language</b> (English / हिन्दी) — applied at login, switchable any time from the sidebar.</p>

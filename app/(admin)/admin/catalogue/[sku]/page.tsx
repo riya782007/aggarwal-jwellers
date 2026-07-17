@@ -468,7 +468,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
     ? searchParams.tab : "basic") as TabKey;
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="mb-5 max-w-4xl">
         <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink">← Catalogue</Link>
         <div className="flex items-center gap-3 mt-1 flex-wrap">

@@ -42,7 +42,7 @@ export default async function Categories({ searchParams }: { searchParams: { q?:
     : tree;
 
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <h1 className="font-display text-4xl text-ink mb-1">Categories &amp; Subcategories</h1>
       <p className="text-sm text-muted mb-6">Organise your catalogue into parent categories (Necklaces, Earrings…) and subcategories (Oxidised, Kundan, Temple…). Tap a category to expand its subcategories. Changes appear in the storefront menu and catalogue filters instantly.</p>
 

@@ -31,7 +31,7 @@ export default async function Product360({ params }: { params: { sku: string } }
   const published = p.status === "published";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <div className="flex items-center justify-between mb-1">
         <Link href="/admin/inventory" className="text-sm text-muted hover:text-ink">← Inventory</Link>
         <span className={`text-xs px-2 py-0.5 rounded-full ${published ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>{published ? "Visible on store" : "Hidden"}</span>

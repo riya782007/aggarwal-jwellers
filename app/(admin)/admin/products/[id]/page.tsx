@@ -11,7 +11,7 @@ export default async function ProductManagePage({ params, searchParams }: { para
   const data = await getProductForPim(params.id);
   if (!data) notFound();
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <ProductManager data={data as any} initialTab={searchParams.tab} />
     </main>
   );

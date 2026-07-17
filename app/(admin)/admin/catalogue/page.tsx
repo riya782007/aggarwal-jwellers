@@ -42,7 +42,7 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
   const sel = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
         <div>
           <h1 className="font-display text-4xl text-ink">Catalogue</h1>

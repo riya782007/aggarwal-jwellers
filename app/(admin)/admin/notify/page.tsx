@@ -8,7 +8,7 @@ export default async function NotifyMe() {
   const totalRequests = rows.reduce((s, r) => s + r.count, 0);
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Notify-Me · Restock demand</h1>
       <p className="text-sm text-muted mb-5">Customers who asked to be told when an out-of-stock product is back. Restock the most-wanted first, then text these buyers.</p>
 

@@ -9,7 +9,7 @@ const ago = (d: string) => { const m = Math.round((Date.now() - new Date(d).getT
 export default async function Inbox() {
   const [notifs, registry, activity] = await Promise.all([getNotifications(), getAssignmentsRegistry(), getActivityLog()]);
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <h1 className="font-display text-4xl text-ink mb-1">Notifications &amp; Activity</h1>
       <p className="text-sm text-muted mb-6">Every human-required step pings the assigned person, and every change you make to the catalogue is logged below — nothing passes silently.</p>
 

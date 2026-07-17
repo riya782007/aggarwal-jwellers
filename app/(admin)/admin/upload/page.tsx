@@ -26,7 +26,7 @@ export default async function UploadPage() {
   const subcategories = tree.flatMap((c) => (c.subcategories ?? []).map((s) => ({ id: s.id, name: s.name, categoryId: c.id })));
   const styles = styleRows.map((s) => ({ id: s.id, name: s.name, categoryId: s.category_id ?? "" }));
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Add Inventory / New Product</h1>
       <p className="text-sm text-muted mb-6">Create a product with variants and publish settings for wholesale &amp; retail. New designs are saved as drafts until you publish. Each colour variant prints a barcode of <code className="bg-cream px-1 rounded">{`{productSKU}-{colourCode}`}</code> from your <a href="/admin/colours" className="text-emerald nav-link">Colours master</a>.</p>
       <AddInventoryTabs

@@ -31,7 +31,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
     `px-3.5 py-1.5 rounded-full text-sm ${period === key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-emerald"}`;
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Employees</h1>
       <p className="text-sm text-muted mb-5">Your team, and how much each has sold. Attribution is captured at billing — pick the salesperson on the POS customer panel — so you can reward performance.</p>
 

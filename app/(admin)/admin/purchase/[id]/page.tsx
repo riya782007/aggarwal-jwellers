@@ -18,7 +18,7 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-3xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-3xl">
       <Link href="/admin/purchases" className="text-sm text-muted hover:text-ink">← Purchases</Link>
       <h1 className="font-display text-4xl text-ink mt-1">Purchase · {ref}</h1>
       <p className="text-sm text-muted mb-5">{p.supplier?.name}{p.supplier?.city ? ` · ${p.supplier.city}` : ""} · {new Date(p.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>

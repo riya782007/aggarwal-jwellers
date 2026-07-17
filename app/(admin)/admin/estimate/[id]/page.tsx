@@ -26,7 +26,7 @@ export default async function EstimatePrint({ params }: { params: { id: string }
   const inp = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
           <Link href="/admin/estimates" className="text-sm text-emerald nav-link">← Estimates</Link>

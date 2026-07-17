@@ -78,7 +78,7 @@ export default async function CashBook({ searchParams }: { searchParams: { tende
     `px-4 py-1.5 rounded-full text-sm transition-colors ${tender === key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-emerald"}`;
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Bank &amp; Payment Methods</h1>
       <p className="text-sm text-muted mb-5">Counter cash and UPI / bank collections, minus what you've paid suppliers. Filter to just cash or just bank, see it day by day, and which bank each rupee went into.</p>
 

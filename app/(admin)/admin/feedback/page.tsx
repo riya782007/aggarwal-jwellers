@@ -10,7 +10,7 @@ export default async function FeedbackInbox() {
   const avg = rated.length ? rated.reduce((s: number, r: any) => s + (r.rating || 0), 0) / rated.length : 0;
 
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-3xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-3xl">
       <h1 className="font-display text-4xl text-ink mb-1">Customer Feedback</h1>
       <p className="text-sm text-muted mb-6">{rows.length} response{rows.length === 1 ? "" : "s"}{rated.length ? ` · average ${avg.toFixed(1)}★` : ""}. Shared from your storefront feedback form.</p>
 
