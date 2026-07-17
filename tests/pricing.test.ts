@@ -10,8 +10,16 @@ describe("computePrices", () => {
   it("computes wholesale/retail/mrp from base wholesale (₹150 base)", () => {
     const p = computePrices(15000, F); // ₹150 in paise
     expect(p.wholesaleRate).toBe(16500); // 150 * 1.10 = 165
-    expect(p.retailPrice).toBe(33000);   // 150 * 2.2 = 330
-    expect(p.mrp).toBe(41300);           // 150 * 2.75 = 412.5 -> round to ₹413 (41300)
+    // Owner's charm rule: retail ends in 9 → 150 * 2.2 = 330 → charm-round UP → ₹339.
+    expect(p.retailPrice).toBe(33900);
+    // MRP ends in 0/5 → 150 * 2.75 = 412.5 → nearest ×5 → ₹415.
+    expect(p.mrp).toBe(41500);
+  });
+
+  it("matches the live catalogue example (₹250 base → ₹559 / ₹690)", () => {
+    const p = computePrices(25000, F);
+    expect(p.retailPrice).toBe(55900); // 250*2.2=550 → charm ₹559 — must equal what place_order bills
+    expect(p.mrp).toBe(69000);         // 250*2.75=687.5 → to 0/5 → ₹690
   });
 
   it("rounds to the configured granularity (nearest rupee by default)", () => {

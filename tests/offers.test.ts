@@ -22,8 +22,8 @@ describe("deriveOffer", () => {
 describe("liveOffer", () => {
   it("derives an offer from base wholesale + formula", () => {
     const o = liveOffer(15000, DEFAULT_FORMULA); // ₹150 base
-    expect(o.price).toBe(33000); // retail 330
-    expect(o.mrp).toBe(41300);   // mrp ~413
+    expect(o.price).toBe(33900); // retail 330 → charm-round (ends in 9) → ₹339
+    expect(o.mrp).toBe(41500);   // mrp 412.5 → nearest ×5 → ₹415
     expect(o.offerPct).toBeGreaterThan(0);
   });
 });

@@ -19,7 +19,8 @@ export default function Login({ searchParams }: { searchParams: { error?: string
             className="w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors" />
           {searchParams.error && <p className="text-sm text-rose mt-2">Incorrect passcode. Try again.</p>}
           <button className="btn-primary w-full mt-4 py-3 text-sm font-medium">Sign in</button>
-          <p className="text-[11px] text-muted/70 mt-4 text-center">Owner demo passcode: <span className="font-mono">aggarwal2026</span> · staff passcodes are on the Roles page</p>
+          {/* Never print any passcode here — this is a public page. Staff passcodes live on the Roles page. */}
+          <p className="text-[11px] text-muted/70 mt-4 text-center">Forgot the passcode? Ask the owner — staff passcodes are on the Roles page.</p>
         </form>
       </div>
     </main>

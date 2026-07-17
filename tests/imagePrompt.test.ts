@@ -13,7 +13,9 @@ describe("buildImagePrompt", () => {
     expect(p).toContain("NON-NEGOTIABLE — PRODUCT FIDELITY");
   });
   it("respects aspect ratio", () => {
-    expect(buildImagePrompt({ category: "ring", aspect: "1:1" })).toContain("1:1 for thumbnails");
+    // Prompt copy evolved — assert the aspect actually switches the framing instruction.
+    expect(buildImagePrompt({ category: "ring", aspect: "1:1" })).toContain("SQUARE 1:1 aspect ratio");
+    expect(buildImagePrompt({ category: "ring", aspect: "4:5" })).toContain("4:5 aspect ratio");
   });
   it("is deterministic per index", () => {
     expect(buildImagePrompt({ category: "ring", index: 0 })).toBe(buildImagePrompt({ category: "ring", index: 0 }));

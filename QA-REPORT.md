@@ -130,7 +130,21 @@ To clean the two mis-booked POS bills after 0053+0054: either cancel `AJ/26-27/0
 
 **Code:** `app/actions/orders.ts` (hardened POS money update + logging), `app/actions/payments.ts`
 (RPC error logging), `app/actions/quotes.ts` + `lib/wholesale.ts` (dealer quote fix),
-`lib/supabase/queries.ts` (analytics dead-order/GST fix, returns picker filter).
-**Migrations to run in Supabase:** `0053_ledger_kind_cast.sql`, `0054_orders_buyer_columns.sql`.
-**Retest after deploy + migrations:** COD deliver records cash · invoice Record-a-payment ·
-udhaar Received button · POS partial payment persists + employee tally · dealer quote submits.
+`lib/supabase/queries.ts` (analytics dead-order/GST fix, returns picker filter),
+`components/admin/BarcodeSheet.tsx` (client price-code scheme `A·7{wholesale}7·{retail}·51`).
+**Migrations:** `0053_ledger_kind_cast.sql`, `0054_orders_buyer_columns.sql` — **applied 16 Jul**.
+
+## 7. Post-fix verification (deploy 9e7d135 + 0053/0054 — 16 Jul evening) — ALL PASS ✅
+
+| Flow | Result |
+|------|--------|
+| Label price code | ✅ BD1000 prints `A7275755951` (A · 7-275-7 · 559 · 51) per client spec |
+| Invoice "Record a payment" (bill 05037F5D, ₹550 cash) | ✅ bill flips to **Paid**, panel disappears |
+| COD deliver auto-collect (C5CAF3C3: accept → dispatch → deliver) | ✅ **Paid ₹545** recorded, courier ₹50 itemised |
+| POS partial (AJ/26-27/0004: ₹150 of ₹550, Ramesh, sold-by Sanjay) | ✅ badge **Partial**, ₹150 paid / ₹400 due, customer linked |
+| Employee attribution | ✅ Sanjay: 1 bill · ₹550 sales · ₹150 collected (exact) |
+| Udhaar party receive (Ramesh ₹400 cash) | ✅ allocated oldest-first; receivables now **₹0, all parties settled** |
+| Dealer quote (as Verma, logged in) | ✅ sent; lands in /admin/quotes with dealer name+phone auto-attached |
+| Dashboard analytics | ✅ donut ₹2,745 = Retail ₹1,095 (2) + POS ₹1,650 (3); cancelled ₹2,255 excluded |
+
+**Remaining open:** #4 JS↔SQL price drift (needs dedicated pass) · minors #11–16 (cosmetic/UX).
