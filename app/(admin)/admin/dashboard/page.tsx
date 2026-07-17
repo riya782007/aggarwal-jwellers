@@ -23,14 +23,14 @@ function presetRange(preset: string): { from: string; to: string } {
 
 function Tile({ label, children, sub, accent, icon, bar }: { label: string; children: React.ReactNode; sub?: string; accent?: string; icon?: string; bar?: string }) {
   return (
-    <div className="relative bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe transition-all hover:-translate-y-0.5 overflow-hidden">
+    <div className="relative bg-white rounded-2xl p-4 shadow-card hover:shadow-luxe transition-all hover:-translate-y-0.5 overflow-hidden">
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar ?? "bg-emerald"}`} />
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+        <p className="text-[13px] font-medium text-muted">{label}</p>
         {icon && <span className="text-gold-dark/70 text-lg">{icon}</span>}
       </div>
-      <p className={`text-2xl font-semibold mt-1 ${accent ?? "text-ink"}`}>{children}</p>
-      {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
+      <p className={`text-[26px] leading-tight font-semibold mt-0.5 ${accent ?? "text-ink"}`}>{children}</p>
+      {sub && <p className="text-[13px] text-muted mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -60,20 +60,18 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   const greet = hour < 12 ? t(lang, "goodMorning") : hour < 17 ? t(lang, "goodAfternoon") : t(lang, "goodEvening");
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       {searchParams.denied && (
         <div className="mb-4 rounded-xl bg-rose/10 text-rose px-4 py-2.5 text-sm">Your role doesn't have access to <b>{searchParams.denied}</b>. Ask the owner if you need it.</div>
       )}
-      {/* Hero */}
-      <div className="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-ink via-[#5A1620] to-emerald-dark text-cream p-6 sm:p-8 shadow-luxe">
-        <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-gold/20 blur-2xl" />
-        <div className="absolute right-20 bottom-0 w-32 h-32 rounded-full bg-emerald/30 blur-2xl" />
-        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+      {/* Hero — slim: greeting + active range on the left, range controls on the right.
+          The revenue headline lives in the KPI tile just below, so it's not repeated here. */}
+      <div className="relative rounded-2xl overflow-hidden mb-4 bg-gradient-to-br from-ink via-[#5A1620] to-emerald-dark text-cream px-5 py-4 sm:px-6 sm:py-5 shadow-luxe">
+        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-gold/20 blur-2xl" />
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">{t(lang, "ownerConsole")}</p>
-            <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Aggarwal</h1>
-            <p className="text-sm text-cream/70 mt-1">{t(lang, "showingWord")} <b className="text-ivory">{label}</b> · {t(lang, "liveFromCatalog")}</p>
-            <p className="text-2xl font-semibold text-ivory mt-3"><span className="sensitive">{formatPaise(d.revenue)}</span> <span className="text-sm font-normal text-cream/60">{t(lang, "inRevenue")} · {d.orders} {t(lang, "ordersSmall")}</span></p>
+            <h1 className="font-display text-2xl sm:text-3xl text-ivory">{greet}, Aggarwal</h1>
+            <p className="text-sm text-cream/70 mt-0.5">{t(lang, "showingWord")} <b className="text-ivory">{label}</b> · {t(lang, "liveFromCatalog")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex gap-1 bg-white/10 rounded-full p-1">
@@ -92,7 +90,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <Tile label={t(lang, "revenue")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} ${t(lang, "orders").toLowerCase()}`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
         <Tile label={t(lang, "orders")} icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
         <Tile label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingDealers} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
@@ -100,7 +98,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
       </div>
 
       {/* Collections split — cash in hand vs bank/UPI (#14/#37) + live udhaar (party ledger) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5 sensitive">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 sensitive">
         <Tile label={t(lang, "cashCollected")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={t(lang, "counterCash")}>{formatPaise(d.cashCollected)}</Tile>
         <Tile label={t(lang, "bankCollected")} icon="🏦" bar="bg-wine" sub={t(lang, "onlineCard")}>{formatPaise(d.bankCollected)}</Tile>
         <Link href="/admin/creditors" className="block">
@@ -112,9 +110,9 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
       </div>
 
       {/* Expandable channel reports — headline number, click to see the full report for the range */}
-      <div className="mb-5">
+      <div className="mb-4">
         <p className="text-sm text-muted mb-2">{t(lang, "salesByChannel")} — <span className="text-ink">{t(lang, "tapCardExpand")} {label.toLowerCase()}</span></p>
-        <div className="grid md:grid-cols-3 gap-4 sensitive">
+        <div className="grid md:grid-cols-3 gap-3 sensitive">
           {report.channels.map((c) => (
             <ExpandableReport key={c.channel} title={CH_LABEL[c.channel] ?? c.channel} channelKey={c.channel}
               revenue={c.revenue} count={c.count} orders={c.orders} from={fromDate} to={toDate}
@@ -123,21 +121,21 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4 mb-5 sensitive">
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-card">
+      <div className="grid lg:grid-cols-3 gap-3 mb-4 sensitive">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-ink">Revenue trend</h2>
             <span className="text-xs text-muted">8 weeks</span>
           </div>
           <BarChart data={a.weekly} />
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-card">
+        <div className="bg-white rounded-2xl p-5 shadow-card">
           <h2 className="font-medium text-ink mb-4">{t(lang, "salesByChannel")}</h2>
           <Donut data={a.channels.map((c) => ({ label: c.channel, value: c.revenue }))} />
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4 mb-5">
+      <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         <Tile label="Total Products" sub={`${d.newProducts} new`}><AnimatedNumber value={d.totalProducts} /></Tile>
         <Tile label="Categories"><AnimatedNumber value={d.categories} /></Tile>
         <Tile label="Dead Stock" accent={d.dead ? "text-rose" : undefined} sub="no movement · capital tied up"><AnimatedNumber value={d.dead} /></Tile>
@@ -145,8 +143,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         <Tile label="Inactive" accent={d.inactive ? "text-muted" : undefined} sub="never sold"><AnimatedNumber value={d.inactive} /></Tile>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-card sensitive">
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl p-5 shadow-card sensitive">
           <h2 className="font-medium text-ink mb-4">Revenue by category</h2>
           <div className="space-y-3">
             {a.categories.map((c, i) => {
@@ -160,7 +158,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
             })}
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-card">
+        <div className="bg-white rounded-2xl p-5 shadow-card">
           <h2 className="font-medium text-rose mb-4">🔴 Dead stock — act now</h2>
           <ul className="text-sm divide-y divide-sand/60">
             {d.deadList.length === 0 ? <li className="py-2 text-muted">None 🎉</li> : d.deadList.map((p) => (
@@ -168,7 +166,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
             ))}
           </ul>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-card sensitive">
+        <div className="bg-white rounded-2xl p-5 shadow-card sensitive">
           <h2 className="font-medium text-gold-dark mb-4">⭐ Top sellers</h2>
           <ul className="text-sm divide-y divide-sand/60">
             {a.topProducts.map((p) => (
