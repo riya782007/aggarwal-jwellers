@@ -29,16 +29,16 @@ export default async function PricingPage() {
             {[1, 2, 3].map((i) => {
               const t = (Array.isArray((formula as any).wholesaleTiers) ? (formula as any).wholesaleTiers : [])[i - 1] as any;
               return (
-                <div key={i} className="flex items-center gap-3 text-sm">
+                <div key={i} className="flex items-center gap-3 text-[15px]">
                   <span className="text-stone-500 w-12">Tier {i}</span>
-                  <input name={`tier_min_${i}`} type="number" min="2" placeholder="Min qty" defaultValue={t?.min_qty ?? ""} className="w-28 rounded-lg border border-stone-300 px-3 py-2" />
+                  <input name={`tier_min_${i}`} type="number" min="2" placeholder="Min qty" defaultValue={t?.min_qty ?? ""} className="w-28 h-11 rounded-lg border border-stone-300 px-3 text-[15px]" />
                   <span className="text-stone-500">pcs →</span>
-                  <input name={`tier_pct_${i}`} type="number" min="0" max="50" step="0.5" placeholder="% off" defaultValue={t?.pct_off ?? ""} className="w-24 rounded-lg border border-stone-300 px-3 py-2" />
+                  <input name={`tier_pct_${i}`} type="number" min="0" max="50" step="0.5" placeholder="% off" defaultValue={t?.pct_off ?? ""} className="w-24 h-11 rounded-lg border border-stone-300 px-3 text-[15px]" />
                   <span className="text-stone-500">% off that line</span>
                 </div>
               );
             })}
-            <button className="mt-2 rounded-lg bg-stone-900 px-5 py-2 text-sm font-medium text-white">Save tiers</button>
+            <button className="mt-2 rounded-lg bg-stone-900 px-5 py-3 text-[15px] font-medium text-white">Save tiers</button>
           </form>
         </div>
       )}

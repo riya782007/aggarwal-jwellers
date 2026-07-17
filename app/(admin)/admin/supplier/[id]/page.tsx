@@ -7,7 +7,8 @@ import { setSupplierOpeningBalanceAction, recordSupplierPaymentAction, deleteSup
 
 export const metadata = { title: "Owner Console · Supplier ledger" };
 const card = "bg-white rounded-2xl border border-sand p-5 shadow-card";
-const inp = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
+const inp = "rounded-xl border border-sand px-3 h-11 text-[15px] bg-white outline-none focus:border-emerald";
+const kpiLabel = "text-[13px] font-medium text-muted";
 
 export default async function SupplierLedger({ params }: { params: { id: string } }) {
   const data = await getSupplierLedger(params.id);
@@ -24,7 +25,7 @@ export default async function SupplierLedger({ params }: { params: { id: string 
   const rows = events.map((e) => { run += e.debit - e.credit; return { ...e, balance: run }; });
 
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-6xl">
       <Link href="/admin/suppliers" className="text-sm text-muted hover:text-ink">← Suppliers</Link>
       <div className="flex items-center gap-3 mt-1 flex-wrap mb-1">
         <h1 className="font-display text-4xl text-ink">{supplier.name}</h1>
@@ -36,11 +37,11 @@ export default async function SupplierLedger({ params }: { params: { id: string 
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className={card}><p className="text-xs uppercase tracking-wide text-muted">Opening</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(opening)}</p></div>
-        <div className={card}><p className="text-xs uppercase tracking-wide text-muted">Purchased</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(totalPurchased)}</p></div>
-        <div className={card}><p className="text-xs uppercase tracking-wide text-muted">Paid</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(totalPaid)}</p></div>
+        <div className={card}><p className={kpiLabel}>Opening</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(opening)}</p></div>
+        <div className={card}><p className={kpiLabel}>Purchased</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(totalPurchased)}</p></div>
+        <div className={card}><p className={kpiLabel}>Paid</p><p className="text-xl font-semibold text-ink mt-1">{formatPaise(totalPaid)}</p></div>
         <div className={`${card} ${balanceOwed > 0 ? "ring-1 ring-rose/40" : ""}`}>
-          <p className="text-xs uppercase tracking-wide text-muted">{balanceOwed > 0 ? "We owe" : balanceOwed < 0 ? "Advance" : "Settled"}</p>
+          <p className={kpiLabel}>{balanceOwed > 0 ? "We owe" : balanceOwed < 0 ? "Advance" : "Settled"}</p>
           <p className={`text-xl font-semibold mt-1 ${balanceOwed > 0 ? "text-rose" : "text-emerald-dark"}`}>{formatPaise(Math.abs(balanceOwed))}</p>
         </div>
       </div>
@@ -49,20 +50,20 @@ export default async function SupplierLedger({ params }: { params: { id: string 
       <div className="grid sm:grid-cols-2 gap-3 mb-5">
         <form action={setSupplierOpeningBalanceAction} className={`${card} flex items-end gap-2 flex-wrap`}>
           <input type="hidden" name="id" value={supplier.id} />
-          <label className="text-[11px] text-muted">Opening balance ₹<input name="opening" type="number" min={0} step="0.01" defaultValue={opening ? (opening / 100).toFixed(2) : ""} placeholder="0" className={`${inp} w-32 block mt-0.5`} /></label>
-          <button className="px-3 py-2 rounded-xl bg-ink/5 text-ink text-sm hover:bg-ink/10">Save</button>
+          <label className="text-[13px] text-muted">Opening balance ₹<input name="opening" type="number" min={0} step="0.01" defaultValue={opening ? (opening / 100).toFixed(2) : ""} placeholder="0" className={`${inp} w-32 block mt-0.5`} /></label>
+          <button className="px-4 py-3 rounded-xl bg-ink/5 text-ink text-[15px] hover:bg-ink/10">Save</button>
         </form>
         <form action={recordSupplierPaymentAction} className={`${card} flex items-end gap-2 flex-wrap`}>
           <input type="hidden" name="id" value={supplier.id} />
-          <label className="text-[11px] text-muted">Pay ₹<input name="amount" type="number" min={1} step="0.01" placeholder="0" className={`${inp} w-24 block mt-0.5`} /></label>
-          <label className="text-[11px] text-muted">Mode<select name="mode" className={`${inp} block mt-0.5`}><option value="cash">Cash</option><option value="bank">Bank</option><option value="upi">UPI</option></select></label>
-          <label className="text-[11px] text-muted">Ref<input name="ref" placeholder="cheque/UTR" className={`${inp} w-28 block mt-0.5`} /></label>
-          <button className="btn-primary px-4 py-2 text-sm font-medium">Record payment</button>
+          <label className="text-[13px] text-muted">Pay ₹<input name="amount" type="number" min={1} step="0.01" placeholder="0" className={`${inp} w-24 block mt-0.5`} /></label>
+          <label className="text-[13px] text-muted">Mode<select name="mode" className={`${inp} block mt-0.5`}><option value="cash">Cash</option><option value="bank">Bank</option><option value="upi">UPI</option></select></label>
+          <label className="text-[13px] text-muted">Ref<input name="ref" placeholder="cheque/UTR" className={`${inp} w-28 block mt-0.5`} /></label>
+          <button className="btn-primary px-4 py-3 text-[15px] font-medium">Record payment</button>
         </form>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
-        <table className="w-full text-sm">
+        <table className="w-full text-[15px]">
           <thead className="bg-cream text-muted text-left"><tr>
             <th className="p-3">Date</th><th className="p-3">Description</th>
             <th className="p-3 text-right">Purchases</th><th className="p-3 text-right">Paid</th><th className="p-3 text-right">Balance</th><th className="p-3"></th>
