@@ -1320,6 +1320,18 @@ export async function getPromotionsAdmin() {
   return ((data as any[]) ?? []);
 }
 
+export type RewardCampaign = {
+  id: string; name: string; target_paise: number; reward_note: string | null;
+  scope: string; starts_at: string; ends_at: string | null; status: string;
+};
+/** Reward campaigns (0058). Resilient: returns [] if the table isn't applied yet. */
+export async function getRewardCampaigns(): Promise<RewardCampaign[]> {
+  const { data, error } = await supabaseServer()
+    .from("reward_campaigns").select("*").order("created_at", { ascending: false }).limit(50);
+  if (error) return [];
+  return ((data as any[]) ?? []) as RewardCampaign[];
+}
+
 export async function getStorefront(
   opts: { includeDrafts?: boolean; includeWholesaleOnly?: boolean; excludeRetailOnly?: boolean } = {},
 ): Promise<{ products: StoreProduct[]; formula: PF }> {

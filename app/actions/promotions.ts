@@ -148,3 +148,41 @@ export async function setPromotionSettingsAction(formData: FormData): Promise<vo
   }).eq("id", id);
   revalidatePath("/admin/promotions"); revalidatePath("/shop"); revalidatePath("/trade");
 }
+
+/** Create a customer reward campaign (0058). Spend is tracked only between starts_at→ends_at. */
+export async function createRewardCampaignAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("marketing.manage"))) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const target = Math.round((Number(formData.get("target") ?? 0) || 0) * 100);
+  if (!name || target <= 0) return;
+  const scope = ["all", "retail", "wholesale"].includes(String(formData.get("scope"))) ? String(formData.get("scope")) : "all";
+  const reward = String(formData.get("reward_note") ?? "").trim() || null;
+  const starts = String(formData.get("starts_at") ?? "").trim();
+  const ends = String(formData.get("ends_at") ?? "").trim();
+  const { error } = await supabaseServer().from("reward_campaigns").insert({
+    name, target_paise: target, reward_note: reward, scope,
+    starts_at: starts ? new Date(starts + "T00:00:00+05:30").toISOString() : new Date().toISOString(),
+    ends_at: ends ? new Date(ends + "T23:59:59+05:30").toISOString() : null,
+    status: "active",
+  });
+  if (error) { console.error("createRewardCampaign failed (apply migration 0058):", error.message); return; }
+  revalidatePath("/admin/promotions");
+}
+
+/** End a reward campaign now — stops tracking. */
+export async function endRewardCampaignAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("marketing.manage"))) return;
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await supabaseServer().from("reward_campaigns").update({ status: "ended", ends_at: new Date().toISOString() }).eq("id", id);
+  revalidatePath("/admin/promotions");
+}
+
+/** Delete a reward campaign (correction). */
+export async function deleteRewardCampaignAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("marketing.manage"))) return;
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await supabaseServer().from("reward_campaigns").delete().eq("id", id);
+  revalidatePath("/admin/promotions");
+}
