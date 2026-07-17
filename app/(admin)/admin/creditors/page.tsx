@@ -6,6 +6,7 @@ import { getSession, can, getLang } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { recordPartyPaymentAction } from "@/app/actions/payments";
 import { SubmitOnce } from "@/components/admin/SubmitOnce";
+import { TableSearch } from "@/components/admin/TableSearch";
 
 export const metadata = { title: "Owner Console · Udhaar / Receivables" };
 
@@ -17,9 +18,9 @@ export default async function Creditors() {
   const fld = "rounded-lg border border-sand bg-white px-2 py-1.5 text-xs outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1100px]">
       <h1 className="font-display text-4xl text-ink mb-1">{t(lang, "udhaarTitle")}</h1>
-      <p className="text-sm text-muted mb-5">{t(lang, "udhaarSubtitle")}</p>
+      <p className="text-sm text-muted mb-4">{t(lang, "udhaarSubtitle")}</p>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="rounded-2xl border border-sand bg-white px-4 py-3 shadow-card">
@@ -32,8 +33,9 @@ export default async function Creditors() {
         </div>
       </div>
 
+      {rows.length > 8 && <div className="mb-3"><TableSearch targetId="udhaar-table" placeholder="Search a party by name or phone…" /></div>}
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
-        <table className="w-full text-sm">
+        <table id="udhaar-table" className="w-full text-sm">
           <thead className="bg-cream text-muted text-left">
             <tr>
               <th className="p-3">{t(lang, "party")}</th>

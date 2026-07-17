@@ -24,7 +24,7 @@ export default async function Abandoned() {
     }
   }
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1200px]">
       <h1 className="font-display text-4xl text-ink mb-1">Abandoned Carts</h1>
       <p className="text-sm text-muted mb-6">Shoppers who added to bag but didn&apos;t buy. <span className="text-emerald font-medium">{formatPaise(recoverable)}</span> recoverable — nudge them on WhatsApp.</p>
 

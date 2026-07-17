@@ -4,13 +4,14 @@ import { formatPaise } from "@/lib/pricing";
 import { PurchaseClient } from "@/components/admin/PurchaseClient";
 import { createSupplierAction } from "@/app/actions/purchases";
 import { BulkPurchasePaste } from "@/components/admin/BulkPurchasePaste";
+import { TableSearch } from "@/components/admin/TableSearch";
 
 export const metadata = { title: "Owner Console · Purchases" };
 
 export default async function Purchases() {
   const [suppliers, products, purchases, lastCosts] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases(), getLastPurchaseCosts()]);
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1200px]">
       <h1 className="font-display text-4xl text-ink mb-1">Purchases</h1>
       <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically.</p>
 
@@ -33,8 +34,11 @@ export default async function Purchases() {
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-card">
-          <h2 className="font-medium text-ink mb-3">Recent purchases</h2>
-          <table className="w-full text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h2 className="font-medium text-ink">Recent purchases</h2>
+            {purchases.length > 8 && <TableSearch targetId="purchases-table" placeholder="Search bill or supplier…" />}
+          </div>
+          <table id="purchases-table" className="w-full text-sm">
             <thead className="text-muted text-left"><tr><th className="py-1">Bill</th><th className="py-1">Supplier</th><th className="py-1 text-right">Total</th></tr></thead>
             <tbody>
               {purchases.length === 0 && <tr><td colSpan={3} className="py-3 text-muted">No purchases yet.</td></tr>}

@@ -7,7 +7,7 @@ export const metadata = { title: "Owner Console · Returns" };
 export default async function Returns() {
   const [orders, returns] = await Promise.all([getRecentOrders(12), getReturns()]);
   return (
-    <main className="p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
       <h1 className="font-display text-4xl text-ink mb-1">Sales Returns</h1>
       <p className="text-sm text-muted mb-6">Capture a reason, restore stock, and keep an audit trail — books stay accurate.</p>
       <ReturnClient orders={orders as any} />

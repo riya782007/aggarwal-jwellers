@@ -71,7 +71,7 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
     `px-3 py-1.5 rounded-full text-xs ${band === key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-emerald"}`;
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-5xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1400px]">
       <h1 className="font-display text-4xl text-ink mb-1">Customers</h1>
       <p className="text-sm text-muted mb-5">Your customer directory — retail &amp; wholesale, with GST details and credit balance. Click a customer for full history.</p>
 

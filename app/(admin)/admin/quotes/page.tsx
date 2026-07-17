@@ -19,7 +19,7 @@ export default async function Quotes({ searchParams }: { searchParams: { tab?: s
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-8 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1100px]">
       <h1 className="font-display text-4xl text-ink mb-1">Quote Requests</h1>
       <p className="text-sm text-muted mb-4">Dealers asking for rates from the trade portal. Reply on WhatsApp, note what you quoted, and mark it.</p>
       <div className="flex gap-2 mb-4">
