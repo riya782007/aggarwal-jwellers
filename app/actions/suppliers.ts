@@ -52,8 +52,19 @@ export async function upsertSupplierAction(formData: FormData): Promise<void> {
     notes: String(formData.get("notes") ?? "").trim() || null,
   };
   const sb = supabaseServer();
-  if (id) await sb.from("suppliers").update(row).eq("id", id);
-  else await sb.from("suppliers").insert(row);
+  // Log failures loudly. If the full row is rejected (e.g. a column from migration 0057 isn't
+  // applied yet), retry with the always-present core fields so a supplier can still be saved.
+  const { error } = id
+    ? await sb.from("suppliers").update(row).eq("id", id)
+    : await sb.from("suppliers").insert(row);
+  if (error) {
+    console.warn("upsertSupplier full row failed (retrying core fields — apply migration 0057):", error.message);
+    const core = { name, city: row.city };
+    const { error: coreErr } = id
+      ? await sb.from("suppliers").update(core).eq("id", id)
+      : await sb.from("suppliers").insert(core);
+    if (coreErr) console.error("upsertSupplier core insert ALSO failed:", coreErr.message);
+  }
   revalidatePath("/admin/suppliers"); revalidatePath("/admin/purchases");
 }
 
