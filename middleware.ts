@@ -44,6 +44,20 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/roles", "roles.manage"],
 ];
 
+// Idle timeout: re-stamp the admin session cookies with a fresh 1-hour life on every request.
+// So an actively-used console never logs out, but 1 hour with no navigation expires the cookie
+// server-side → the next request lands on /login. (The client IdleLogout watcher also fires at
+// 60 min of in-page inactivity so a parked screen logs out without waiting for a click.)
+const IDLE_SECONDS = 60 * 60;
+const SESSION_COOKIES = ["bd_session", "bd_role", "bd_rolename", "bd_perms", "bd_lang"];
+function slideAdminSession(req: NextRequest, res: NextResponse): NextResponse {
+  for (const name of SESSION_COOKIES) {
+    const v = req.cookies.get(name)?.value;
+    if (v != null) res.cookies.set(name, v, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: IDLE_SECONDS });
+  }
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const [OWNER, STAFF] = await Promise.all([ownerToken(), staffToken()]);
@@ -75,8 +89,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Owner → unrestricted.
-  if (session === OWNER) return NextResponse.next();
+  // Owner → unrestricted. (Slide the 1-hour idle window forward on this request.)
+  if (session === OWNER) return slideAdminSession(req, NextResponse.next());
 
   // Staff → enforce route permission.
   const perms = (req.cookies.get("bd_perms")?.value ?? "").split(",").filter(Boolean);
@@ -88,10 +102,10 @@ export async function middleware(req: NextRequest) {
       const url = req.nextUrl.clone();
       url.pathname = "/admin/dashboard";
       url.searchParams.set("denied", match[0].replace("/admin/", ""));
-      return NextResponse.redirect(url);
+      return slideAdminSession(req, NextResponse.redirect(url));
     }
   }
-  return NextResponse.next();
+  return slideAdminSession(req, NextResponse.next());
 }
 
 export const config = { matcher: ["/admin/:path*", "/trade/:path*"] };

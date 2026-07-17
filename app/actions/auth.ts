@@ -6,7 +6,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { OWNER_TOKEN, STAFF_TOKEN } from "@/lib/auth";
 
 const OWNER_PASSCODE = () => process.env.OWNER_PASSCODE ?? "aggarwal2026";
-const COOKIE = { httpOnly: true, sameSite: "lax" as const, secure: true, path: "/", maxAge: 60 * 60 * 12 };
+// 1-hour session, but the middleware re-stamps it on every request — so an active user stays
+// signed in all day and only 60 minutes of inactivity logs them out (shared-counter safe).
+const COOKIE = { httpOnly: true, sameSite: "lax" as const, secure: true, path: "/", maxAge: 60 * 60 };
 
 export async function loginAction(formData: FormData) {
   const code = String(formData.get("passcode") ?? "").trim();

@@ -3,7 +3,7 @@ import { PasscodeInput } from "@/components/PasscodeInput";
 
 export const metadata = { title: "Owner Login", robots: { index: false } };
 
-export default function Login({ searchParams }: { searchParams: { error?: string; next?: string } }) {
+export default function Login({ searchParams }: { searchParams: { error?: string; next?: string; idle?: string } }) {
   return (
     <main className="min-h-screen grid place-items-center bg-gradient-to-b from-cream to-ivory px-5">
       <div className="w-full max-w-sm">
@@ -15,6 +15,7 @@ export default function Login({ searchParams }: { searchParams: { error?: string
           <h1 className="font-medium text-ink mb-1">Sign in</h1>
           <p className="text-xs text-muted mb-5">Enter your passcode. The owner passcode unlocks everything; a staff passcode opens only that role's permitted sections.</p>
           <input type="hidden" name="next" value={searchParams.next ?? "/admin/dashboard"} />
+          {searchParams.idle && <p className="text-xs text-gold-dark bg-gold/10 rounded-lg px-3 py-2 mb-3">Signed out after 1 hour of inactivity — please sign in again.</p>}
           <PasscodeInput autoFocus placeholder="Owner or staff passcode"
             className="w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors" />
           {searchParams.error && <p className="text-sm text-rose mt-2">Incorrect passcode. Try again.</p>}
