@@ -200,12 +200,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
 
         {/* Unified product search + scan (F3, autofocus) */}
         <div className="relative flex-1 min-w-[220px]">
-          <div className="flex items-center gap-2 rounded-xl border-2 border-emerald/40 bg-emerald-mist/30 px-3 py-2">
-            <span className="text-emerald">▥</span>
+          <div className="flex items-center gap-2 rounded-xl border-2 border-emerald/40 bg-emerald-mist/30 px-4 py-3">
+            <span className="text-emerald text-lg">▥</span>
             <input ref={searchRef} autoFocus value={q} onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }}
               placeholder="Scan barcode, or search SKU / product / category… (F3)"
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-emerald-dark/50" />
+              className="flex-1 bg-transparent outline-none text-base placeholder:text-emerald-dark/50" />
             <kbd className="text-[10px] text-emerald-dark/60 border border-emerald/30 rounded px-1">Enter</kbd>
           </div>
           {matches.length > 0 && (
@@ -288,7 +288,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       {/* ================= PRODUCT TABLE (center, largest) ================= */}
       <div className="bg-white rounded-2xl shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-[15px]">
             <thead className="bg-cream text-muted text-left text-xs uppercase tracking-wide">
               <tr>
                 <th className="px-3 py-2 w-24">SKU</th>
@@ -316,20 +316,20 @@ export function POSClient({ products, customers = [], methods = [], employees = 
                           <span className={`text-[10px] px-1 rounded ${over ? "bg-rose/10 text-rose" : "text-muted"}`}>{l.stock}{over ? " ⚠" : ""}</span>
                         </button>
                       </td>
-                      <td className="px-2 py-1.5 align-middle">
+                      <td className="px-2 py-2 align-middle">
                         <div className="inline-flex items-center rounded-lg border border-sand overflow-hidden mx-auto">
-                          <button onClick={() => setQty(l.sku, l.qty - 1)} className="px-1.5 hover:bg-cream" aria-label="−">−</button>
-                          <QtyField value={l.qty} onChange={(n) => setQty(l.sku, n)} className="w-9 text-center border-x border-sand py-1 outline-none focus:bg-emerald-mist" />
-                          <button onClick={() => setQty(l.sku, l.qty + 1)} className="px-1.5 hover:bg-cream" aria-label="+">+</button>
+                          <button onClick={() => setQty(l.sku, l.qty - 1)} className="px-3 py-1.5 text-lg leading-none hover:bg-cream" aria-label="−">−</button>
+                          <QtyField value={l.qty} onChange={(n) => setQty(l.sku, n)} className="w-12 text-center border-x border-sand py-1.5 outline-none focus:bg-emerald-mist" />
+                          <button onClick={() => setQty(l.sku, l.qty + 1)} className="px-3 py-1.5 text-lg leading-none hover:bg-cream" aria-label="+">+</button>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-right align-middle">
                         <input value={l.override} onChange={(e) => setOverride(l.sku, e.target.value)} inputMode="decimal" placeholder={String(Math.round(baseUnit(l) / 100))}
-                          className={`w-20 text-right rounded border border-transparent hover:border-sand focus:border-emerald px-1 py-0.5 outline-none ${l.override.trim() !== "" ? "text-emerald-dark font-medium" : "text-ink"}`} />
+                          className={`w-24 text-right rounded-lg border border-sand/60 hover:border-sand focus:border-emerald px-2 py-1.5 outline-none ${l.override.trim() !== "" ? "text-emerald-dark font-medium" : "text-ink"}`} />
                       </td>
                       <td className="px-2 py-1.5 text-right align-middle">
                         <input value={l.disc} onChange={(e) => setLineDisc(l.sku, e.target.value)} inputMode="decimal" placeholder={gDisc > 0 ? String(gDisc) : "0"}
-                          className={`w-12 text-right rounded border border-transparent hover:border-sand focus:border-emerald px-1 py-0.5 outline-none ${pct(l.disc) > 0 ? "text-emerald-dark font-medium" : "text-ink"}`} />
+                          className={`w-14 text-right rounded-lg border border-sand/60 hover:border-sand focus:border-emerald px-2 py-1.5 outline-none ${pct(l.disc) > 0 ? "text-emerald-dark font-medium" : "text-ink"}`} />
                       </td>
                       <td className="px-3 py-1.5 text-right font-medium align-middle">{formatPaise(effUnit(l) * l.qty)}</td>
                       <td className="px-2 py-1.5 align-middle text-right">
@@ -422,7 +422,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           </div>
 
           {err && <p className="text-sm text-rose">{err}</p>}
-          <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-3 text-sm font-medium disabled:opacity-50">
+          <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-4 text-base font-semibold disabled:opacity-50">
             {busy ? "Completing…" : (billType === "gst" ? "Generate tax invoice" : "Generate cash memo")} <span className="text-[10px] opacity-70">Ctrl+↵</span>
           </button>
         </div>
