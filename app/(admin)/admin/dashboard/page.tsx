@@ -72,8 +72,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           <div>
             <p className="text-[11px] tracking-[0.3em] uppercase text-gold-light">{t(lang, "ownerConsole")}</p>
             <h1 className="font-display text-4xl sm:text-5xl text-ivory mt-1">{greet}, Aggarwal</h1>
-            <p className="text-sm text-cream/70 mt-1">Showing <b className="text-ivory">{label}</b> · live from your catalogue &amp; orders</p>
-            <p className="text-2xl font-semibold text-ivory mt-3"><span className="sensitive">{formatPaise(d.revenue)}</span> <span className="text-sm font-normal text-cream/60">in revenue · {d.orders} orders</span></p>
+            <p className="text-sm text-cream/70 mt-1">{t(lang, "showingWord")} <b className="text-ivory">{label}</b> · {t(lang, "liveFromCatalog")}</p>
+            <p className="text-2xl font-semibold text-ivory mt-3"><span className="sensitive">{formatPaise(d.revenue)}</span> <span className="text-sm font-normal text-cream/60">{t(lang, "inRevenue")} · {d.orders} {t(lang, "ordersSmall")}</span></p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex gap-1 bg-white/10 rounded-full p-1">
@@ -95,7 +95,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         <Tile label={t(lang, "revenue")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} ${t(lang, "orders").toLowerCase()}`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
         <Tile label={t(lang, "orders")} icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
-        <Tile label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingApprovals} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
+        <Tile label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingDealers} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
         <Tile label={t(lang, "pendingApprovals")} icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub={t(lang, "needsOwnerOtp")}><AnimatedNumber value={d.pendingApprovals} /></Tile>
       </div>
 
@@ -113,7 +113,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
 
       {/* Expandable channel reports — headline number, click to see the full report for the range */}
       <div className="mb-5">
-        <p className="text-sm text-muted mb-2">Sales by channel — <span className="text-ink">tap any card to expand the full report for {label.toLowerCase()}</span></p>
+        <p className="text-sm text-muted mb-2">{t(lang, "salesByChannel")} — <span className="text-ink">{t(lang, "tapCardExpand")} {label.toLowerCase()}</span></p>
         <div className="grid md:grid-cols-3 gap-4 sensitive">
           {report.channels.map((c) => (
             <ExpandableReport key={c.channel} title={CH_LABEL[c.channel] ?? c.channel} channelKey={c.channel}
@@ -132,7 +132,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           <BarChart data={a.weekly} />
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-card">
-          <h2 className="font-medium text-ink mb-4">Sales by channel</h2>
+          <h2 className="font-medium text-ink mb-4">{t(lang, "salesByChannel")}</h2>
           <Donut data={a.channels.map((c) => ({ label: c.channel, value: c.revenue }))} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getCustomersDb, getCustomers, getCustomerSpend } from "@/lib/supabase/queries";
+import { getCustomersDb, getCustomers, getCustomerSpend, getCreditors } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { Pager } from "@/components/admin/Pager";
 import { getSession, can } from "@/lib/auth";
@@ -33,14 +33,27 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const range = rangeFor(period);
 
-  const [allRaw, topSpenders, spendMap] = await Promise.all([
+  const [allRaw, topSpenders, spendMap, creditors] = await Promise.all([
     getCustomersDb({ q, type }),
     getCustomers(),
     getCustomerSpend({ from: range.from }),
+    getCreditors(), // open-bill dues (GST-aware, dead orders excluded) — same source as the Udhaar page
   ]);
+  // Outstanding = open-bill dues (by customer id or phone) + any manual ledger balance.
+  const dueById = new Map<string, number>();
+  const dueByPhone = new Map<string, number>();
+  for (const cr of creditors) {
+    if (cr.id) dueById.set(cr.id, (dueById.get(cr.id) ?? 0) + cr.outstanding);
+    else if (cr.phone) dueByPhone.set(cr.phone, (dueByPhone.get(cr.phone) ?? 0) + cr.outstanding);
+  }
 
   // Merge each customer's spend-in-period, then optionally filter by promotional band + sort by spend.
-  let all = allRaw.map((c: any) => ({ ...c, spend: spendMap.get(c.id)?.spend ?? 0, ordersInPeriod: spendMap.get(c.id)?.orders ?? 0 }));
+  let all = allRaw.map((c: any) => ({
+    ...c,
+    spend: spendMap.get(c.id)?.spend ?? 0,
+    ordersInPeriod: spendMap.get(c.id)?.orders ?? 0,
+    outstanding: (dueById.get(c.id) ?? dueByPhone.get(c.phone ?? "") ?? 0) + (c.credit_balance ?? 0),
+  }));
   const targeting = band !== "all" && targetPaise > 0;
   if (targeting) {
     all = all.filter((c) => band === "reached" ? c.spend >= targetPaise : c.spend >= targetPaise * CLOSE && c.spend < targetPaise);
@@ -149,7 +162,11 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
                       </div>
                     ) : <span className="text-muted text-xs">—</span>}
                   </td>
-                  <td className="p-3 text-right">{c.credit_balance ? <span className="text-rose font-medium">{formatPaise(c.credit_balance)}</span> : <span className="text-muted">—</span>}</td>
+                  <td className="p-3 text-right">
+                    {c.outstanding > 0 ? <span className="text-rose font-medium">{formatPaise(c.outstanding)}</span>
+                      : c.outstanding < 0 ? <span className="text-emerald-dark text-xs font-medium">Advance {formatPaise(-c.outstanding)}</span>
+                      : <span className="text-muted">—</span>}
+                  </td>
                   <td className="p-3 text-right">{wa && <a href={wa} target="_blank" rel="noreferrer" className="text-[11px] text-emerald hover:underline whitespace-nowrap">Reach out ↗</a>}</td>
                 </tr>
               );

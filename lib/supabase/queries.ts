@@ -1195,7 +1195,7 @@ import { computePrices, type PricingFormula as PF } from "../pricing";
 export type DashboardData = {
   revenue: number; orders: number; cod: number; pos: number;
   cashCollected: number; bankCollected: number;
-  retailers: number; pendingApprovals: number;
+  retailers: number; pendingDealers: number; pendingApprovals: number;
   totalProducts: number; newProducts: number; categories: number;
   dead: number; low: number; inactive: number; healthy: number;
   deadList: { sku: string; name: string; qty: number }[];
@@ -1205,18 +1205,21 @@ export type DashboardData = {
 export async function getDashboardData(fromISO: string, toISO: string, rule: InventoryRule = DEFAULT_RULE): Promise<DashboardData> {
   const sb = supabaseServer();
   const now = new Date();
-  const [ordersRes, prodRes, catRes, retRes, apprRes] = await Promise.all([
-    sb.from("orders").select("total,channel,payment_mode,pay_cash,pay_bank,created_at,status").gte("created_at", fromISO).lte("created_at", toISO),
+  const [ordersRes, prodRes, catRes, dealersRes, apprRes] = await Promise.all([
+    sb.from("orders").select("total,channel,payment_mode,pay_cash,pay_bank,created_at,status,bill_type,gst_mode,return_amount").gte("created_at", fromISO).lte("created_at", toISO),
     sb.from("products").select("sku,name,qty,last_movement_at,created_at,category:categories(name)"),
     sb.from("categories").select("id"),
-    sb.from("retailers").select("id,approved"),
+    // Dealers live in customers (type=wholesale) since the trade portal — the legacy
+    // `retailers` table is empty on this build, so counting it always showed 0.
+    sb.from("customers").select("id,wholesale_approved").eq("type", "wholesale"),
     sb.from("approvals").select("id,status"),
   ]);
   // Cancelled/void/refunded bills must not inflate revenue, order counts or collections.
   const orders = ((ordersRes.data as any[]) ?? []).filter((o: any) => !isDeadOrder(o.status));
   const products = (prodRes.data as any[]) ?? [];
 
-  const revenue = orders.reduce((s, o: any) => s + (o.total ?? 0), 0);
+  // GST-aware grand (net of returns) — same figure the bill prints and Udhaar counts.
+  const revenue = orders.reduce((s, o: any) => s + orderGrandPaise(o), 0);
   const cod = orders.filter((o: any) => o.payment_mode === "cod").length;
   const pos = orders.filter((o: any) => o.channel === "pos").length;
   const cashCollected = orders.reduce((s, o: any) => s + (o.pay_cash ?? 0), 0);
@@ -1231,7 +1234,8 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
 
   return {
     revenue, orders: orders.length, cod, pos, cashCollected, bankCollected,
-    retailers: (retRes.data ?? []).filter((r: any) => r.approved).length,
+    retailers: ((dealersRes.data as any[]) ?? []).filter((r: any) => r.wholesale_approved).length,
+    pendingDealers: ((dealersRes.data as any[]) ?? []).filter((r: any) => !r.wholesale_approved).length,
     pendingApprovals: (apprRes.data ?? []).filter((a: any) => a.status === "pending").length,
     totalProducts: products.length, newProducts, categories: (catRes.data ?? []).length,
     dead: dead.length, low: low.length, inactive: inactive.length, healthy: healthy.length,
@@ -1520,7 +1524,7 @@ export async function getRecentOrders(limit = 12) {
   // Cancelled/void/refunded bills excluded — you can't take a sales return against a bill
   // that was already reversed (QA 16 Jul: a cancelled ₹2,255 order showed in the picker).
   const { data } = await sb.from("orders")
-    .select("id,total,channel,payment_mode,status,customer_name,created_at,order_items(qty,product:products(id,name,sku),variant:variants(sku,color))")
+    .select("id,invoice_no,total,channel,payment_mode,status,customer_name,created_at,order_items(qty,product:products(id,name,sku),variant:variants(sku,color))")
     .not("status", "in", "(cancelled,void,refunded)")
     .order("created_at", { ascending: false }).limit(limit);
   return (data as any[]) ?? [];

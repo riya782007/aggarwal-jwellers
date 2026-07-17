@@ -3,7 +3,7 @@ import { useState } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { recordReturnAction } from "@/app/actions/billing";
 
-type Order = { id: string; total: number; customer_name: string | null; created_at: string; order_items: { qty: number; product: { id: string; name: string; sku: string }; variant?: { sku: string; color: string | null } | null }[] };
+type Order = { id: string; invoice_no?: string | null; total: number; customer_name: string | null; created_at: string; order_items: { qty: number; product: { id: string; name: string; sku: string }; variant?: { sku: string; color: string | null } | null }[] };
 // A returnable line is identified by product + variant, so two colours of the same design don't merge.
 const lineKey = (it: Order["order_items"][number]) => `${it.product.id}::${it.variant?.sku ?? ""}`;
 
@@ -33,7 +33,11 @@ export function ReturnClient({ orders }: { orders: Order[] }) {
       <h2 className="font-medium text-ink mb-3">Record a sales return</h2>
       <select className={input} value={sel} onChange={(e) => { setSel(e.target.value); setQty({}); }}>
         <option value="">Select an order…</option>
-        {orders.map((o) => <option key={o.id} value={o.id}>{String(o.id).slice(0, 8).toUpperCase()} · {o.customer_name || "Walk-in"} · {formatPaise(o.total)}</option>)}
+        {orders.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.invoice_no || String(o.id).slice(0, 8).toUpperCase()} · {new Date(o.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} · {o.customer_name || "Walk-in"} · {formatPaise(o.total)}
+          </option>
+        ))}
       </select>
       {order && (
         <div className="mt-4 space-y-2">

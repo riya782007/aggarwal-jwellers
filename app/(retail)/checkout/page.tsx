@@ -123,7 +123,7 @@ export default function Checkout() {
           </div>
           {err && <p className="text-sm text-rose">{err}</p>}
           <button disabled={busy} className="btn-primary w-full py-3.5 text-sm font-medium disabled:opacity-60">
-            {busy ? "Placing order…" : `Place order · ${formatPaise(total + shipping)}`}
+            {busy ? "Placing order…" : `Place order · ${formatPaise(discounted + shipping)}`}
           </button>
         </form>
 

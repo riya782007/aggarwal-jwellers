@@ -46,16 +46,16 @@ code fixes are written and included in this batch; two need one-line-ish migrati
 | 9 | Quick-add photo never became the storefront image ("PHOTO COMING SOON" cards) | Raw uploads excluded by the AI-image-only rule | ✅ fixed earlier in this pass — owner's photo becomes cover |
 | 10 | Payment RPC failures were **silent** in three server actions | `rpc()` errors ignored → UI showed success | ✅ fixed (logged + early-return) |
 
-### 🟢 Minor / cosmetic
+### 🟢 Minor / cosmetic — ALL FIXED (17 Jul polish pack)
 
-| # | Item |
-|---|------|
-| 11 | Product page tab title & description say "AggarwalDIVA" for **BD1000 only** — stale AI listing generated while the old prompt was deployed (code/prompt already correct). Fix: regenerate the listing for BD1000 from Product Photos/AI studio, or edit the product's SEO text once |
-| 12 | Voucher totals show fractional rupees at checkout ("₹553.1", "−₹55.9") and the Place-order button label doesn't refresh after applying a voucher (still "₹609"; server charges the right amount) |
-| 13 | Customers-page "Outstanding" column shows "—" even when the party owes (udhaar page itself is correct) — column reads only `credit_balance`, not open bills |
-| 14 | "Approved Retailers · 0 pending" card didn't count the pending dealer application (Verma) — pending = unapproved wholesale customers should drive that number |
-| 15 | Hindi console: a few strings remain English ("Showing", "Sales by channel", "in revenue") — dictionary coverage gaps only |
-| 16 | Returns picker shows orders as "Walk-in · ₹2,255" — would be clearer with invoice no. + date |
+| # | Item | Fix |
+|---|------|-----|
+| 11 | Stale "AggarwalDIVA" in BD1000's stored AI title/description | ✅ **migration 0056** scrubs stored content in place (idempotent, dedupes double-brand titles) |
+| 12 | Voucher totals showed fractional rupees ("₹553.1"), Place-order button didn't refresh after voucher | ✅ discounts now whole-rupee at the single server source (preview AND application); button shows the discounted total |
+| 13 | Customers-page "Outstanding" showed "—" while parties owed | ✅ column now merges open-bill dues (same source as Udhaar) + ledger balance; advances shown in green |
+| 14 | "Approved Retailers · 0 pending" ignored dealer applications | ✅ counts wholesale customers (approved/pending) instead of the empty legacy `retailers` table; header revenue also made GST-aware here |
+| 15 | Hindi console gaps on dashboard hero/section headings | ✅ 6 new dictionary keys wired ("दिखा रहे हैं", "चैनल के हिसाब से बिक्री", …) |
+| 16 | Returns picker labels hard to identify | ✅ now shows invoice no. + date + customer + amount |
 
 ---
 

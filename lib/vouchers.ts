@@ -29,6 +29,9 @@ export async function validateVoucher(codeRaw: string, itemsPaise: number, chann
     : Math.round((itemsPaise * Math.min(90, Math.max(0, (v as any).value))) / 100);
   if ((v as any).kind === "percent" && (v as any).cap != null) disc = Math.min(disc, (v as any).cap);
   disc = Math.max(0, Math.min(disc, itemsPaise));
+  // Whole-rupee discounts only — a 10% code on ₹559 gives ₹56, not ₹55.90 (keeps every
+  // total on the bill/checkout in whole rupees; single source for preview AND application).
+  disc = Math.min(itemsPaise, Math.round(disc / 100) * 100);
   if (disc <= 0) return { ok: false, discountPaise: 0, message: "This code gives no discount on this bag." };
   return { ok: true, discountPaise: disc, code, message: `Code ${code} applied — you save ₹${Math.round(disc / 100)}.` };
 }
