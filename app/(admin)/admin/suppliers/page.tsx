@@ -20,7 +20,7 @@ export default async function Suppliers({ searchParams }: { searchParams: { q?: 
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald w-full";
 
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1400px]">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Suppliers &amp; Vendors</h1>
       <p className="text-sm text-muted mb-5">Your sourcing book — organised by location, searchable, with GST details for purchase bills.</p>
 

@@ -11,7 +11,7 @@ export const metadata = { title: "Owner Console · Purchases" };
 export default async function Purchases() {
   const [suppliers, products, purchases, lastCosts] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases(), getLastPurchaseCosts()]);
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1200px]">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Purchases</h1>
       <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically.</p>
 

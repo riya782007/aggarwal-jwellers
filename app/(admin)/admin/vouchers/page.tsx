@@ -13,7 +13,7 @@ export default async function Vouchers() {
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1200px]">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Vouchers</h1>
       <p className="text-sm text-muted mb-5">Discount codes for the storefront & trade portal. The discount is always re-checked on the server at order time and lands on the bill itself — GST, Udhaar and the day-book all see the discounted figure.</p>
 

@@ -18,7 +18,7 @@ export default async function Creditors() {
   const fld = "rounded-lg border border-sand bg-white px-2 py-1.5 text-xs outline-none focus:border-emerald";
 
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-[1100px]">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">{t(lang, "udhaarTitle")}</h1>
       <p className="text-sm text-muted mb-4">{t(lang, "udhaarSubtitle")}</p>
 
