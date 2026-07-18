@@ -145,7 +145,7 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
 
       {/* Mobile drawer + overlay */}
       {open && <div className="no-print lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setOpen(false)} />}
-      <aside className={`no-print lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-ink text-cream/90 z-50 px-4 py-6 overflow-y-auto nav-scroll transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`no-print lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-ink text-cream/90 z-50 px-4 py-6 overflow-y-auto overflow-x-hidden nav-scroll transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between mb-6 px-2">
           <div>
             <p className="font-display text-2xl text-ivory leading-none">Aggarwal Jewellers</p>
@@ -165,7 +165,7 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
           </div>}
           <button onClick={toggleCollapsed} aria-label="Collapse menu" className="text-cream/60 hover:text-white text-lg px-1">{collapsed ? "»" : "«"}</button>
         </div>
-        <div className="flex-1 overflow-y-auto nav-scroll">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden nav-scroll">
           <NavInner collapsed={collapsed} perms={perms} lang={lang} badges={badges} />
         </div>
         {!collapsed && (

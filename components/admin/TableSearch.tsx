@@ -20,12 +20,17 @@ export function TableSearch({
 
   function apply(qRaw: string) {
     const q = qRaw.trim().toLowerCase();
-    const tbody = document.querySelector<HTMLElement>(`#${targetId} tbody`);
-    if (!tbody) return;
+    // Works for BOTH shapes used across the console:
+    //  • a real <table id={targetId}>  -> filter its tbody rows
+    //  • a card/list container id      -> filter its direct children
+    const root = document.getElementById(targetId);
+    if (!root) return;
+    const tbody = root.querySelector<HTMLElement>("tbody");
+    const scope = tbody ?? root;
     let shown = 0;
-    tbody.querySelectorAll<HTMLElement>(":scope > tr").forEach((tr) => {
-      const match = !q || (tr.textContent ?? "").toLowerCase().includes(q);
-      tr.classList.toggle("hidden", !match);
+    scope.querySelectorAll<HTMLElement>(":scope > *").forEach((row) => {
+      const match = !q || (row.textContent ?? "").toLowerCase().includes(q);
+      row.classList.toggle("hidden", !match);
       if (match) shown++;
     });
     setCount(q ? shown : null);

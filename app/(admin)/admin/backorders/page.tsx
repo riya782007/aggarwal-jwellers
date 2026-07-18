@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatPaise } from "@/lib/pricing";
@@ -56,8 +57,9 @@ export default async function Backorders() {
             </div>
           </div>
 
+          <div className="mb-3"><TableSearch targetId="bo-table" placeholder="Search backorders — customer, SKU…" /></div>
           <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
-            <table className="w-full text-sm">
+            <table id="bo-table" className="w-full text-[15px]">
               <thead className="bg-cream text-muted text-left">
                 <tr>
                   <th className="p-3">Invoice / Order</th>

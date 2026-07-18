@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
 import { getEmployees, getEmployeePerformance } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
@@ -55,8 +56,9 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
       </div>
 
       {/* Performance table */}
+      <div className="mb-3"><TableSearch targetId="emp-table" placeholder="Search staff by name…" /></div>
       <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        <table className="w-full text-sm">
+        <table id="emp-table" className="w-full text-[15px]">
           <thead className="bg-cream text-muted text-left text-xs uppercase tracking-wide">
             <tr>
               <th className="px-4 py-2.5">#</th>

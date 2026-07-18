@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
 import { getNotifications, getAssignmentsRegistry, getActivityLog } from "@/lib/supabase/queries";
 import { ACTIVITY_META, ACTIVITY_TONE } from "@/lib/audit";
@@ -9,7 +10,7 @@ const ago = (d: string) => { const m = Math.round((Date.now() - new Date(d).getT
 export default async function Inbox() {
   const [notifs, registry, activity] = await Promise.all([getNotifications(), getAssignmentsRegistry(), getActivityLog()]);
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Notifications &amp; Activity</h1>
       <p className="text-sm text-muted mb-6">Every human-required step pings the assigned person, and every change you make to the catalogue is logged below — nothing passes silently.</p>
 
@@ -64,7 +65,8 @@ export default async function Inbox() {
 
       <div className="bg-white rounded-2xl p-6 shadow-card">
         <h2 className="font-medium text-ink mb-3">Who owns what (assignment registry)</h2>
-        <table className="w-full text-sm">
+        <div className="mb-3"><TableSearch targetId="inbox-table" placeholder="Search assignments…" /></div>
+        <table id="inbox-table" className="w-full text-[15px]">
           <thead className="text-muted text-left"><tr><th className="py-1">Responsibility</th><th className="py-1">Owner</th><th className="py-1">Backup</th><th className="py-1">Channel</th><th className="py-1">SLA</th></tr></thead>
           <tbody>
             {registry.map((a: any) => (

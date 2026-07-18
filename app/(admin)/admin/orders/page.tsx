@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
 import { getWebsiteOrders } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
@@ -41,7 +42,9 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
         ))}
       </div>
 
-      <div className="space-y-3">
+      <div className="mb-3"><TableSearch targetId="orders-list" placeholder="Search orders — customer, phone, order no…" /></div>
+
+      <div id="orders-list" className="space-y-3">
         {rows.length === 0 && <div className="bg-white rounded-2xl p-8 shadow-card text-center text-muted">Nothing here right now. 🎉</div>}
         {rows.map((o: any) => {
           const grand = orderGrandPaise(o);

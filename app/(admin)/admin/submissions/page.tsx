@@ -11,7 +11,7 @@ export default async function Submissions() {
   const decided = subs.filter((s) => s.status !== "pending");
 
   return (
-    <main className="p-6 sm:p-8 max-w-4xl">
+    <main className="p-6 sm:p-8">
       <h1 className="font-serif text-3xl text-diva-ink mb-1">Product Submissions</h1>
       <p className="text-sm text-diva-ink/60 mb-6">
         Products sent in by customers and wholesalers. Approving one creates a <strong>draft</strong> product in your

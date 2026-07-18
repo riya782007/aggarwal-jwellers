@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import { supabaseServer } from "@/lib/supabase/server";
 
 /** AI task history — every action DIVA has taken, with input, outcome and time. */
@@ -25,8 +26,10 @@ export default async function AiActivity() {
           No AI activity yet. Ask DIVA to do something — every action lands here automatically.
         </div>
       ) : (
+        <>
+        <div className="mb-3"><TableSearch targetId="ai-table" placeholder="Search AI activity…" /></div>
         <div className="bg-white rounded-2xl shadow-card overflow-x-auto">
-          <table className="w-full text-sm">
+          <table id="ai-table" className="w-full text-[15px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-muted border-b border-sand/60">
                 <th className="px-4 py-3">When</th>
@@ -60,6 +63,7 @@ export default async function AiActivity() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </main>
   );

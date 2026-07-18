@@ -20,7 +20,7 @@ function Card({ href, title, sub, accent }: { href: string; title: string; sub: 
 
 export default function Analytics() {
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Analytics &amp; SEO</h1>
       <p className="text-sm text-muted mb-6">See exactly how your store is performing — live visitors, what's selling, and how customers find you.</p>
 

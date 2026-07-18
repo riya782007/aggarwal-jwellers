@@ -8,7 +8,7 @@ export default async function AdminReels() {
   const reels = await getAdminReels();
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-3xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Shoppable Reels</h1>
       <p className="text-sm text-muted mb-6">Tag products to a reel — they appear on the storefront as “watch &amp; shop”. Customers tap the look and buy.</p>
 

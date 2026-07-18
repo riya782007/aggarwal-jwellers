@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { TableSearch } from "@/components/admin/TableSearch";
 import { getRecentOrders, getReturns } from "@/lib/supabase/queries";
 import { ReturnClient } from "@/components/admin/ReturnClient";
 
@@ -7,14 +8,15 @@ export const metadata = { title: "Owner Console · Returns" };
 export default async function Returns() {
   const [orders, returns] = await Promise.all([getRecentOrders(12), getReturns()]);
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-4xl">
+    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Sales Returns</h1>
       <p className="text-sm text-muted mb-6">Capture a reason, restore stock, and keep an audit trail — books stay accurate.</p>
       <ReturnClient orders={orders as any} />
 
       <h2 className="font-medium text-ink mb-3">Recent returns</h2>
+      <div className="mb-3"><TableSearch targetId="ret-table" placeholder="Search returns — bill no, customer…" /></div>
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
-        <table className="w-full text-sm">
+        <table id="ret-table" className="w-full text-[15px]">
           <thead className="bg-cream text-muted text-left"><tr><th className="p-3">Ref</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">When</th></tr></thead>
           <tbody>
             {returns.length === 0 && <tr><td colSpan={4} className="p-4 text-muted">No returns recorded.</td></tr>}
