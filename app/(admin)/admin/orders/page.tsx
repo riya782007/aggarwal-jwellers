@@ -5,7 +5,7 @@ import { getWebsiteOrders } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { orderGrandPaise, isDeadOrder } from "@/lib/business";
 import { getSession, can } from "@/lib/auth";
-import { acceptOrderAction, rejectOrderAction, dispatchOrderAction, deliverOrderAction } from "@/app/actions/fulfillment";
+import { acceptOrderAction, rejectOrderAction, dispatchOrderAction, deliverOrderAction, confirmWholesalePaymentAction } from "@/app/actions/fulfillment";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { SubmitOnce } from "@/components/admin/SubmitOnce";
 
@@ -52,6 +52,9 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
           const stage = dead ? (o.fulfillment === "rejected" ? "Rejected" : "Cancelled")
             : o.delivered_at ? "Delivered" : o.dispatched_at ? "Dispatched"
             : o.fulfillment === "accepted" ? "Preparing" : "New";
+          // 0059 — a wholesale order can't be accepted/dispatched until the owner confirms the UPI
+          // QR payment. Until then we hide Accept and show the payment-confirmation panel instead.
+          const awaitingWholesalePay = o.channel === "wholesale" && !o.payment_confirmed_at && !dead;
           return (
             <div key={o.id} className={`bg-white rounded-2xl p-5 shadow-card ${stage === "New" ? "border border-gold/50" : ""}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -61,6 +64,8 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                     <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${o.channel === "wholesale" ? "bg-gold/15 text-gold-dark" : "bg-emerald-mist text-emerald-dark"}`}>{o.channel}</span>
                     <span className={`text-[11px] px-2 py-0.5 rounded-full ${o.payment_mode === "cod" ? "bg-wine/10 text-wine" : "bg-ink/5 text-ink"}`}>{o.payment_mode === "cod" ? "COD — collect on delivery" : "Prepaid"}</span>
                     <span className={`text-[11px] px-2 py-0.5 rounded-full ${dead ? "bg-rose/10 text-rose" : stage === "New" ? "bg-gold/15 text-gold-dark" : "bg-emerald-mist text-emerald-dark"}`}>{stage}</span>
+                    {o.channel === "wholesale" && o.payment_confirmed_at && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-mist text-emerald-dark">Paid ✓ UPI</span>}
+                    {awaitingWholesalePay && <span className="text-[11px] px-2 py-0.5 rounded-full bg-gold/15 text-gold-dark">💳 Awaiting payment</span>}
                   </div>
                   <p className="text-ink mt-1.5">{o.customer_name || "Customer"}{o.customer_phone && <span className="text-muted"> · {o.customer_phone}</span>}</p>
                   {(o.customer?.address || o.customer?.city) && <p className="text-xs text-muted mt-0.5">📍 {[o.customer?.address, o.customer?.city].filter(Boolean).join(", ")}</p>}
@@ -72,9 +77,32 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                 </div>
               </div>
 
+              {/* Wholesale QR-payment gate (0059) — no Accept until the owner confirms the UPI money landed. */}
+              {awaitingWholesalePay && (
+                <div className="mt-4 pt-3 border-t border-sand/60">
+                  <div className="rounded-xl bg-gold/5 border border-gold/30 p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gold-dark">💳 Awaiting UPI payment · {formatPaise(grand)}</p>
+                      <p className="text-xs text-muted mt-0.5">
+                        {o.payment_ref
+                          ? <>Dealer marked it paid — reference <b className="text-ink">{o.payment_ref}</b>. </>
+                          : <>Dealer hasn&apos;t confirmed payment yet. </>}
+                        Check your ICICI account received it, then confirm — this marks the bill paid and unlocks dispatch.
+                      </p>
+                    </div>
+                    {canSell && (
+                      <form action={confirmWholesalePaymentAction}>
+                        <input type="hidden" name="order_id" value={o.id} />
+                        <ConfirmSubmit message={`Confirm you've received ${formatPaise(grand)} for this order in your ICICI account? It will be marked fully paid and dispatch will unlock.`} className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark whitespace-nowrap">✓ Payment received</ConfirmSubmit>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {!dead && (
                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-sand/60">
-                  {stage === "New" && canSell && (
+                  {stage === "New" && canSell && !awaitingWholesalePay && (
                     <form action={acceptOrderAction}><input type="hidden" name="order_id" value={o.id} />
                       <SubmitOnce className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✓ Accept order</SubmitOnce>
                     </form>

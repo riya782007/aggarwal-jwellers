@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { ProductImage } from "@/components/Placeholder";
 import { QtyField } from "@/components/admin/QtyField";
-import { placeWholesaleOrderAction, wholesaleLogoutAction } from "@/app/actions/wholesale";
+import { placeWholesaleOrderAction, wholesaleLogoutAction, submitWholesalePaymentRefAction } from "@/app/actions/wholesale";
 
 type P = { sku: string; name: string; category: string; qty: number; price: number; mrp: number; image: string | null };
 type HistItem = { sku: string; name: string; qty: number };
@@ -18,6 +18,9 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ id: string; total: number } | null>(null);
   const [err, setErr] = useState("");
+  const [payRef, setPayRef] = useState("");
+  const [refBusy, setRefBusy] = useState(false);
+  const [claimed, setClaimed] = useState(false);
   const [tab, setTab] = useState<"order" | "history">("order");
   const [bulk, setBulk] = useState("");
   const [bulkMsg, setBulkMsg] = useState("");
@@ -51,8 +54,17 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
     setBusy(true); setErr("");
     const res = await placeWholesaleOrderAction(lines.map(([sku, n]) => ({ sku, qty: n })));
     setBusy(false);
-    if (res.ok) { setDone({ id: res.orderId!, total: res.total ?? 0 }); setQty({}); }
+    if (res.ok) { setDone({ id: res.orderId!, total: res.total ?? 0 }); setQty({}); setErr(""); setPayRef(""); setClaimed(false); }
     else setErr(res.error ?? "Could not place order");
+  }
+
+  async function submitPaid() {
+    if (!done) return;
+    setRefBusy(true); setErr("");
+    const res = await submitWholesalePaymentRefAction(done.id, payRef);
+    setRefBusy(false);
+    if (res.ok) setClaimed(true);
+    else setErr(res.error ?? "Couldn't submit — please try again.");
   }
 
   function applyBulk() {
@@ -83,11 +95,39 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
 
   if (done) {
     return (
-      <div className="rounded-3xl bg-white border border-sand shadow-card p-10 text-center max-w-lg mx-auto">
-        <p className="text-5xl mb-3">✓</p>
-        <h2 className="font-display text-3xl text-ink">Order placed</h2>
-        <p className="text-muted mt-2">Wholesale order <b className="text-ink">{done.id.slice(0, 8).toUpperCase()}</b> for <b className="text-emerald">{formatPaise(done.total)}</b> is in. We'll confirm dispatch on WhatsApp.</p>
-        <button onClick={() => setDone(null)} className="btn-primary px-6 py-2.5 text-sm font-medium mt-5">Place another order</button>
+      <div className="rounded-3xl bg-white border border-sand shadow-card p-8 sm:p-10 text-center max-w-lg mx-auto">
+        {claimed ? (
+          <>
+            <p className="text-5xl mb-3">✓</p>
+            <h2 className="font-display text-3xl text-ink">Thank you!</h2>
+            <p className="text-muted mt-2">We&apos;ve noted your payment for order <b className="text-ink">{done.id.slice(0, 8).toUpperCase()}</b>. As soon as we see it in our account we&apos;ll start preparing your order and confirm on WhatsApp.</p>
+            <button onClick={() => { setDone(null); setClaimed(false); setPayRef(""); }} className="btn-primary px-6 py-2.5 text-sm font-medium mt-5">Place another order</button>
+          </>
+        ) : (
+          <>
+            <h2 className="font-display text-3xl text-ink">Almost done — scan &amp; pay</h2>
+            <p className="text-muted mt-1 text-sm">Order <b className="text-ink">{done.id.slice(0, 8).toUpperCase()}</b> is reserved for you. Pay the amount below with any UPI app, then confirm so we can process it.</p>
+            <p className="mt-4 text-4xl font-semibold text-emerald">{formatPaise(done.total)}</p>
+
+            <div className="mt-5 inline-block rounded-2xl border border-sand p-4">
+              <img src="/wholesale-upi-qr.png" alt="Scan to pay Aggarwal Jewellers on UPI" className="w-56 h-56 object-contain mx-auto" />
+              <p className="text-xs text-muted mt-2">Scan with any UPI app · M/S Aggarwal Jewellers</p>
+            </div>
+
+            <div className="mt-5 text-left">
+              <label className="text-sm text-ink font-medium">Your UPI reference / transaction ID <span className="text-muted font-normal">— optional, helps us match it faster</span></label>
+              <input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="e.g. 447120938845"
+                className="mt-1 w-full rounded-xl border border-sand px-4 h-11 text-[15px] outline-none focus:border-emerald" />
+            </div>
+
+            {err && <p className="text-sm text-rose mt-3">{err}</p>}
+
+            <button disabled={refBusy} onClick={submitPaid} className="btn-primary w-full py-3.5 text-[15px] font-medium mt-4 disabled:opacity-60">
+              {refBusy ? "Submitting…" : "I've paid — confirm my order"}
+            </button>
+            <p className="text-[11px] text-muted mt-3">Your order is processed only after we verify the payment in our account. Nothing is dispatched before that.</p>
+          </>
+        )}
       </div>
     );
   }

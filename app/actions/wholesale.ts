@@ -104,3 +104,25 @@ export async function placeWholesaleOrderAction(items: { sku: string; qty: numbe
   revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
   return { ok: true, orderId, total };
 }
+
+/**
+ * Dealer confirms they've paid via the UPI QR and (optionally) types their UPI reference / txn id.
+ * This does NOT mark the order paid — it only records the dealer's claim so the owner can match it
+ * against the bank credit before confirming. Guarded to the dealer's OWN order via the trade session.
+ */
+export async function submitWholesalePaymentRefAction(orderId: string, ref: string): Promise<{ ok: boolean; error?: string }> {
+  const sess = await getWholesaleSession();
+  if (!sess) return { ok: false, error: "Please sign in as a dealer." };
+  const cleanRef = (ref ?? "").trim().slice(0, 40) || "(marked paid — no reference given)";
+  if (!orderId) return { ok: false, error: "Missing order." };
+  const sb = supabaseServer();
+  // Ownership check — a dealer may only touch their own order.
+  const { data: o } = await sb.from("orders").select("id,customer_id,payment_confirmed_at").eq("id", orderId).maybeSingle();
+  if (!o || (o as any).customer_id !== sess.id) return { ok: false, error: "That order isn't on your account." };
+  if ((o as any).payment_confirmed_at) return { ok: true }; // owner already confirmed — nothing to do
+  const { error } = await sb.from("orders").update({ payment_ref: cleanRef }).eq("id", orderId);
+  if (error) return { ok: false, error: "Couldn't save your reference — please tell us on WhatsApp." };
+  await sb.from("audit_log").insert({ actor: "dealer", action: "wholesale_payment_claimed", ref: orderId, detail: `Dealer marked order ${String(orderId).slice(0, 8).toUpperCase()} paid · ref ${cleanRef}.` }).then(() => {}, () => {});
+  revalidatePath("/admin/orders");
+  return { ok: true };
+}

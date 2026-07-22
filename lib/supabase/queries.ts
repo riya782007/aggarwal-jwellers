@@ -1802,10 +1802,13 @@ export async function getProductsWithMedia() {
 /** Website orders (retail + wholesale channels; POS excluded) for the fulfillment queue (0047). */
 export async function getWebsiteOrders(tab: "new" | "accepted" | "dispatched" | "all" = "new") {
   const sb = supabaseServer();
-  const SEL = "id,channel,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_id,customer_name,customer_phone,created_at,dispatched_at,delivered_at, items:order_items(qty)";
-  const mk = (withCustomer: boolean) => {
+  const SEL_BASE = "id,channel,status,fulfillment,total,bill_type,gst_mode,return_amount,amount_paid,payment_mode,customer_id,customer_name,customer_phone,created_at,dispatched_at,delivered_at, items:order_items(qty)";
+  // Wholesale QR-payment gate columns (0059). Kept separately so the queue still loads if the
+  // migration hasn't been applied yet — we fall back to the base select on error.
+  const SEL = `${SEL_BASE},payment_ref,payment_confirmed_at`;
+  const mk = (sel: string, withCustomer: boolean) => {
     let q = sb.from("orders")
-      .select(withCustomer ? `${SEL}, customer:customers(address,city)` : SEL)
+      .select(withCustomer ? `${sel}, customer:customers(address,city)` : sel)
       .neq("channel", "pos")
       .order("created_at", { ascending: false })
       .limit(200);
@@ -1814,10 +1817,12 @@ export async function getWebsiteOrders(tab: "new" | "accepted" | "dispatched" | 
     else if (tab === "dispatched") q = q.eq("status", "dispatched").is("delivered_at", null);
     return q;
   };
-  // Resilient: if the customers embed can't resolve (e.g. address column missing pre-0052),
-  // fall back to the plain select so the queue NEVER renders empty because of a join.
-  let { data, error } = await mk(true);
-  if (error) ({ data } = await mk(false));
+  // Resilient degrade path — the queue must NEVER render empty because of a missing column/join:
+  //   1) payment cols + customer embed → 2) payment cols only → 3) base + customer → 4) base only.
+  let { data, error } = await mk(SEL, true);
+  if (error) ({ data, error } = await mk(SEL, false));
+  if (error) ({ data, error } = await mk(SEL_BASE, true));
+  if (error) ({ data } = await mk(SEL_BASE, false));
   return ((data as any[]) ?? []).map((o) => ({ ...o, itemCount: ((o.items as any[]) ?? []).reduce((s, x) => s + (x.qty ?? 0), 0) }));
 }
 
