@@ -53,7 +53,7 @@ export default async function PromotionsPage() {
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Promotions</h1>
-      <p className="text-sm text-muted mb-5">Your marketing home — run storefront offers, and reward customers who hit a spend target during a campaign. (Staff incentives coming here too.)</p>
+      <p className="text-sm text-muted mb-5">Your marketing home — run storefront offers, and reward customers who hit a spend target during a campaign.</p>
 
       {/* ---- Storefront offers ---- */}
       <section>
