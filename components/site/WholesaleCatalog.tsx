@@ -112,9 +112,12 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
 
             <div className="mt-5 flex flex-col items-center">
               {upiVpa
-                ? <UpiQr amountPaise={done.total} note={`Order ${done.id.slice(0, 8).toUpperCase()}`} size={224} vpa={upiVpa} />
+                ? <>
+                    <UpiQr amountPaise={done.total} size={224} vpa={upiVpa} />
+                    <p className="text-xs text-muted mt-2">Scan with any UPI app · pays the exact amount above</p>
+                    <p className="text-[11px] text-muted mt-1">Or pay to UPI ID: <span className="font-mono text-ink select-all">{upiVpa}</span></p>
+                  </>
                 : <div className="rounded-2xl border border-dashed border-gold/50 bg-gold/5 p-4 text-sm text-gold-dark max-w-xs">UPI payment isn&apos;t set up yet — please pay us on WhatsApp and we&apos;ll confirm your order.</div>}
-              <p className="text-xs text-muted mt-2">Scan with any UPI app · pays the exact amount above</p>
             </div>
 
             <div className="mt-5 text-left">
