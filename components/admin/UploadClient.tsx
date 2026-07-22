@@ -294,14 +294,17 @@ export function UploadClient({
       </div>
 
       <div className={`bg-white rounded-2xl p-6 shadow-card transition-opacity ${catId ? "" : "opacity-40 pointer-events-none"}`}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
           <label className="text-sm font-medium text-ink">Step 2 · Add designs</label>
           <div className="flex gap-1 bg-cream rounded-full p-1">
             {(["single", "bulk"] as const).map((m) => (
-              <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-xs ${mode === m ? "bg-ink text-white" : "text-muted"}`}>{m === "single" ? "Single" : "List / Sheet"}</button>
+              <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-xs ${mode === m ? "bg-ink text-white" : "text-muted"}`}>{m === "single" ? "One at a time" : "Paste a list"}</button>
             ))}
           </div>
         </div>
+        <p className="text-xs text-muted mb-4">{mode === "bulk"
+          ? "Paste or upload your whole list — the AI reads it and creates every design. Fastest for adding many at once."
+          : "Add a single design with its details. Switch to “Paste a list” above to add many at once."}</p>
 
         <label className="flex items-center gap-2 text-sm text-ink mb-4 cursor-pointer">
           <input type="checkbox" checked={writeAi} onChange={(e) => setWriteAi(e.target.checked)} className="accent-emerald" />
@@ -482,7 +485,10 @@ export function UploadClient({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-muted">Paste any list — even messy. The AI figures out names, prices, stock, colours and SKUs. Or use a header row (any column order): <code className="bg-cream px-1 rounded">name, sku, base_price, qty, type, colours|pipe</code> — <b>sku is optional</b> (blank = auto AJ####; your own codes are kept as-is). Excel files (.xlsx) import directly too. · <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download CSV template</a></p>
+            <div className="text-xs text-muted space-y-1">
+              <p>Paste your list below — even messy notes work. The AI reads the names, prices, stock, colours &amp; codes for you. Your own item codes are kept; leave the code blank and we auto-generate one.</p>
+              <p>Got a spreadsheet? Upload a <b>CSV or Excel</b> file instead. Not sure of the format? <a download="aggarwal-jewellers-bulk-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent("name,sku,base_price,qty,type,colours\nRajwadi Kundan Necklace,KN101,850,12,configurable,Red|Green|Blue\nPearl Studs,PS160,160,40,simple,\nMeenakari Bangles,MB540,540,25,configurable,Red|Green")}`} className="text-emerald nav-link">⤓ Download a ready-made template</a> and fill it in.</p>
+            </div>
             <input type="file" accept=".csv,text/csv,.txt,.xlsx,.xls" onChange={async (e) => {
               const f = e.target.files?.[0]; if (!f) return;
               // 0049: Excel workbooks parse client-side (SheetJS, dynamically imported) into the
