@@ -68,6 +68,9 @@ export function AddInventoryClient({
   const [styleList, setStyleList] = useState<Sub[]>(styles);
   const [styleId, setStyleId] = useState("");
   const [newStyle, setNewStyle] = useState(""); const [showNewStyle, setShowNewStyle] = useState(false);
+  // Sub-type & style are optional power-user filters — hidden behind a toggle so the default
+  // form stays as clean as the reference design (most products don't need them).
+  const [showTypeStyle, setShowTypeStyle] = useState(false);
   const stylesForCat = styleList.filter((s) => s.categoryId === catId);
 
   const [name, setName] = useState("");
@@ -310,8 +313,11 @@ export function AddInventoryClient({
               </select>
               <button type="button" onClick={() => setShowNewCat((v) => !v)} className="px-3 rounded-xl border border-emerald text-emerald text-sm whitespace-nowrap hover:bg-emerald-mist">+ New</button>
             </div>
-            {/* Subcategory — filtered to the chosen category, with inline create (e.g. Bracelet → Kundan Bracelets). */}
-            {catId && (
+            {/* Sub-type & style — optional filters, tucked behind a toggle so the form stays clean. */}
+            {catId && !showTypeStyle && (
+              <button type="button" onClick={() => setShowTypeStyle(true)} className="mt-1.5 text-xs text-emerald hover:underline">+ Add sub-type &amp; style (optional)</button>
+            )}
+            {catId && showTypeStyle && (
               <>
                 <div className="flex gap-1.5 mt-1.5">
                   <select className={input} value={subId} onChange={(e) => setSubId(e.target.value)}>

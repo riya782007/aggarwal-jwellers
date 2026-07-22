@@ -15,12 +15,12 @@ type ColorCodeMap = Record<string, string>;
  *  • "New product" — the guided, enterprise single-product builder, wired to createProductFullAction.
  *  • "Bulk / sheet import" — the AI list importer for adding many designs at once. */
 export function AddInventoryTabs(props: { categories: Cat[]; subcategories?: Sub[]; styles?: Sub[]; variantOptions: VariantOptions; colorCodes: ColorCodeMap; lang?: Lang }) {
-  const [tab, setTab] = useState<"quick" | "new" | "bulk">("quick");
+  const [tab, setTab] = useState<"quick" | "new" | "bulk">("new");
   const lang = props.lang ?? "en";
   return (
     <div>
       <div className="inline-flex rounded-full bg-cream p-1 mb-5">
-        {([["quick", t(lang, "qaTab")], ["new", "New product"], ["bulk", "Bulk / sheet import"]] as const).map(([k, label]) => (
+        {([["new", "New product"], ["quick", t(lang, "qaTab")], ["bulk", "Bulk / sheet import"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k as any)} className={`px-4 py-1.5 rounded-full text-sm transition-colors ${tab === k ? "bg-ink text-white" : "text-muted hover:text-ink"}`}>{label}</button>
         ))}
       </div>
