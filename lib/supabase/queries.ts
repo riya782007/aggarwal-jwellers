@@ -347,10 +347,10 @@ export async function getCustomerSpend(range?: { from?: string; to?: string }): 
  *  Cancelled/void/refunded bills never count. */
 export async function getCreditors(): Promise<{ id: string | null; name: string; phone: string; outstanding: number; bills: number }[]> {
   const sb = supabaseServer();
-  const data = await allRows<any>(() => sb.from("orders").select("customer_id,customer_name,customer_phone,total,amount_paid,bill_type,gst_mode,return_amount,status").order("created_at"));
+  const data = await allRows<any>(() => sb.from("orders").select("customer_id,customer_name,customer_phone,total,amount_paid,bill_type,gst_mode,return_amount,status,channel,payment_confirmed_at").order("created_at"));
   const map = new Map<string, { id: string | null; name: string; phone: string; outstanding: number; bills: number }>();
   for (const o of ((data as any[]) ?? [])) {
-    if (isDeadOrder(o.status)) continue;
+    if (!isCountableSale(o)) continue;
     const due = orderDuePaise(o);
     if (due <= 0) continue;
     const key = o.customer_id ? `id:${o.customer_id}` : o.customer_phone ? `ph:${o.customer_phone}` : o.customer_name ? `nm:${o.customer_name}` : null;
@@ -499,7 +499,7 @@ export async function getCustomerById(id: string) {
   // Order history: linked customer_id plus any POS sales saved with the same phone.
   // (Two separate queries merged — avoids putting a raw phone into an or() filter.)
   const phone = (c as any).phone;
-  const sel = "id,total,amount_paid,invoice_no,channel,bill_type,gst_mode,return_amount,payment_mode,status,created_at,customer_id,customer_phone";
+  const sel = "id,total,amount_paid,invoice_no,channel,bill_type,gst_mode,return_amount,payment_mode,status,payment_confirmed_at,created_at,customer_id,customer_phone";
   const byId = await sb.from("orders").select(sel).eq("customer_id", id).order("created_at", { ascending: false }).limit(100);
   const byPhone = phone ? await sb.from("orders").select(sel).eq("customer_phone", phone).order("created_at", { ascending: false }).limit(100) : { data: [] as any[] };
   const seen = new Set<string>();
@@ -512,7 +512,7 @@ export async function getCustomerById(id: string) {
   // *manual override* (advance received, store credit, hand-entered adjustment) — kept as
   // a fallback so existing data continues to display.
   const outstandingFromOrders = list
-    .filter((o: any) => !isDeadOrder(o.status))
+    .filter((o: any) => isCountableSale(o))
     // GST-aware: due = grand total (with GST, net of returns) − paid — matches the invoice page.
     .reduce((s: number, o: any) => s + orderDuePaise(o), 0);
   return {
@@ -1189,7 +1189,7 @@ export type StudioData = NonNullable<Awaited<ReturnType<typeof getStudioData>>>;
 
 // ---------- dashboard + inventory intelligence (Req 6, 7; aggarwal.pdf §8) ----------
 import { classify, type InventoryRule, DEFAULT_RULE } from "../inventory";
-import { orderDuePaise, orderGrandPaise, isDeadOrder } from "../business";
+import { orderDuePaise, orderGrandPaise, isCountableSale } from "../business";
 import { computePrices, type PricingFormula as PF } from "../pricing";
 
 export type DashboardData = {
@@ -1206,7 +1206,7 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   const sb = supabaseServer();
   const now = new Date();
   const [ordersRes, prodRes, catRes, dealersRes, apprRes] = await Promise.all([
-    sb.from("orders").select("total,channel,payment_mode,pay_cash,pay_bank,created_at,status,bill_type,gst_mode,return_amount").gte("created_at", fromISO).lte("created_at", toISO),
+    sb.from("orders").select("total,channel,payment_mode,pay_cash,pay_bank,created_at,status,bill_type,gst_mode,return_amount,payment_confirmed_at").gte("created_at", fromISO).lte("created_at", toISO),
     sb.from("products").select("sku,name,qty,last_movement_at,created_at,category:categories(name)"),
     sb.from("categories").select("id"),
     // Dealers live in customers (type=wholesale) since the trade portal — the legacy
@@ -1215,7 +1215,7 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
     sb.from("approvals").select("id,status"),
   ]);
   // Cancelled/void/refunded bills must not inflate revenue, order counts or collections.
-  const orders = ((ordersRes.data as any[]) ?? []).filter((o: any) => !isDeadOrder(o.status));
+  const orders = ((ordersRes.data as any[]) ?? []).filter((o: any) => isCountableSale(o));
   const products = (prodRes.data as any[]) ?? [];
 
   // GST-aware grand (net of returns) — same figure the bill prints and Udhaar counts.
@@ -1417,11 +1417,11 @@ export async function getDashboardAnalytics(fromISO: string, toISO: string): Pro
   // header's correct ₹2,195) — dead orders must never count towards revenue, and the figure
   // shown is the GST-aware grand (net of returns), same as every other money surface.
   const [{ data: orders }, { data: items }] = await Promise.all([
-    sb.from("orders").select("total,channel,created_at,status,bill_type,gst_mode,return_amount").gte("created_at", fromISO).lte("created_at", toISO),
-    sb.from("order_items").select("line_total,qty,order:orders(created_at,channel,status),product:products(name,category:categories(name))"),
+    sb.from("orders").select("total,channel,created_at,status,bill_type,gst_mode,return_amount,payment_confirmed_at").gte("created_at", fromISO).lte("created_at", toISO),
+    sb.from("order_items").select("line_total,qty,order:orders(created_at,channel,status,payment_confirmed_at),product:products(name,category:categories(name))"),
   ]);
-  const os = ((orders as any[]) ?? []).filter((o) => !isDeadOrder(o.status));
-  const its = ((items as any[]) ?? []).filter((i) => i.order && !isDeadOrder(i.order.status) && i.order.created_at >= fromISO && i.order.created_at <= toISO);
+  const os = ((orders as any[]) ?? []).filter((o) => isCountableSale(o));
+  const its = ((items as any[]) ?? []).filter((i) => i.order && isCountableSale(i.order) && i.order.created_at >= fromISO && i.order.created_at <= toISO);
 
   // weekly buckets (8)
   const weeks = 8;
@@ -1469,11 +1469,11 @@ export async function getProductSalesStats(sku: string) {
 export async function getChannelReport(fromISO: string, toISO: string) {
   const sb = supabaseServer();
   const { data } = await sb.from("orders")
-    .select("id,total,channel,customer_name,created_at,bill_type,payment_mode,status,gst_mode,return_amount")
+    .select("id,total,channel,customer_name,created_at,bill_type,payment_mode,status,gst_mode,return_amount,payment_confirmed_at")
     .gte("created_at", fromISO).lte("created_at", toISO)
     .order("created_at", { ascending: false }).limit(1000);
-  // Dead orders excluded + GST-aware grand (QA 16 Jul — matched to the dashboard header).
-  const rows = ((data as any[]) ?? []).filter((r) => !isDeadOrder(r.status));
+  // Dead + awaiting-payment wholesale orders excluded + GST-aware grand (QA 16 Jul — matched to the dashboard header).
+  const rows = ((data as any[]) ?? []).filter((r) => isCountableSale(r));
   const channels = ["retail", "wholesale", "pos"].map((ch) => {
     const list = rows.filter((r) => r.channel === ch);
     return {

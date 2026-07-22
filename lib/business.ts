@@ -112,6 +112,18 @@ export function isDeadOrder(status?: string | null): boolean {
   return DEAD_ORDER_STATUSES.includes((status ?? "") as any);
 }
 
+/**
+ * Whether an order should count as a real, booked sale (revenue, receivables, reports).
+ * Excludes dead orders AND wholesale orders still awaiting UPI payment confirmation (0059/0060):
+ * those are placed but not committed — no stock moved, no money in — so they must not inflate
+ * revenue or show as owed until the owner confirms payment (which sets payment_confirmed_at).
+ */
+export function isCountableSale(o: { status?: string | null; channel?: string | null; payment_confirmed_at?: string | null }): boolean {
+  if (isDeadOrder(o.status)) return false;
+  if (o.channel === "wholesale" && !o.payment_confirmed_at) return false;
+  return true;
+}
+
 /** Split an inclusive total (paise) into taxable value + GST at GST_RATE. */
 export function splitGstInclusive(totalPaise: number) {
   const taxable = Math.round(totalPaise / (1 + GST_RATE / 100));

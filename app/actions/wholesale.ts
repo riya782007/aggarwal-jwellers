@@ -93,13 +93,15 @@ export async function placeWholesaleOrderAction(items: { sku: string; qty: numbe
           discTotal += disc;
         }
         if (discTotal > 0) {
+          // Adjust the stored total only — no ledger entry at placement (0060). The sale is booked
+          // at commit time (payment confirmed) against this already-discounted orders.total.
           await sb.from("orders").update({ total: Math.max(0, total - discTotal), tier_discount: discTotal }).eq("id", orderId);
-          await sb.from("ledger").insert({ kind: "sales", ref_id: orderId, debit: discTotal, note: "Quantity-break discount" });
           total = Math.max(0, total - discTotal);
         }
       }
     } catch { /* tiers are best-effort; the bill stands at list rates if anything hiccups */ }
-    await sb.rpc("assign_invoice_no", { p_order: orderId });
+    // NOTE: the GST invoice number is assigned at PAYMENT CONFIRMATION (0060), not here — an
+    // unpaid order that never gets paid must not burn a sequential invoice number.
   }
   revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
   return { ok: true, orderId, total };

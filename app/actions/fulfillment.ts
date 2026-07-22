@@ -36,6 +36,15 @@ export async function confirmWholesalePaymentAction(formData: FormData): Promise
     .eq("id", id).maybeSingle();
   if (!o || ["cancelled", "void", "refunded"].includes((o as any).status)) return;
   if ((o as any).payment_confirmed_at) return; // already confirmed — never double-record
+  // COMMIT the order now that the money is in (0060): this is where stock is finally decremented
+  // and the sale is booked to the ledger — nothing was moved at placement. Idempotent, and oversell
+  // is allowed because payment has already been received, so it must never fail on a stock dip.
+  {
+    const { error: commitErr } = await sb.rpc("commit_wholesale_order", { p_order: id });
+    if (commitErr) { console.warn("wholesale commit failed:", commitErr.message); return; }
+  }
+  // Assign the GST invoice number now (the order is a real, paid sale from this moment).
+  await sb.rpc("assign_invoice_no", { p_order: id }).then(() => {}, () => {});
   // Mark fully paid: record the true GST-aware outstanding as a UPI receipt (idempotent-safe —
   // if somehow already paid, due is 0 and record_payment is skipped).
   const due = orderDuePaise(o as any);
@@ -74,9 +83,25 @@ export async function rejectOrderAction(formData: FormData): Promise<void> {
   const reason = String(formData.get("reason") ?? "").trim() || "Order rejected";
   if (!id) return;
   const sb = supabaseServer();
+  const { data: o } = await sb.from("orders").select("customer_name,customer_phone,channel,payment_confirmed_at").eq("id", id).maybeSingle();
+  // 0060 — an uncommitted wholesale order (placed, awaiting UPI payment) never moved stock or booked
+  // revenue, so it must NOT go through cancel_order (that would RESTORE stock never taken and post a
+  // phantom reversal). We confirm "nothing was committed" by checking for actual stock movements,
+  // which also correctly handles legacy pre-0060 orders that DID move stock at placement.
+  let uncommitted = false;
+  if ((o as any)?.channel === "wholesale" && !(o as any)?.payment_confirmed_at) {
+    const { data: adj } = await sb.from("stock_adjustments").select("id").eq("source", `wholesale order ${id}`).limit(1);
+    uncommitted = !adj || (adj as any[]).length === 0;
+  }
+  if (uncommitted) {
+    await sb.from("orders").update({ status: "cancelled", fulfillment: "rejected" }).eq("id", id);
+    await sendWhatsAppText((o as any)?.customer_phone,
+      `Namaste ${(o as any)?.customer_name ?? ""}, your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} was cancelled as payment wasn't received. Do reach out if you'd still like to order.`).catch(() => {});
+    revalidateOrderSurfaces(id);
+    return;
+  }
   const { error } = await sb.rpc("cancel_order", { p_order: id, p_reason: reason });
   if (error) { console.warn("reject/cancel failed:", error.message); return; }
-  const { data: o } = await sb.from("orders").select("customer_name,customer_phone").eq("id", id).maybeSingle();
   await sb.from("orders").update({ fulfillment: "rejected" }).eq("id", id);
   await sendWhatsAppText((o as any)?.customer_phone,
     `Namaste ${(o as any)?.customer_name ?? ""}, we're sorry — your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} could not be fulfilled and has been cancelled. Any payment will be refunded.`).catch(() => {});
