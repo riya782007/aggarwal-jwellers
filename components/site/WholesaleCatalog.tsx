@@ -4,13 +4,14 @@ import { formatPaise } from "@/lib/pricing";
 import { ProductImage } from "@/components/Placeholder";
 import { QtyField } from "@/components/admin/QtyField";
 import { placeWholesaleOrderAction, wholesaleLogoutAction, submitWholesalePaymentRefAction } from "@/app/actions/wholesale";
+import { UpiQr } from "@/components/UpiQr";
 
 type P = { sku: string; name: string; category: string; qty: number; price: number; mrp: number; image: string | null };
 type HistItem = { sku: string; name: string; qty: number };
 type Hist = { id: string; total: number; created_at: string; invoice_no: string | null; items: HistItem[] };
 
-export function WholesaleCatalog({ products, customerName, minOrder = 300000, history = [] }: {
-  products: P[]; customerName: string; minOrder?: number; history?: Hist[];
+export function WholesaleCatalog({ products, customerName, minOrder = 300000, history = [], upiVpa = "" }: {
+  products: P[]; customerName: string; minOrder?: number; history?: Hist[]; upiVpa?: string;
 }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
@@ -109,9 +110,11 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
             <p className="text-muted mt-1 text-sm">Order <b className="text-ink">{done.id.slice(0, 8).toUpperCase()}</b> is reserved for you. Pay the amount below with any UPI app, then confirm so we can process it.</p>
             <p className="mt-4 text-4xl font-semibold text-emerald">{formatPaise(done.total)}</p>
 
-            <div className="mt-5 inline-block rounded-2xl border border-sand p-4">
-              <img src="/wholesale-upi-qr.png" alt="Scan to pay Aggarwal Jewellers on UPI" className="w-56 h-56 object-contain mx-auto" />
-              <p className="text-xs text-muted mt-2">Scan with any UPI app · M/S Aggarwal Jewellers</p>
+            <div className="mt-5 flex flex-col items-center">
+              {upiVpa
+                ? <UpiQr amountPaise={done.total} note={`Order ${done.id.slice(0, 8).toUpperCase()}`} size={224} vpa={upiVpa} />
+                : <div className="rounded-2xl border border-dashed border-gold/50 bg-gold/5 p-4 text-sm text-gold-dark max-w-xs">UPI payment isn&apos;t set up yet — please pay us on WhatsApp and we&apos;ll confirm your order.</div>}
+              <p className="text-xs text-muted mt-2">Scan with any UPI app · pays the exact amount above</p>
             </div>
 
             <div className="mt-5 text-left">

@@ -55,7 +55,7 @@ export default async function TradeDashboard() {
       <h1 className="font-display text-4xl text-ink mb-1">Dealer Dashboard</h1>
       <p className="text-sm text-muted mb-2">Factory-direct trade rates. Enter quantities and place your order — ₹{minRupees} minimum. Your margin vs MRP is shown on every line.</p>
       {tradeQuickLinks}
-      <WholesaleCatalog products={list} customerName={session.name} minOrder={minOrder} history={history} />
+      <WholesaleCatalog products={list} customerName={session.name} minOrder={minOrder} history={history} upiVpa={process.env.BUSINESS_UPI_VPA || ""} />
 
       {/* Trade partners can offer their own designs for us to stock. */}
       <section className="mt-12 border-t border-sand pt-8">
