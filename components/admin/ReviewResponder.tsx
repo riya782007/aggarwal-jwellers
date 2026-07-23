@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { draftReviewReplyAction, saveReviewReplyAction } from "@/app/actions/reputation";
 
@@ -7,6 +8,7 @@ type R = { id: string; author_name: string; rating: number; body: string; respon
 
 export function ReviewResponder({ reviews }: { reviews: R[] }) {
   const { toast } = useToast();
+  const router = useRouter();
   const [drafts, setDrafts] = useState<Record<string, string>>(() => Object.fromEntries(reviews.map((r) => [r.id, r.response ?? ""])));
   const [busy, setBusy] = useState<string>("");
 
@@ -19,6 +21,7 @@ export function ReviewResponder({ reviews }: { reviews: R[] }) {
   async function save(id: string) {
     await saveReviewReplyAction(id, drafts[id] ?? "");
     toast("Reply published ✓");
+    router.refresh();
   }
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { recordReturnAction } from "@/app/actions/billing";
 
@@ -8,6 +9,7 @@ type Order = { id: string; invoice_no?: string | null; total: number; customer_n
 const lineKey = (it: Order["order_items"][number]) => `${it.product.id}::${it.variant?.sku ?? ""}`;
 
 export function ReturnClient({ orders }: { orders: Order[] }) {
+  const router = useRouter();
   const [sel, setSel] = useState<string>("");
   const [reason, setReason] = useState("");
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -24,7 +26,7 @@ export function ReturnClient({ orders }: { orders: Order[] }) {
     setBusy(true); setMsg("");
     const res = await recordReturnAction({ orderId: order.id, reason, items });
     setBusy(false);
-    if (res.ok) { setMsg(`✓ Return recorded · ${res.qty} pcs restored to stock`); setSel(""); setQty({}); setReason(""); }
+    if (res.ok) { setMsg(`✓ Return recorded · ${res.qty} pcs restored to stock`); setSel(""); setQty({}); setReason(""); router.refresh(); }
     else setMsg(`✕ ${res.error}`);
   }
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";

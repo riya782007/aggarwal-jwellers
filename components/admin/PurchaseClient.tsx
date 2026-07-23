@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { recordPurchaseAction } from "@/app/actions/purchases";
 
@@ -11,6 +12,7 @@ type Line = { supplierSku: string; mappedProductId: string; mappedName: string; 
 type LastCosts = { byProduct: Record<string, number>; byVariant: Record<string, number> };
 
 export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: Sup[]; products: Prod[]; lastCosts?: LastCosts }) {
+  const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
   const [billNo, setBillNo] = useState("");
   const [lines, setLines] = useState<Line[]>([{ supplierSku: "", mappedProductId: "", mappedName: "", variantId: "", qty: "", cost: "" }]);
@@ -71,7 +73,7 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
     if (res.ok) {
       const owed = Math.max(0, total - paidNow);
       setMsg(`✓ Purchase recorded (${formatPaise(res.total ?? 0)})${owed > 0 ? ` — ${formatPaise(owed * 100)} on credit to supplier` : " — paid in full"}. Stock updated.`);
-      setLines([{ supplierSku: "", mappedProductId: "", mappedName: "", variantId: "", qty: "", cost: "" }]); setBillNo(""); setPay({ cash: "", upi: "", bank: "" }); setConfirmDup(false);
+      setLines([{ supplierSku: "", mappedProductId: "", mappedName: "", variantId: "", qty: "", cost: "" }]); setBillNo(""); setPay({ cash: "", upi: "", bank: "" }); setConfirmDup(false); router.refresh();
     }
     else { setMsg(`✕ ${res.error}`); setConfirmDup(!!res.duplicateBillNo); }
   }

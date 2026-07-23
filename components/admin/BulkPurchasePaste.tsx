@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { recordPurchaseFromPasteAction } from "@/app/actions/purchases";
 
 /** 0049 — paste a whole supplier bill: one line per item ("SKU  qty  price"). SKUs auto-map
  *  to products/variants; unmapped lines are still recorded so the paper bill stays complete. */
 export function BulkPurchasePaste({ suppliers }: { suppliers: { id: string; name: string; city?: string | null }[] }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; link?: string } | null>(null);
   const fld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
@@ -18,6 +20,7 @@ export function BulkPurchasePaste({ suppliers }: { suppliers: { id: string; name
       if (res.ok) {
         setMsg({ ok: true, text: `Bill recorded — ${res.mapped} line(s) mapped to stock${res.unmapped ? `, ${res.unmapped} unmapped (map them on the purchase page)` : ""}.`, link: res.purchaseId ? `/admin/purchase/${res.purchaseId}` : undefined });
         (e.target as HTMLFormElement).reset();
+        router.refresh();
       } else setMsg({ ok: false, text: res.error ?? "Couldn't record the bill." });
     } catch { setMsg({ ok: false, text: "Something went wrong — try again." }); }
     finally { setBusy(false); }

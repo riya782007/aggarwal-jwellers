@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { decideSubmissionAction } from "@/app/actions/submissions";
 
 type Category = { id: string; name: string };
@@ -21,6 +22,7 @@ type Sub = {
 
 /** One pending submission with inline approve / reject controls. */
 export function SubmissionRow({ sub, categories, money }: { sub: Sub; categories: Category[]; money: string }) {
+  const router = useRouter();
   const [busy, setBusy] = useState<"" | "approve" | "reject">("");
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
@@ -41,7 +43,8 @@ export function SubmissionRow({ sub, categories, money }: { sub: Sub; categories
     const res = await decideSubmissionAction(fd);
     setBusy("");
     if (!res.ok) setErr(res.error ?? "Something went wrong.");
-    // On success the server revalidates the page and the row moves to "Reviewed".
+    else router.refresh(); // re-fetch so the row moves to "Reviewed" without a manual refresh
+
   }
 
   return (

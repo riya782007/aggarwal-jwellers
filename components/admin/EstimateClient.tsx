@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction } from "@/app/actions/billing";
 import { QtyField } from "@/components/admin/QtyField";
@@ -50,6 +51,8 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
 
+  const router = useRouter();
+
   async function save() {
     setBusy(true); setMsg("");
     const res = await createEstimateAction({
@@ -60,7 +63,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
       packingRupees: Number(packing) || 0, courierRupees: Number(courier) || 0, adjustmentRupees: Number(adjustment) || 0,
     });
     setBusy(false);
-    if (res.ok) { setMsg(`✓ Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to bill or hold.`); setLines([]); setName(""); setPhone(""); setCustType("retail"); setPacking(""); setCourier(""); setAdjustment(""); }
+    if (res.ok) { setMsg(`✓ Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to bill or hold.`); setLines([]); setName(""); setPhone(""); setCustType("retail"); setPacking(""); setCourier(""); setAdjustment(""); router.refresh(); }
     else setMsg(`✕ ${res.error}`);
   }
 

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { generateReorderPlanAction, approveReorderAction, type Rec } from "@/app/actions/reorder";
 
@@ -7,6 +8,7 @@ const URG: Record<string, string> = { high: "bg-rose text-white", medium: "bg-go
 
 export function ReorderClient({ candidateCount }: { candidateCount: number }) {
   const { toast } = useToast();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState("");
   const [recs, setRecs] = useState<Rec[]>([]);
@@ -22,6 +24,7 @@ export function ReorderClient({ candidateCount }: { candidateCount: number }) {
     await approveReorderAction({ sku: r.sku, name: r.name, action: r.action, qty: r.qty });
     setDone((d) => ({ ...d, [r.sku]: true }));
     toast(r.action === "clear" ? "Clearance flagged & assignee notified" : `Reorder noted & assignee notified`);
+    router.refresh();
   }
 
   return (
