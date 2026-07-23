@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
-import { getWholesaleSession, getWholesaleIdentity } from "@/lib/wholesale";
+import { getWholesaleSession, getWholesaleIdentity, hashPassword, verifyPassword } from "@/lib/wholesale";
 
 const COOKIE = { httpOnly: true, sameSite: "lax" as const, secure: true, path: "/", maxAge: 60 * 60 * 12 };
 
@@ -109,54 +109,57 @@ async function applyWholesaleTiers(sb: ReturnType<typeof supabaseServer>, orderI
 }
 
 /**
- * GUEST wholesale checkout (open portal): a buyer browses without logging in, then places an order
- * by giving their phone + name (+ optional GSTIN / address). We find-or-create the wholesale
- * customer by phone, save any billing not already on file, remember them via the bd_wholesale
- * cookie, and place the order. The ₹-minimum is still enforced by place_wholesale_order. No passcode
- * and no prior approval are required — the minimum-order value is the gate.
+ * Self-service trade account — CREATE. A buyer browses freely, then at checkout creates an account
+ * with phone + password (+ name & optional billing). Sets the session cookie so they're logged in
+ * and can place the order. Like any e-commerce signup; no owner approval needed to buy — the
+ * ₹-minimum is the gate. (Owner approval still exists as an internal trust flag.)
  */
-export async function placeWholesaleGuestOrderAction(
-  items: { sku: string; qty: number }[],
-  billing: { phone: string; name: string; gstin?: string; address?: string },
-): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
-  const phone = (billing?.phone ?? "").replace(/\D/g, "").slice(-10);
-  const name = (billing?.name ?? "").trim();
-  if (phone.length !== 10) return { ok: false, error: "Please enter a valid 10-digit phone number." };
-  if (!name) return { ok: false, error: "Please enter your name or shop name." };
-  const clean = (items ?? []).filter((i) => i.sku && i.qty > 0).map((i) => ({ sku: i.sku, qty: Math.floor(i.qty) }));
-  if (!clean.length) return { ok: false, error: "Enter quantities for at least one product." };
+export async function wholesaleRegisterAction(input: {
+  phone: string; password: string; name: string; gstin?: string; address?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const phone = (input?.phone ?? "").replace(/\D/g, "").slice(-10);
+  const password = String(input?.password ?? "");
+  const name = (input?.name ?? "").trim();
+  if (phone.length !== 10) return { ok: false, error: "Enter a valid 10-digit phone number." };
+  if (password.length < 4) return { ok: false, error: "Choose a password of at least 4 characters." };
+  if (!name) return { ok: false, error: "Enter your name or shop name." };
+  const gstin = (input?.gstin ?? "").trim().toUpperCase() || null;
+  const address = (input?.address ?? "").trim() || null;
 
   const sb = supabaseServer();
-  const gstin = (billing?.gstin ?? "").trim().toUpperCase() || null;
-  const address = (billing?.address ?? "").trim() || null;
-
-  // Find-or-create the wholesale customer by phone; fill in any billing not already saved.
+  const { data: existing } = await sb.from("customers").select("id,password_hash,login_code").eq("phone", phone).maybeSingle();
   let customerId: string;
-  const { data: existing } = await sb.from("customers").select("id,name,gstin,address,type").eq("phone", phone).maybeSingle();
   if (existing) {
+    // Already has a password OR an owner-issued dealer code → it's an existing account; sign in instead
+    // (prevents claiming a dealer's number).
+    if ((existing as any).password_hash || (existing as any).login_code) {
+      return { ok: false, error: "This phone already has an account — please sign in." };
+    }
     customerId = (existing as any).id;
-    const patch: Record<string, unknown> = { type: "wholesale" };
-    if (!(existing as any).name && name) patch.name = name;
-    if (!(existing as any).gstin && gstin) patch.gstin = gstin;
-    if (!(existing as any).address && address) patch.address = address;
-    await sb.from("customers").update(patch).eq("id", customerId);
+    await sb.from("customers").update({ type: "wholesale", name, gstin, address, password_hash: hashPassword(password) }).eq("id", customerId);
   } else {
     const { data: created, error: cErr } = await sb.from("customers")
-      .insert({ name, phone, type: "wholesale", gstin, address }).select("id").maybeSingle();
-    if (cErr || !created) return { ok: false, error: "Couldn't save your details — please try again." };
+      .insert({ name, phone, type: "wholesale", gstin, address, password_hash: hashPassword(password) }).select("id").maybeSingle();
+    if (cErr || !created) return { ok: false, error: "Couldn't create your account — please try again." };
     customerId = (created as any).id;
   }
-
-  // Remember this buyer on this device so the billing form prefills next time.
   cookies().set("bd_wholesale", customerId, COOKIE);
+  return { ok: true };
+}
 
-  const { data, error } = await sb.rpc("place_wholesale_order", { p_customer: customerId, p_items: clean, p_allow_oversell: false });
-  if (error) return { ok: false, error: error.message };
-  const orderId = (data as any)?.order_id;
-  let total = (data as any)?.total as number;
-  total = await applyWholesaleTiers(sb, orderId, total);
-  revalidatePath("/admin/orders"); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
-  return { ok: true, orderId, total };
+/** Self-service trade account — SIGN IN with phone + password. Sets the session cookie. */
+export async function wholesalePasswordLoginAction(phoneRaw: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  const phone = (phoneRaw ?? "").replace(/\D/g, "").slice(-10);
+  if (phone.length !== 10 || !password) return { ok: false, error: "Enter your phone and password." };
+  const sb = supabaseServer();
+  const { data } = await sb.from("customers").select("id,password_hash,login_code,type").eq("phone", phone).maybeSingle();
+  const c = data as any;
+  // Accept the account password, OR (for owner-approved dealers) their access code.
+  const ok = c && (verifyPassword(password, c.password_hash) || ((c.login_code ?? "").toUpperCase() === password.trim().toUpperCase() && !!c.login_code));
+  if (!ok) return { ok: false, error: "Wrong phone or password." };
+  if (c.type !== "wholesale") await sb.from("customers").update({ type: "wholesale" }).eq("id", c.id);
+  cookies().set("bd_wholesale", c.id, COOKIE);
+  return { ok: true };
 }
 
 /**

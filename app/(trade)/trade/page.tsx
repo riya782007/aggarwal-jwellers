@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-const WHOLESALE_MIN = 300000; // ₹3,000 in paise (#27)
+const WHOLESALE_MIN = 1000000; // ₹10,000 in paise
 
 export default async function TradeDashboard() {
   // Open portal: browsing the trade catalogue + rates is public — identity is captured at checkout.

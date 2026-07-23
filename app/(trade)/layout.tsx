@@ -18,7 +18,7 @@ export default async function TradeLayout({ children }: { children: React.ReactN
       {session && <TradeHeader dealerName={session.name} />}
       <main className="flex-1">{children}</main>
       <footer className="bg-ink text-cream/50 text-center text-xs py-6 mt-10">
-        Aggarwal Jewellers · Trade Portal · Wholesale rates · ₹3,000 minimum order
+        Aggarwal Jewellers · Trade Portal · Wholesale rates · ₹10,000 minimum order
       </footer>
     </div>
   );

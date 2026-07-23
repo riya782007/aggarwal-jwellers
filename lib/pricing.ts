@@ -67,12 +67,12 @@ export function roundRetailCharmPaise(valuePaise: number): number {
 }
 
 /**
- * Round a printed MRP (paise) to the nearest whole rupee ending in 0 or 5 (a multiple of 5).
- * If a retail floor is given, the MRP is never printed below the selling price — it is bumped
- * up to the next multiple of 5 at or above retail (keeps MRP ≥ retail, so the strike-through
- * price always looks right and passes validation).
+ * Round a price (paise) to the nearest whole rupee ending in 0 or 5 (a multiple of 5).
+ * Used for BOTH the retail selling price and the printed MRP (client's rule: both end in 0/5).
+ * If a floor is given (MRP only), the value is never below it — it's bumped up to the next
+ * multiple of 5 at or above the floor (keeps MRP ≥ retail, so the strike-through always looks right).
  */
-export function roundMrpTo5Paise(valuePaise: number, retailFloorPaise?: number): number {
+export function roundToFivePaise(valuePaise: number, retailFloorPaise?: number): number {
   if (!Number.isFinite(valuePaise) || valuePaise <= 0) return valuePaise;
   let rupees = Math.round(valuePaise / 100 / 5) * 5;
   if (rupees <= 0) rupees = 5;
@@ -119,17 +119,17 @@ export function computePrices(baseWholesalePaise: number, formula: PricingFormul
   // Final display rule (owner's request): RETAIL always ends in 9, MRP always ends in 0/5.
   if (formula.useBuildup) {
     const s = buildupStages(base, formula);
-    const retailPrice = roundRetailCharmPaise(s.retail);
+    const retailPrice = roundToFivePaise(s.retail);
     return {
       wholesaleRate: roundToNearest(s.wholesale, formula.roundToPaise),
       retailPrice,
-      mrp: roundMrpTo5Paise(s.mrp, retailPrice),
+      mrp: roundToFivePaise(s.mrp, retailPrice),
     };
   }
 
   const wholesaleRate = roundToNearest(base * (1 + formula.wholesaleMarkupPct / 100), formula.roundToPaise);
-  const retailPrice = roundRetailCharmPaise(base * formula.retailMultiplier);
-  const mrp = roundMrpTo5Paise(base * formula.mrpMultiplier, retailPrice);
+  const retailPrice = roundToFivePaise(base * formula.retailMultiplier);
+  const mrp = roundToFivePaise(base * formula.mrpMultiplier, retailPrice);
 
   return { wholesaleRate, retailPrice, mrp };
 }
@@ -144,7 +144,7 @@ export function buildupBreakdown(baseWholesalePaise: number, formula: PricingFor
   const round = formula.roundToPaise;
   // Intermediate stages show the raw running total; the FINAL retail/mrp use the charm rounding
   // (retail → ends in 9, mrp → ends in 0/5) so the preview matches what the storefront prints.
-  const retail = roundRetailCharmPaise(s.retail);
+  const retail = roundToFivePaise(s.retail);
   return {
     base,
     wholesale: roundToNearest(s.wholesale, round),
@@ -153,7 +153,7 @@ export function buildupBreakdown(baseWholesalePaise: number, formula: PricingFor
     afterPromotion: roundToNearest(s.afterPromotion, round),
     afterReseller: roundToNearest(s.afterReseller, round),
     retail,
-    mrp: roundMrpTo5Paise(s.mrp, retail),
+    mrp: roundToFivePaise(s.mrp, retail),
   };
 }
 

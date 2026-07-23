@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { ProductImage } from "@/components/Placeholder";
 import { QtyField } from "@/components/admin/QtyField";
-import { placeWholesaleOrderAction, placeWholesaleGuestOrderAction, wholesaleLogoutAction, submitWholesalePaymentRefAction } from "@/app/actions/wholesale";
+import { placeWholesaleOrderAction, wholesaleRegisterAction, wholesalePasswordLoginAction, wholesaleLogoutAction, submitWholesalePaymentRefAction } from "@/app/actions/wholesale";
 import { UpiQr } from "@/components/UpiQr";
 
 type Billing = { phone: string; name: string; gstin: string; address: string };
@@ -12,7 +12,7 @@ type P = { sku: string; name: string; category: string; qty: number; price: numb
 type HistItem = { sku: string; name: string; qty: number };
 type Hist = { id: string; total: number; created_at: string; invoice_no: string | null; items: HistItem[] };
 
-export function WholesaleCatalog({ products, customerName, minOrder = 300000, history = [], upiVpa = "", loggedIn = false, savedBilling = null }: {
+export function WholesaleCatalog({ products, customerName, minOrder = 1000000, history = [], upiVpa = "", loggedIn = false, savedBilling = null }: {
   products: P[]; customerName: string; minOrder?: number; history?: Hist[]; upiVpa?: string;
   loggedIn?: boolean; savedBilling?: Billing | null;
 }) {
@@ -28,6 +28,9 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
   // Guest checkout — a non-logged-in buyer gives billing at the moment of purchase (prefilled if
   // we remember them). The ₹-minimum still gates the order.
   const [showCheckout, setShowCheckout] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("register");
+  const [password, setPassword] = useState("");
+  const [authed, setAuthed] = useState(false); // became logged-in this visit (cookie set server-side)
   const [billing, setBilling] = useState<Billing>({
     phone: savedBilling?.phone ?? "", name: savedBilling?.name ?? customerName ?? "",
     gstin: savedBilling?.gstin ?? "", address: savedBilling?.address ?? "",
@@ -62,8 +65,8 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
 
   async function place() {
     if (lines.length === 0) return;
-    // Guests identify at checkout — open the billing step instead of placing straight away.
-    if (!loggedIn) { setErr(""); setShowCheckout(true); return; }
+    // Not signed in → open the login/register step. Once signed in (this visit or already), place directly.
+    if (!loggedIn && !authed) { setErr(""); setShowCheckout(true); return; }
     setBusy(true); setErr("");
     const res = await placeWholesaleOrderAction(lines.map(([sku, n]) => ({ sku, qty: n })));
     setBusy(false);
@@ -71,12 +74,18 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
     else setErr(res.error ?? "Could not place order");
   }
 
-  async function placeGuest() {
+  async function submitAuth() {
     if (lines.length === 0) return;
     setBusy(true); setErr("");
-    const res = await placeWholesaleGuestOrderAction(lines.map(([sku, n]) => ({ sku, qty: n })), billing);
+    const auth = authMode === "login"
+      ? await wholesalePasswordLoginAction(billing.phone, password)
+      : await wholesaleRegisterAction({ phone: billing.phone, password, name: billing.name, gstin: billing.gstin, address: billing.address });
+    if (!auth.ok) { setBusy(false); setErr(auth.error ?? "Sign in failed — please try again."); return; }
+    setAuthed(true);
+    // The session cookie is set server-side; placeWholesaleOrderAction reads it fresh.
+    const res = await placeWholesaleOrderAction(lines.map(([sku, n]) => ({ sku, qty: n })));
     setBusy(false);
-    if (res.ok) { setDone({ id: res.orderId!, total: res.total ?? 0 }); setQty({}); setShowCheckout(false); setErr(""); setPayRef(""); setClaimed(false); }
+    if (res.ok) { setDone({ id: res.orderId!, total: res.total ?? 0 }); setQty({}); setShowCheckout(false); setErr(""); setPayRef(""); setClaimed(false); setPassword(""); }
     else setErr(res.error ?? "Could not place order");
   }
 
@@ -301,37 +310,51 @@ export function WholesaleCatalog({ products, customerName, minOrder = 300000, hi
             {belowMin && (
               <div className="mt-2">
                 <div className="h-1.5 rounded-full bg-white/15 overflow-hidden"><div className="h-full bg-gold transition-all" style={{ width: `${Math.min(100, (orderTotal / minOrder) * 100)}%` }} /></div>
-                <p className="text-[11px] text-cream/60 mt-1">₹3,000 minimum order — add {formatPaise(shortBy)} more to checkout.</p>
+                <p className="text-[11px] text-cream/60 mt-1">{formatPaise(minOrder)} minimum order — add {formatPaise(shortBy)} more to checkout.</p>
               </div>
             )}
           </div>
         </>
       )}
 
-      {/* Guest checkout — billing captured at the moment of purchase */}
+      {/* Login / create account — required at the moment of purchase (like any e-commerce checkout) */}
       {showCheckout && (
         <div className="fixed inset-0 z-[110] bg-ink/60 backdrop-blur-sm grid place-items-center p-4" onClick={() => !busy && setShowCheckout(false)}>
           <div className="bg-white rounded-3xl shadow-luxe w-full max-w-md p-6 sm:p-7" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-1">
-              <h2 className="font-display text-2xl text-ink">Your billing details</h2>
+              <h2 className="font-display text-2xl text-ink">{authMode === "login" ? "Sign in to order" : "Create your trade account"}</h2>
               <button onClick={() => !busy && setShowCheckout(false)} className="text-muted hover:text-ink text-xl leading-none">✕</button>
             </div>
-            <p className="text-sm text-muted mb-4">We just need these to bill your order of <b className="text-ink">{formatPaise(orderTotal)}</b>. Saved for next time.</p>
+            <p className="text-sm text-muted mb-4">To place your order of <b className="text-ink">{formatPaise(orderTotal)}</b>, {authMode === "login" ? "sign in to your account." : "set up a quick account — takes a moment, saved for next time."}</p>
+
+            {/* Tabs */}
+            <div className="inline-flex rounded-full bg-cream p-1 mb-4">
+              {(["register", "login"] as const).map((m) => (
+                <button key={m} type="button" onClick={() => { setAuthMode(m); setErr(""); }}
+                  className={`px-4 py-1.5 rounded-full text-sm ${authMode === m ? "bg-ink text-white" : "text-muted"}`}>
+                  {m === "register" ? "New account" : "I have an account"}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-3">
               <input value={billing.phone} onChange={(e) => setBilling({ ...billing, phone: e.target.value })} inputMode="numeric" placeholder="Phone number *"
                 className="w-full rounded-xl border border-sand px-4 h-11 text-[15px] outline-none focus:border-emerald" />
-              <input value={billing.name} onChange={(e) => setBilling({ ...billing, name: e.target.value })} placeholder="Your name / shop name *"
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password *"
                 className="w-full rounded-xl border border-sand px-4 h-11 text-[15px] outline-none focus:border-emerald" />
-              <input value={billing.gstin} onChange={(e) => setBilling({ ...billing, gstin: e.target.value.toUpperCase() })} placeholder="GSTIN (optional)"
-                className="w-full rounded-xl border border-sand px-4 h-11 text-[15px] font-mono uppercase outline-none focus:border-emerald" />
-              <textarea value={billing.address} onChange={(e) => setBilling({ ...billing, address: e.target.value })} placeholder="Shop address (optional)" rows={2}
-                className="w-full rounded-xl border border-sand px-4 py-2.5 text-[15px] outline-none focus:border-emerald" />
+              {authMode === "register" && <>
+                <input value={billing.name} onChange={(e) => setBilling({ ...billing, name: e.target.value })} placeholder="Your name / shop name *"
+                  className="w-full rounded-xl border border-sand px-4 h-11 text-[15px] outline-none focus:border-emerald" />
+                <input value={billing.gstin} onChange={(e) => setBilling({ ...billing, gstin: e.target.value.toUpperCase() })} placeholder="GSTIN (optional)"
+                  className="w-full rounded-xl border border-sand px-4 h-11 text-[15px] font-mono uppercase outline-none focus:border-emerald" />
+                <textarea value={billing.address} onChange={(e) => setBilling({ ...billing, address: e.target.value })} placeholder="Shop address (optional)" rows={2}
+                  className="w-full rounded-xl border border-sand px-4 py-2.5 text-[15px] outline-none focus:border-emerald" />
+              </>}
             </div>
             {err && <p className="text-sm text-rose mt-3">{err}</p>}
-            <button disabled={busy} onClick={placeGuest} className="btn-gold w-full py-3.5 text-[15px] font-medium mt-4 disabled:opacity-60">
-              {busy ? "Placing…" : `Place order · ${formatPaise(orderTotal)}`}
+            <button disabled={busy} onClick={submitAuth} className="btn-gold w-full py-3.5 text-[15px] font-medium mt-4 disabled:opacity-60">
+              {busy ? "Placing…" : `${authMode === "login" ? "Sign in" : "Create account"} & place order · ${formatPaise(orderTotal)}`}
             </button>
-            <p className="text-[11px] text-muted mt-3 text-center">Already a dealer? <a href="/trade/login" className="text-emerald nav-link">Sign in</a> to use your saved account.</p>
           </div>
         </div>
       )}

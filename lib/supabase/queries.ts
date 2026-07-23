@@ -52,7 +52,7 @@ export async function getPricingFormula(): Promise<PricingFormula> {
     resellerPct: Number(data?.reseller_pct ?? 15),
     customerDiscountPct: Number(data?.customer_discount_pct ?? 5),
     mrpPct: Number(data?.mrp_pct ?? 25),
-    wholesaleMinOrder: Number(data?.wholesale_min_order ?? 300000),
+    wholesaleMinOrder: Number(data?.wholesale_min_order ?? 1000000),
     // 0048 — quantity-break tiers for the trade portal (loose-typed extension).
     wholesaleTiers: (Array.isArray((data as any)?.wholesale_tiers) ? (data as any).wholesale_tiers : []),
   } as PricingFormula & { wholesaleTiers: { min_qty: number; pct_off: number }[] };
