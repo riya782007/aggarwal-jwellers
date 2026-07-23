@@ -39,9 +39,9 @@ export async function getPricingFormula(): Promise<PricingFormula> {
   const sb = supabaseServer();
   const { data } = await sb.from("pricing_settings").select("*").limit(1).single();
   return {
-    wholesaleMarkupPct: Number(data?.wholesale_markup_pct ?? 10),
-    retailMultiplier: Number(data?.retail_multiplier ?? 2.2),
-    mrpMultiplier: Number(data?.mrp_multiplier ?? 2.75),
+    wholesaleMarkupPct: Number(data?.wholesale_markup_pct ?? 0),
+    retailMultiplier: Number(data?.retail_multiplier ?? 1.5),
+    mrpMultiplier: Number(data?.mrp_multiplier ?? 4),
     roundToPaise: Number(data?.round_to ?? 100),
     useBuildup: Boolean(data?.use_buildup ?? false),
     shippingPct: Number(data?.shipping_pct ?? 10),

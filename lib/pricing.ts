@@ -42,9 +42,9 @@ export type PriceSet = {
 };
 
 export const DEFAULT_FORMULA: PricingFormula = {
-  wholesaleMarkupPct: 10,
-  retailMultiplier: 2.2,
-  mrpMultiplier: 2.75,
+  wholesaleMarkupPct: 0,    // wholesale/POS bills the entered price AS-IS (no markup)
+  retailMultiplier: 1.5,    // retail selling price = 1.5 × wholesale (then charm-rounded to end in 9)
+  mrpMultiplier: 4,         // printed MRP = 4 × wholesale (then rounded to a multiple of 5)
   roundToPaise: 100,
 };
 

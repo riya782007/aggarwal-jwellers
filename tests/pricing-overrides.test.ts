@@ -3,7 +3,7 @@ import {
   computePrices, resolvePrices, priceForTier, tierForCustomer, overridesOf, DEFAULT_FORMULA,
 } from "../lib/pricing";
 
-const f = DEFAULT_FORMULA; // wholesaleMarkup 10%, retail x2.2, mrp x2.75, round ₹1
+const f = DEFAULT_FORMULA; // wholesaleMarkup 0%, retail x1.5, mrp x4, round ₹1
 const base = 100000; // ₹1000 in paise
 
 describe("resolvePrices — variant → product → formula hierarchy", () => {
