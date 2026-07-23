@@ -30,12 +30,13 @@ describe("demo smoke: seeded happy path", () => {
     }
   });
 
-  it("every product shows a live offer (20%-ish off MRP)", () => {
+  it("every product shows a live offer (~60% off MRP with retail 1.5x / MRP 4x)", () => {
     for (const [name, , base] of SEED) {
       const o = liveOffer(base * 100, DEFAULT_FORMULA);
       expect(o.hasOffer, `${name} has offer`).toBe(true);
-      expect(o.offerPct).toBeGreaterThanOrEqual(15);
-      expect(o.offerPct).toBeLessThanOrEqual(30);
+      // MRP = 4x wholesale, selling = 1.5x wholesale → the storefront shows roughly 60% off.
+      expect(o.offerPct).toBeGreaterThanOrEqual(40);
+      expect(o.offerPct).toBeLessThanOrEqual(70);
     }
   });
 

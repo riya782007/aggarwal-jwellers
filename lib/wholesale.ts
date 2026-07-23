@@ -14,3 +14,20 @@ export async function getWholesaleSession(): Promise<{ id: string; name: string;
   // re-asking — QA 16 Jul: logged-in dealers couldn't send quotes ("Name and phone required").
   return { id: c.id, name: c.name, phone: c.phone ?? "" };
 }
+
+/**
+ * A returning wholesale buyer recognised by the bd_wholesale cookie — regardless of the
+ * "approved" flag. Used to PREFILL the checkout billing form so a repeat buyer doesn't retype
+ * their details, and to show their order history. NOT a security gate (browsing & ordering are
+ * open); it only remembers who last checked out on this device.
+ */
+export type WholesaleIdentity = { id: string; name: string; phone: string; gstin: string; address: string };
+export async function getWholesaleIdentity(): Promise<WholesaleIdentity | null> {
+  const id = cookies().get("bd_wholesale")?.value;
+  if (!id) return null;
+  const { data } = await supabaseServer()
+    .from("customers").select("id,name,phone,gstin,address,type").eq("id", id).maybeSingle();
+  const c = data as any;
+  if (!c) return null;
+  return { id: c.id, name: c.name ?? "", phone: c.phone ?? "", gstin: c.gstin ?? "", address: c.address ?? "" };
+}

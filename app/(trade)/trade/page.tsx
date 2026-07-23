@@ -1,11 +1,10 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { getStorefront, getWholesaleOrderHistory, getCategories, getActivePromotions } from "@/lib/supabase/queries";
 import { supabaseServer } from "@/lib/supabase/server";
 import { PromoHero } from "@/components/site/PromoHero";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
-import { getWholesaleSession } from "@/lib/wholesale";
+import { getWholesaleSession, getWholesaleIdentity } from "@/lib/wholesale";
 import { WholesaleCatalog } from "@/components/site/WholesaleCatalog";
 import { SellForm } from "@/components/site/SellForm";
 
@@ -17,9 +16,12 @@ export const metadata: Metadata = {
 const WHOLESALE_MIN = 300000; // ₹3,000 in paise (#27)
 
 export default async function TradeDashboard() {
-  // Authoritative gate: only an approved, signed-in dealer may see trade pricing.
+  // Open portal: browsing the trade catalogue + rates is public — identity is captured at checkout.
+  // A signed-in approved dealer (session) gets the full experience; a returning guest is recognised
+  // by cookie (identity) so their billing prefills and their history shows.
   const session = await getWholesaleSession();
-  if (!session) redirect("/trade/login");
+  const identity = session ? null : await getWholesaleIdentity();
+  const known = session ?? identity;
 
   const { products, formula } = await getStorefront({ includeWholesaleOnly: true, excludeRetailOnly: true });
   const minOrder = formula.wholesaleMinOrder ?? WHOLESALE_MIN; // configurable in /admin/pricing
@@ -39,7 +41,12 @@ export default async function TradeDashboard() {
       price: ps.wholesaleRate, mrp: ps.mrp, image: imgBy.get((p as any).id) ?? null,
     };
   }).filter((x) => x.image); // 0049: photo-less designs stay off the dealer panel too
-  const history = await getWholesaleOrderHistory(session.id).catch(() => []);
+  const history = known ? await getWholesaleOrderHistory(known.id).catch(() => []) : [];
+  const savedBilling = identity
+    ? { phone: identity.phone, name: identity.name, gstin: identity.gstin, address: identity.address }
+    : session
+      ? { phone: session.phone, name: session.name, gstin: "", address: "" }
+      : null;
   const tradeQuickLinks = (
     <div className="flex flex-wrap gap-2 my-4">
       <a href="/trade/line-sheet" className="px-4 py-2 rounded-full bg-ink text-white text-sm">📄 Printable line sheet</a>
@@ -55,9 +62,10 @@ export default async function TradeDashboard() {
       <h1 className="font-display text-4xl text-ink mb-1">Dealer Dashboard</h1>
       <p className="text-sm text-muted mb-2">Factory-direct trade rates. Enter quantities and place your order — ₹{minRupees} minimum. Your margin vs MRP is shown on every line.</p>
       {tradeQuickLinks}
-      <WholesaleCatalog products={list} customerName={session.name} minOrder={minOrder} history={history} upiVpa={process.env.BUSINESS_UPI_VPA || ""} />
+      <WholesaleCatalog products={list} customerName={known?.name ?? ""} minOrder={minOrder} history={history} upiVpa={process.env.BUSINESS_UPI_VPA || ""} loggedIn={!!session} savedBilling={savedBilling} />
 
-      {/* Trade partners can offer their own designs for us to stock. */}
+      {/* Trade partners can offer their own designs for us to stock — signed-in dealers only. */}
+      {session && (
       <section className="mt-12 border-t border-sand pt-8">
         <div className="grid md:grid-cols-2 gap-8 items-start">
           <div>
@@ -78,6 +86,7 @@ export default async function TradeDashboard() {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }
