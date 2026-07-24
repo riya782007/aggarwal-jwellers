@@ -1,7 +1,7 @@
 const ITEMS = [
   { icon: "✦", t: "Anti-Tarnish Finish", s: "Premium plating" },
   { icon: "⇆", t: "7-Day Easy Returns", s: "No questions asked" },
-  { icon: "❤", t: "50,000+ Customers", s: "Across India" },
+  { icon: "🚚", t: "Pan-India Delivery", s: "Fast & tracked" },
   { icon: "₹", t: "COD Available", s: "Pay on delivery" },
 ];
 export function TrustBar() {

@@ -44,7 +44,7 @@ export default async function Shop() {
               <Link href="#bestsellers" className="btn-primary px-7 py-3 text-sm font-medium">Shop the collection</Link>
             </div>
             <div className="flex items-center gap-6 mt-8 text-sm text-muted">
-              <span>★ 4.8 avg rating</span><span>·</span><span>50,000+ customers</span><span>·</span><span>24 designs live</span>
+              <span>Anti-tarnish finish</span><span>·</span><span>Cash on Delivery</span><span>·</span><span>Free shipping over ₹999</span>
             </div>
           </div>
           <div className="relative h-[360px] md:h-[440px]">
@@ -79,7 +79,8 @@ export default async function Shop() {
         </div>
       </section>
 
-      {/* BESTSELLERS */}
+      {/* BESTSELLERS — only when products exist */}
+      {bestsellers.length > 0 && (
       <section id="bestsellers" className="max-w-7xl mx-auto px-5 py-8">
         <div className="flex items-end justify-between mb-7">
           <div>
@@ -94,21 +95,23 @@ export default async function Shop() {
           ))}
         </div>
       </section>
+      )}
 
       {/* FESTIVE BANNER */}
       <section className="max-w-7xl mx-auto px-5 py-12">
         <Reveal>
           <div className="rounded-3xl bg-ink text-cream px-8 py-12 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-20" style={{ background: "radial-gradient(circle at 20% 20%, #C79A2D, transparent 40%), radial-gradient(circle at 80% 80%, #2F6B3C, transparent 40%)" }} />
-            <p className="relative text-gold-light tracking-[0.3em] uppercase text-xs">Festive Edit</p>
-            <h2 className="relative font-display text-4xl md:text-5xl mt-2">Flat 20% off, sitewide</h2>
-            <p className="relative text-cream/70 mt-3">No code needed. Free shipping over ₹999. Cash on delivery available.</p>
+            <p className="relative text-gold-light tracking-[0.3em] uppercase text-xs">Aggarwal Jewellers</p>
+            <h2 className="relative font-display text-4xl md:text-5xl mt-2">Anti-tarnish. Trend-ready.</h2>
+            <p className="relative text-cream/70 mt-3">Handcrafted Kundan, Meena &amp; Temple jewellery. Free shipping over ₹999 · Cash on delivery.</p>
             <Link href="#bestsellers" className="relative btn-gold inline-block mt-6 px-8 py-3 text-sm font-medium">Shop now</Link>
           </div>
         </Reveal>
       </section>
 
-      {/* TRENDING */}
+      {/* TRENDING — only when products exist */}
+      {trending.length > 0 && (
       <section className="max-w-7xl mx-auto px-5 py-8">
         <h2 className="font-display text-4xl text-ink mb-7">New &amp; Trending</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
@@ -117,10 +120,12 @@ export default async function Shop() {
           ))}
         </div>
       </section>
+      )}
 
       <ReelsSection reels={reels} />
 
-      {/* REVIEWS */}
+      {/* REVIEWS — only when there are real reviews */}
+      {reviews.length > 0 && (
       <section className="bg-emerald-mist/60 py-16 mt-12">
         <div className="max-w-7xl mx-auto px-5">
           <Reveal>
@@ -142,6 +147,7 @@ export default async function Shop() {
           </div>
         </div>
       </section>
+      )}
     </>
   );
 }
