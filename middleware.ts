@@ -63,12 +63,15 @@ export async function middleware(req: NextRequest) {
   const [OWNER, STAFF] = await Promise.all([ownerToken(), staffToken()]);
 
   // ---- TRADE (wholesale) portal ----------------------------------------------------------
-  // Completely separate auth domain from /admin. Dealers carry a `bd_wholesale` cookie set by
-  // wholesaleLoginAction. Every /trade route is protected EXCEPT the login screen. This is the
-  // first, cheap gate (cookie presence); the authoritative approved-dealer check runs in each
-  // page via getWholesaleSession(). Note: an admin's bd_session does NOT grant trade access.
+  // Browsing the trade catalogue is PUBLIC — no login wall. Dealers sign in at checkout
+  // (identity captured then; billing collected if not already saved), and the min-order cap
+  // still applies. Only a dealer's *private* pages — their order history and account/billing —
+  // require the `bd_wholesale` cookie. The login screen is always open. An admin's bd_session
+  // does NOT grant trade access.
   if (path === "/trade" || path.startsWith("/trade/")) {
-    if (path === "/trade/login") return NextResponse.next();
+    const TRADE_PRIVATE = ["/trade/orders", "/trade/account"];
+    const needsDealer = TRADE_PRIVATE.some((p) => path === p || path.startsWith(p + "/"));
+    if (!needsDealer) return NextResponse.next();
     const dealer = req.cookies.get("bd_wholesale")?.value;
     if (!dealer) {
       const url = req.nextUrl.clone();
