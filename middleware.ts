@@ -69,7 +69,7 @@ export async function middleware(req: NextRequest) {
   // require the `bd_wholesale` cookie. The login screen is always open. An admin's bd_session
   // does NOT grant trade access.
   if (path === "/trade" || path.startsWith("/trade/")) {
-    const TRADE_PRIVATE = ["/trade/orders", "/trade/account"];
+    const TRADE_PRIVATE = ["/trade/orders", "/trade/account", "/trade/quote"];
     const needsDealer = TRADE_PRIVATE.some((p) => path === p || path.startsWith(p + "/"));
     if (!needsDealer) return NextResponse.next();
     const dealer = req.cookies.get("bd_wholesale")?.value;
