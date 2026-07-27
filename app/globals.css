@@ -133,6 +133,27 @@ body {
   .barcode-label .bc-sku { font-size: 6pt; margin-top: 0.5mm; }
   .barcode-label .bc-price { font-size: 7pt; }
   .barcode-label svg { height: 12mm !important; }
+
+  /* Thermal label roll (Vishal's stock): 2 stickers side by side, each 2in × 1in,
+     so the printable web is 4in (101.6mm) wide × 1in (25.4mm) per row. One row per
+     printed page = one label pair, so a continuous roll feeds cleanly with no gaps. */
+  @page thermal2up { size: 101.6mm 25.4mm; margin: 0; }
+  .print-area.thermal2up { page: thermal2up; }
+  .print-area.thermal2up .barcode-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0 !important;
+  }
+  .print-area.thermal2up .barcode-label {
+    width: 50.8mm !important;   /* 2 inch */
+    height: 25.4mm !important;  /* 1 inch */
+    padding: 1.5mm !important;
+    border-radius: 0 !important;
+    justify-content: center;
+  }
+  .print-area.thermal2up .barcode-label svg { height: 11mm !important; }
+  .print-area.thermal2up .bc-name { font-size: 6.5pt; }
+  .print-area.thermal2up .bc-sku { font-size: 6.5pt; }
+  .print-area.thermal2up .bc-price { font-size: 7pt; }
 }
 /* on-screen label sizing */
 .barcode-label .bc-name { font-size: 10px; }

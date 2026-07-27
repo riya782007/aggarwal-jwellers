@@ -24,6 +24,9 @@ type Row = {
 // extra page. `barh` is the barcode height (mm) chosen to fit the fixed cell for that density.
 // 65-up matches the standard Avery L7651 label sheet (38.1×21.2mm labels, 5×13).
 const PAPER = [
+  // Thermal label roll — 2 stickers side by side, each 2in × 1in (4in web). The owner's
+  // actual stock; `thermal` switches print to the 101.6×25.4mm named page (see globals.css).
+  { key: "thermal2", label: "Thermal roll · 2in × 1in · 2 side-by-side (4in wide)", cols: 2, rows: 1, per: 2, barh: 12, thermal: true },
   { key: "65", label: "65 per sheet (5 × 13) · A4 standard", cols: 5, rows: 13, per: 65, barh: 8.5 },
   { key: "48", label: "48 per sheet (4 × 12)", cols: 4, rows: 12, per: 48, barh: 9.5 },
   { key: "40", label: "40 per sheet (4 × 10)", cols: 4, rows: 10, per: 40, barh: 12 },
@@ -40,7 +43,7 @@ const rup = (paise?: number) => {
 export function BarcodeSheet({ products }: { products: P[] }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [paper, setPaper] = useState("65");
+  const [paper, setPaper] = useState("thermal2");
   // QR is the default label — phone cameras and 2D scanners read it natively and the error
   // correction survives smudged stickers. Code-128 stays available for legacy 1D scanners.
   const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
@@ -56,6 +59,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
     [q, products],
   );
   const preset = PAPER.find((p) => p.key === paper) ?? PAPER[0];
+  const isThermal = (preset as any).thermal === true;
   const cols = preset.cols;
   const rowsPerSheet = preset.rows;
   const per = preset.per;
@@ -199,7 +203,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
         </div>
 
         <div className="flex items-center justify-between flex-wrap gap-3 mt-5">
-          <div className="text-sm text-muted">Total Barcodes <span className="text-ink font-semibold text-base">{labels.length}</span>{labels.length > 0 && <> · ~{Math.ceil(labels.length / per)} sheet{Math.ceil(labels.length / per) === 1 ? "" : "s"}</>}</div>
+          <div className="text-sm text-muted">Total Barcodes <span className="text-ink font-semibold text-base">{labels.length}</span>{labels.length > 0 && <> · ~{Math.ceil(labels.length / per)} {(isThermal ? "strip" : "sheet")}{Math.ceil(labels.length / per) === 1 ? "" : "s"}</>}</div>
           {labels.length > 0 && (
             <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
           )}
@@ -208,7 +212,7 @@ export function BarcodeSheet({ products }: { products: P[] }) {
 
       {/* Printable label grid — density set by paper size via --bc-cols */}
       {labels.length > 0 && (
-        <div className="print-area">
+        <div className={"print-area" + (isThermal ? " thermal2up" : "")}>
           <div className="barcode-grid grid" style={{ "--bc-cols": cols, "--bc-rows": rowsPerSheet, "--bc-barh": `${preset.barh}mm`, "--bc-rowh": `${rowH_MM.toFixed(2)}mm`, "--bc-colgap": `${COL_GAP_MM}mm`, "--bc-rowgap": `${ROW_GAP_MM}mm`, gridTemplateColumns: `repeat(${cols}, 1fr)` } as any}>
             {labels.map((it, i) => {
               const line = priceLine(it);
