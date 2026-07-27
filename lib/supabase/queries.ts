@@ -797,10 +797,23 @@ export type LabelItem = {
 export async function getLabelItems(): Promise<LabelItem[]> {
   const sb = supabaseServer();
   const formula = await getPricingFormula();
-  const { data } = await sb
+  // Rich select carries per-item price overrides. PostgREST is all-or-nothing: if ANY selected
+  // column/relationship has drifted in the deployed DB (e.g. an *_override or variants.polish that
+  // a migration didn't add), the WHOLE query returns null → the labels page shows an empty product
+  // list. So, exactly like getProductBySku, fall back to a minimal always-valid select. Prices then
+  // come purely from base_wholesale + the pricing formula (overrides simply treated as absent).
+  const rich = await sb
     .from("products")
     .select("sku,name,base_wholesale,wholesale_override,retail_override,mrp_override, variants(sku,color,size,polish,wholesale_override,retail_override,mrp_override)")
     .order("sku");
+  let data = rich.data as any[] | null;
+  if (rich.error || !data) {
+    const basic = await sb
+      .from("products")
+      .select("sku,name,base_wholesale, variants(sku,color,size)")
+      .order("sku");
+    data = (basic.data as any[]) ?? [];
+  }
   const out: LabelItem[] = [];
   for (const p of (data as any[]) ?? []) {
     const vs = ((p.variants as any[]) ?? []).filter((v) => v.sku);
