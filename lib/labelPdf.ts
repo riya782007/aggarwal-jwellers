@@ -40,7 +40,12 @@ async function loadJsPdf(): Promise<any> {
   return w.jspdf.jsPDF;
 }
 
-export async function downloadLabelsPdf(labels: PdfLabel[]): Promise<void> {
+/**
+ * action="print"  → open the PDF in a new tab and auto-trigger the print dialog (no save step).
+ * action="download" → save the file to disk.
+ * The exact-size PDF is the same either way; "print" is the everyday one-click path.
+ */
+export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "download" = "print"): Promise<void> {
   if (labels.length === 0) return;
   const jsPDF = await loadJsPdf();
 
@@ -92,5 +97,17 @@ export async function downloadLabelsPdf(labels: PdfLabel[]): Promise<void> {
     }
   }
 
-  doc.save("aggarwal-labels.pdf");
+  if (action === "download") {
+    doc.save("aggarwal-labels.pdf");
+    return;
+  }
+  // One-click print: embed an auto-print action and open the PDF in a new tab, where the browser
+  // pops the print dialog straight away — no "download then open" round-trip.
+  doc.autoPrint();
+  const url = doc.output("bloburl");
+  const win = window.open(url as any, "_blank");
+  if (!win) {
+    // Popup blocked → fall back to a normal download so the labels are never lost.
+    doc.save("aggarwal-labels.pdf");
+  }
 }

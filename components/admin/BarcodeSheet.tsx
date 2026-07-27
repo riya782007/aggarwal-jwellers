@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { Barcode } from "@/components/admin/Barcode";
 import { QrCode } from "@/components/admin/QrCode";
 import { QtyField } from "@/components/admin/QtyField";
-import { downloadLabelsPdf } from "@/lib/labelPdf";
+import { makeLabelsPdf } from "@/lib/labelPdf";
 
 type P = {
   sku: string; name: string;
@@ -107,6 +107,11 @@ export function BarcodeSheet({ products }: { products: P[] }) {
     if (!w && !p) return "";
     return `A${w}${p}51`;
   };
+  // Shape the current print queue for the exact-size PDF (thermal one-click print / save).
+  const pdfLabels = () => labels.map((r) => ({
+    name: r.name, sku: r.sku, qrValue: qrValue(r.sku), priceLine: priceLine(r),
+    showName: opts.name, showSku: opts.sku,
+  }));
 
   return (
     <div>
@@ -213,14 +218,23 @@ export function BarcodeSheet({ products }: { products: P[] }) {
           <div className="text-sm text-muted">Total Barcodes <span className="text-ink font-semibold text-base">{labels.length}</span>{labels.length > 0 && <> · ~{Math.ceil(labels.length / per)} {(isThermal ? "strip" : "sheet")}{Math.ceil(labels.length / per) === 1 ? "" : "s"}</>}</div>
           {labels.length > 0 && (
             <div className="flex items-center gap-2">
-              {isThermal && labelType === "qr" && (
-                <button
-                  onClick={() => downloadLabelsPdf(labels.map((r) => ({ name: r.name, sku: r.sku, qrValue: qrValue(r.sku), priceLine: priceLine(r), showName: opts.name, showSku: opts.sku }))).catch((e) => alert(e?.message || "Couldn't generate the PDF."))}
-                  className="px-5 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald/10"
-                  title="Exact-size PDF for the thermal roll — print it at 'Actual size' (no scaling)."
-                >⬇ Download PDF (exact 2in × 1in)</button>
+              {isThermal && labelType === "qr" ? (
+                <>
+                  {/* Thermal roll → print via the exact-size PDF (opens + pops the print dialog in one
+                      click; pick "Actual size" in the dialog). Save PDF is there if they want the file. */}
+                  <button
+                    onClick={() => makeLabelsPdf(pdfLabels(), "print").catch((e) => alert(e?.message || "Couldn't generate the labels."))}
+                    className="btn-primary px-6 py-2.5 text-sm font-medium"
+                  >🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
+                  <button
+                    onClick={() => makeLabelsPdf(pdfLabels(), "download").catch((e) => alert(e?.message || "Couldn't generate the PDF."))}
+                    className="px-4 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald/10"
+                    title="Save the exact-size PDF to print later."
+                  >⬇ Save PDF</button>
+                </>
+              ) : (
+                <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
               )}
-              <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
             </div>
           )}
         </div>
