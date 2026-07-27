@@ -247,14 +247,30 @@ export function BarcodeSheet({ products }: { products: P[] }) {
             {labels.map((it, i) => {
               const line = priceLine(it);
               return (
-                <div key={i} className="barcode-label text-center bg-white break-inside-avoid">
-                  {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
-                  {labelType === "qr"
-                    ? <QrCode value={qrValue(it.sku)} size={cols >= 8 ? 34 : 44} />
-                    : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
-                  {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
-                  {line && <p className="bc-price font-medium text-ink">{line}</p>}
-                </div>
+                isThermal ? (
+                  // Thermal 2in × 1in: QR on the LEFT, text stacked on the RIGHT.
+                  <div key={i} className="barcode-label bg-white break-inside-avoid flex items-center gap-2 text-left">
+                    <div className="shrink-0" style={{ width: 54, height: 54 }}>
+                      {labelType === "qr"
+                        ? <QrCode value={qrValue(it.sku)} size={54} />
+                        : <Barcode value={it.sku} height={40} unit={1} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {opts.name && <p className="bc-name font-semibold text-ink leading-tight">{it.name}</p>}
+                      {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
+                      {line && <p className="bc-price font-medium text-ink">{line}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <div key={i} className="barcode-label text-center bg-white break-inside-avoid">
+                    {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
+                    {labelType === "qr"
+                      ? <QrCode value={qrValue(it.sku)} size={cols >= 8 ? 34 : 44} />
+                      : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
+                    {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
+                    {line && <p className="bc-price font-medium text-ink">{line}</p>}
+                  </div>
+                )
               );
             })}
           </div>

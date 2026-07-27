@@ -20,8 +20,6 @@ export type PdfLabel = {
   showSku: boolean;
 };
 
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
-
 // jsPDF is loaded on demand (only when the owner prints/saves) so it adds no weight to the main
 // bundle. It's SELF-HOSTED from /public — a same-origin script — so it works even when the shop's
 // network/firewall blocks public CDNs (which is what broke the cdnjs version).
@@ -59,22 +57,15 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       const lab = labels[i + j];
       if (!lab) continue;
       const xoff = j * HALF;
-      const cx = xoff + HALF / 2;
+      const PAD = 6;
 
-      // Product name (top, centred)
-      if (lab.showName && lab.name) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6);
-        doc.text(clip(lab.name, 34), cx, 11, { align: "center" });
-      }
-
-      // QR — vector squares, centred; the white label provides the quiet zone
+      // QR — LEFT of the label, vertically centred; white around it is the quiet zone.
       const m = qrMatrix(lab.qrValue);
       const N = m.length;
-      const QR = 34;                 // ~12mm — comfortably scannable
+      const QR = 54;                       // ~19mm — big and very scannable
       const ms = QR / N;
-      const qx = xoff + (HALF - QR) / 2;
-      const qy = 14;
+      const qx = xoff + PAD;
+      const qy = (PH - QR) / 2;            // centred in the 72pt-tall label
       doc.setFillColor(0, 0, 0);
       for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {
@@ -82,18 +73,28 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
         }
       }
 
-      // SKU + price code (below the QR)
-      let ty = qy + QR + 8;
-      doc.setFont("helvetica", "normal");
+      // Text block — RIGHT of the QR, left-aligned, stacked name → SKU → price code.
+      const tx = xoff + PAD + QR + 8;
+      const maxW = xoff + HALF - PAD - tx;  // remaining width for text
+      doc.setTextColor(0, 0, 0);
+      let y = 22;
+      if (lab.showName && lab.name) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        const lines = (doc.splitTextToSize(lab.name, maxW) as string[]).slice(0, 2);
+        for (const ln of lines) { doc.text(ln, tx, y); y += 8; }
+        y += 3;
+      }
       if (lab.showSku) {
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(6);
-        doc.text("SKU " + lab.sku, cx, ty, { align: "center" });
-        ty += 8;
+        doc.text("SKU " + lab.sku, tx, y);
+        y += 10;
       }
       if (lab.priceLine) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.text(lab.priceLine, cx, ty, { align: "center" });
+        doc.setFontSize(8);
+        doc.text(lab.priceLine, tx, y);
       }
     }
   }
