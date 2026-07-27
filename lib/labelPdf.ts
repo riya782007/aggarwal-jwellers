@@ -22,18 +22,19 @@ export type PdfLabel = {
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-// jsPDF is loaded on demand from the CDN (only when the owner clicks Download PDF) so it adds
-// no bundle weight and no npm dependency to keep in sync. cdnjs is already used elsewhere.
-const JSPDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";
+// jsPDF is loaded on demand (only when the owner prints/saves) so it adds no weight to the main
+// bundle. It's SELF-HOSTED from /public — a same-origin script — so it works even when the shop's
+// network/firewall blocks public CDNs (which is what broke the cdnjs version).
+const JSPDF_URL = "/vendor/jspdf.umd.min.js";
 async function loadJsPdf(): Promise<any> {
   const w = window as any;
   if (w.jspdf?.jsPDF) return w.jspdf.jsPDF;
   await new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = JSPDF_CDN;
+    s.src = JSPDF_URL;
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Could not load the PDF library — check your internet connection."));
+    s.onerror = () => reject(new Error("Could not load the PDF library. Reload the page and try again."));
     document.head.appendChild(s);
   });
   if (!w.jspdf?.jsPDF) throw new Error("PDF library failed to initialise.");
