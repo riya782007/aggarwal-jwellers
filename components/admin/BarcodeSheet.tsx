@@ -109,6 +109,12 @@ export function BarcodeSheet({ products }: { products: P[] }) {
 
   return (
     <div>
+      {/* Thermal roll: override the default A4 @page with the exact 4in × 1in strip only while
+          this mode is active. A plain default @page prints far more reliably to thermal drivers
+          than a named page (which Chrome scaled + rotated). */}
+      {isThermal && (
+        <style dangerouslySetInnerHTML={{ __html: "@media print{@page{size:101.6mm 25.4mm;margin:0}}" }} />
+      )}
       {/* Builder */}
       <div className="bg-white rounded-2xl p-5 shadow-card mb-5 no-print">
         <h2 className="font-medium text-ink mb-1">Add SKUs to print</h2>

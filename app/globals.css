@@ -134,11 +134,10 @@ body {
   .barcode-label .bc-price { font-size: 7pt; }
   .barcode-label svg { height: 12mm !important; }
 
-  /* Thermal label roll (Vishal's stock): 2 stickers side by side, each 2in × 1in,
-     so the printable web is 4in (101.6mm) wide × 1in (25.4mm) per row. One row per
-     printed page = one label pair, so a continuous roll feeds cleanly with no gaps. */
-  @page thermal2up { size: 101.6mm 25.4mm; margin: 0; }
-  .print-area.thermal2up { page: thermal2up; }
+  /* Thermal label roll (Vishal's stock): 2 stickers side by side, each 2in × 1in, so the
+     printable web is 4in (101.6mm) wide × 1in (25.4mm) per row. The @page SIZE for this mode
+     is injected at print time by BarcodeSheet (overriding the default A4 above) — a plain
+     default @page is honoured far more reliably by Chrome + thermal drivers than a named page. */
   .print-area.thermal2up .barcode-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 0 !important;
