@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -154,7 +155,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
         <form action={savePricingAction} className={card}>
           <input type="hidden" name="sku" value={p.sku} />
           <h3 className="font-medium text-ink mb-1">Set prices</h3>
-          <p className="text-xs text-muted mb-4">Leave a box blank to use the formula automatically. Enter a ₹ value to pin an exact price. Hierarchy: <b>variant → product → formula</b>.</p>
+          <p className="text-xs text-muted mb-4">Leave a box blank to use the formula automatically. Enter a ₹ value to pin an exact price. Hierarchy: <b>variant <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />product <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />formula</b>.</p>
 
           <p className="text-xs font-medium text-muted mb-2">Product-level (all ₹)</p>
           <div className="grid sm:grid-cols-3 gap-3 mb-5">
@@ -241,10 +242,10 @@ export default async function ProductPage({ params, searchParams }: { params: { 
       <div className="flex items-center justify-between gap-3 mb-1">
         <h3 className="font-medium text-ink">Variants</h3>
         {can(session, "catalog.ai") && (
-          <Link href={`/admin/media/${(p as any).id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ink text-white text-xs hover:bg-ink/90">✦ Open AI Studio</Link>
+          <Link href={`/admin/media/${(p as any).id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ink text-white text-xs hover:bg-ink/90"><Icon g="✦" className="w-3 h-3" />Open AI Studio</Link>
         )}
       </div>
-      <p className="text-xs text-muted mb-4">Each variant has its own <b>colour, size &amp; polish</b>, SKU, stock and photos. Variant stock total: <b className="text-ink">{variantStock}</b> pcs. Generate a <b>model photo + a branded on-stand photo per colour</b> in the <Link href={`/admin/media/${(p as any).id}`} className="text-emerald nav-link">AI Studio →</Link>. SKUs auto-generate as <code className="bg-cream px-1 rounded">{`${p.sku}-{colourCode}`}</code> — see your <Link href="/admin/colours" className="text-emerald nav-link">Colours master</Link> for the codes.</p>
+      <p className="text-xs text-muted mb-4">Each variant has its own <b>colour, size &amp; polish</b>, SKU, stock and photos. Variant stock total: <b className="text-ink">{variantStock}</b> pcs. Generate a <b>model photo + a branded on-stand photo per colour</b> in the <Link href={`/admin/media/${(p as any).id}`} className="text-emerald nav-link">AI Studio <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>. SKUs auto-generate as <code className="bg-cream px-1 rounded">{`${p.sku}-{colourCode}`}</code> — see your <Link href="/admin/colours" className="text-emerald nav-link">Colours master</Link> for the codes.</p>
 
       <div className="space-y-4 mb-4">
         {variants.length === 0 && <p className="text-sm text-muted">No variants yet — this is a simple product.</p>}
@@ -281,7 +282,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
               {/* Per-variant photos (#16) — reliable client uploader (compress + feedback, fixes large/HEIC) */}
               <div className="flex flex-wrap items-center gap-2 mt-2.5">
                 <VariantPhotos variantId={v.id} productSku={p.sku} color={v.color ?? null} images={imgs} />
-                {can(session, "catalog.ai") && <VariantAiPhoto variantId={v.id} color={v.color ?? null} size={v.size ?? null} polish={v.polish ?? null} />}
+                {can(session, "catalog.ai") && <VariantAiPhoto variantId={v.id} color={v.color ?? null} size={v.size ?? null} polish={v.polish ?? null} category={p.category?.name ?? p.name} />}
               </div>
               {/* Pillar 11 — canonical-SKU hint. If the stored SKU is from the old
                   5-char-truncation era, show the canonical form the system would now
@@ -379,7 +380,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
                   <input type="hidden" name="label_id" value={l.id} />
                   <input type="hidden" name="on" value={on ? "0" : "1"} />
                   <button className={`inline-flex items-center gap-1 rounded-full text-xs px-3 py-1.5 border transition-all ${on ? `${LABEL_CHIP[l.color] ?? LABEL_CHIP.emerald} border-transparent` : "bg-white text-muted border-sand hover:border-gold"}`}>
-                    {on ? "✓ " : "+ "}{l.name}
+                    {on ? <Icon name="check" className="inline w-3.5 h-3.5 align-[-2px] mr-1" /> : <Icon name="add" className="inline w-3.5 h-3.5 align-[-2px] mr-1" />}{l.name}
                   </button>
                 </form>
               );
@@ -398,7 +399,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
       <div className={card}>
         <h3 className="font-medium text-ink mb-2">Share</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={shareUrl} target="_blank" className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">View live page ↗</Link>
+          <Link href={shareUrl} target="_blank" className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">View live page <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
           <a href={`https://wa.me/?text=${encodeURIComponent(`${p.name} — Aggarwal Jewellers: ${shareUrl}`)}`} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-full bg-emerald-mist text-emerald-dark text-sm hover:bg-emerald-mist/70">Share on WhatsApp</a>
         </div>
         <p className="text-[11px] text-muted mt-2 break-all">{shareUrl}</p>
@@ -438,12 +439,12 @@ export default async function ProductPage({ params, searchParams }: { params: { 
       </div>
       {estReservations.length > 0 && (
         <div className={card}>
-          <h3 className="font-medium text-ink mb-1">🔖 Reserved by open estimates</h3>
+          <h3 className="font-medium text-ink mb-1"><Icon g="🔖" className="inline-block align-middle w-[1em] h-[1em]" />Reserved by open estimates</h3>
           <p className="text-xs text-muted mb-3">Soft holds — this stock only moves when the estimate is billed.</p>
           <ul className="divide-y divide-sand/60">
             {estReservations.map((e) => (
               <li key={e.id} className="py-2 flex items-center justify-between gap-3 text-sm">
-                <Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link">EST-{String(e.id).slice(0, 8).toUpperCase()} →</Link>
+                <Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link">EST-{String(e.id).slice(0, 8).toUpperCase()} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                 <span className="flex-1 text-muted truncate">{e.customer || "Walk-in"}</span>
                 <span className="text-gold-dark font-semibold whitespace-nowrap">{e.qty} pcs held</span>
                 <span className="text-muted whitespace-nowrap">{timeAgo(e.created_at)}</span>
@@ -470,7 +471,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="mb-5 max-w-4xl">
-        <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink">← Catalogue</Link>
+        <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Catalogue</Link>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           <h1 className="font-display text-4xl text-ink">{p.name}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full ${published ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>{published ? "Visible" : "Hidden"}</span>

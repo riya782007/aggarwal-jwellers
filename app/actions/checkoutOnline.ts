@@ -2,13 +2,13 @@
 /**
  * Online (Razorpay) checkout flow for the retail storefront.
  *
- *   1. createRazorpayOrderAction(items)  — server quotes the cart authoritatively, creates a
- *                                          Razorpay order for that amount, returns the handle
- *                                          the browser checkout needs.
- *   2. confirmRazorpayAction({...})       — after the customer pays, verifies the signature,
- *                                          THEN places the order in our DB (decrements stock,
- *                                          marks paid), records the payment id, and fires the
- *                                          WhatsApp confirmation.
+ * 1. createRazorpayOrderAction(items) — server quotes the cart authoritatively, creates a
+ * Razorpay order for that amount, returns the handle
+ * the browser checkout needs.
+ * 2. confirmRazorpayAction({...}) — after the customer pays, verifies the signature,
+ * THEN places the order in our DB (decrements stock,
+ * marks paid), records the payment id, and fires the
+ * WhatsApp confirmation.
  *
  * Verifying the signature server-side before placing the order is the whole security point:
  * the browser can't fake a paid order.
@@ -127,8 +127,8 @@ async function finalizeOnlineOrder(args: {
       .select("status,order_id")
       .eq("razorpay_order_id", args.razorpayOrderId)
       .maybeSingle();
-    if (existing?.order_id) return { ok: true, orderId: existing.order_id }; // already placed ✓
-    if (existing?.status === "placing") return { ok: false, retry: true };   // in flight — retry later
+    if (existing?.order_id) return { ok: true, orderId: existing.order_id }; // already placed 
+    if (existing?.status === "placing") return { ok: false, retry: true }; // in flight — retry later
     // No intent (e.g. legacy/insert failed): fall back to whatever the caller passed in.
     if (!items?.length || !customer) return { ok: false, error: "Order context missing.", retry: false };
   } else {
@@ -186,8 +186,8 @@ async function finalizeOnlineOrder(args: {
 }
 
 /** Server-to-server finaliser used by the Razorpay webhook (caller already verified the
- *  webhook signature). Exposed so app/api/razorpay/webhook can place the order from stored
- *  intent context when the browser never returned. */
+ * webhook signature). Exposed so app/api/razorpay/webhook can place the order from stored
+ * intent context when the browser never returned. */
 export async function finalizeOnlineOrderFromWebhook(razorpayOrderId: string, paymentId: string) {
   return finalizeOnlineOrder({ razorpayOrderId, paymentId });
 }

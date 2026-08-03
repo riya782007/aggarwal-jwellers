@@ -15,7 +15,7 @@ export default async function AdminReels() {
       <div className="bg-white rounded-2xl p-6 shadow-card mb-6">
         <h2 className="font-medium text-ink mb-3">Add a reel</h2>
         <form action={createReelAction} className="space-y-3">
-          <input name="caption" placeholder="Caption (e.g. Bridal Kundan edit ✨)" className={input} />
+          <input name="caption" placeholder="Caption (e.g. Bridal Kundan edit )" className={input} />
           <div>
             <label className="text-sm font-medium text-ink">Upload a video <span className="text-muted font-normal">(short .mp4 — autoplays on the site)</span></label>
             <input type="file" name="video" accept="video/*" className="mt-1 block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />

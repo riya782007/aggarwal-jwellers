@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
@@ -12,7 +13,7 @@ import { SubmitOnce } from "@/components/admin/SubmitOnce";
 export const metadata = { title: "Owner Console · Website Orders" };
 
 const TABS = [
-  { key: "new", label: "🔔 New — needs a decision" },
+  { key: "new", label: " New — needs a decision" },
   { key: "accepted", label: "Being prepared" },
   { key: "dispatched", label: "On the way" },
   { key: "all", label: "All website orders" },
@@ -45,7 +46,7 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
       <div className="mb-3"><TableSearch targetId="orders-list" placeholder="Search orders — customer, phone, order no…" /></div>
 
       <div id="orders-list" className="space-y-3">
-        {rows.length === 0 && <div className="bg-white rounded-2xl p-8 shadow-card text-center text-muted">Nothing here right now. 🎉</div>}
+        {rows.length === 0 && <div className="bg-white rounded-2xl p-8 shadow-card text-center text-muted">Nothing here right now. <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></div>}
         {rows.map((o: any) => {
           const grand = orderGrandPaise(o);
           const dead = isDeadOrder(o.status);
@@ -64,16 +65,16 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                     <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${o.channel === "wholesale" ? "bg-gold/15 text-gold-dark" : "bg-emerald-mist text-emerald-dark"}`}>{o.channel}</span>
                     <span className={`text-[11px] px-2 py-0.5 rounded-full ${o.payment_mode === "cod" ? "bg-wine/10 text-wine" : "bg-ink/5 text-ink"}`}>{o.payment_mode === "cod" ? "COD — collect on delivery" : "Prepaid"}</span>
                     <span className={`text-[11px] px-2 py-0.5 rounded-full ${dead ? "bg-rose/10 text-rose" : stage === "New" ? "bg-gold/15 text-gold-dark" : "bg-emerald-mist text-emerald-dark"}`}>{stage}</span>
-                    {o.channel === "wholesale" && o.payment_confirmed_at && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-mist text-emerald-dark">Paid ✓ UPI</span>}
-                    {awaitingWholesalePay && <span className="text-[11px] px-2 py-0.5 rounded-full bg-gold/15 text-gold-dark">💳 Awaiting payment</span>}
+                    {o.channel === "wholesale" && o.payment_confirmed_at && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-mist text-emerald-dark">Paid <Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />UPI</span>}
+                    {awaitingWholesalePay && <span className="text-[11px] px-2 py-0.5 rounded-full bg-gold/15 text-gold-dark"><Icon g="💳" className="inline-block align-middle w-[1em] h-[1em]" />Awaiting payment</span>}
                   </div>
                   <p className="text-ink mt-1.5">{o.customer_name || "Customer"}{o.customer_phone && <span className="text-muted"> · {o.customer_phone}</span>}</p>
-                  {(o.customer?.address || o.customer?.city) && <p className="text-xs text-muted mt-0.5">📍 {[o.customer?.address, o.customer?.city].filter(Boolean).join(", ")}</p>}
+                  {(o.customer?.address || o.customer?.city) && <p className="text-xs text-muted mt-0.5"><Icon g="📍" className="inline-block align-middle w-[1em] h-[1em]" /> {[o.customer?.address, o.customer?.city].filter(Boolean).join(", ")}</p>}
                   <p className="text-xs text-muted mt-0.5">{o.itemCount} pc(s) · {new Date(o.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xl font-semibold text-ink">{formatPaise(grand)}</p>
-                  {waLink(o.customer_phone) && <a href={waLink(o.customer_phone, `Namaste ${o.customer_name ?? ""}! About your Aggarwal Jewellers order ${String(o.id).slice(0, 8).toUpperCase()}…`)} target="_blank" className="text-xs text-emerald nav-link">WhatsApp customer ↗</a>}
+                  {waLink(o.customer_phone) && <a href={waLink(o.customer_phone, `Namaste ${o.customer_name ?? ""}! About your Aggarwal Jewellers order ${String(o.id).slice(0, 8).toUpperCase()}…`)} target="_blank" className="text-xs text-emerald nav-link">WhatsApp customer <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a>}
                 </div>
               </div>
 
@@ -82,7 +83,7 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                 <div className="mt-4 pt-3 border-t border-sand/60">
                   <div className="rounded-xl bg-gold/5 border border-gold/30 p-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gold-dark">💳 Awaiting UPI payment · {formatPaise(grand)}</p>
+                      <p className="text-sm font-medium text-gold-dark"><Icon g="💳" className="inline-block align-middle w-[1em] h-[1em]" />Awaiting UPI payment · {formatPaise(grand)}</p>
                       <p className="text-xs text-muted mt-0.5">
                         {o.payment_ref
                           ? <>Dealer marked it paid — reference <b className="text-ink">{o.payment_ref}</b>. </>
@@ -93,7 +94,7 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                     {canSell && (
                       <form action={confirmWholesalePaymentAction}>
                         <input type="hidden" name="order_id" value={o.id} />
-                        <ConfirmSubmit message={`Confirm you've received ${formatPaise(grand)} for this order in your ICICI account? It will be marked fully paid and dispatch will unlock.`} className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark whitespace-nowrap">✓ Payment received</ConfirmSubmit>
+                        <ConfirmSubmit message={`Confirm you've received ${formatPaise(grand)} for this order in your ICICI account? It will be marked fully paid and dispatch will unlock.`} className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark whitespace-nowrap"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Payment received</ConfirmSubmit>
                       </form>
                     )}
                   </div>
@@ -104,27 +105,27 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-sand/60">
                   {stage === "New" && canSell && !awaitingWholesalePay && (
                     <form action={acceptOrderAction}><input type="hidden" name="order_id" value={o.id} />
-                      <SubmitOnce className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✓ Accept order</SubmitOnce>
+                      <SubmitOnce className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Accept order</SubmitOnce>
                     </form>
                   )}
                   {stage === "New" && canRefund && (
                     <form action={rejectOrderAction} className="flex items-center gap-2">
                       <input type="hidden" name="order_id" value={o.id} />
                       <input name="reason" placeholder="Reason" className="rounded-xl border border-sand px-3 py-1.5 text-xs outline-none focus:border-emerald w-36" />
-                      <ConfirmSubmit message="Reject this order? It will be cancelled — stock restored and any payment reversed." className="px-4 py-2 rounded-full bg-rose/10 text-rose text-sm font-medium hover:bg-rose/20">✗ Reject</ConfirmSubmit>
+                      <ConfirmSubmit message="Reject this order? It will be cancelled — stock restored and any payment reversed." className="px-4 py-2 rounded-full bg-rose/10 text-rose text-sm font-medium hover:bg-rose/20"><Icon g="✗" className="inline-block align-middle w-[1em] h-[1em]" />Reject</ConfirmSubmit>
                     </form>
                   )}
                   {stage === "Preparing" && canSell && (
                     <form action={dispatchOrderAction}><input type="hidden" name="order_id" value={o.id} />
-                      <SubmitOnce className="px-4 py-2 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink/90">📦 Mark dispatched</SubmitOnce>
+                      <SubmitOnce className="px-4 py-2 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink/90"><Icon g="📦" className="inline-block align-middle w-[1em] h-[1em]" />Mark dispatched</SubmitOnce>
                     </form>
                   )}
                   {stage === "Dispatched" && canSell && (
                     <form action={deliverOrderAction}><input type="hidden" name="order_id" value={o.id} />
-                      <ConfirmSubmit message={o.payment_mode === "cod" ? "Mark delivered? The COD amount due will be recorded as cash collected." : "Mark delivered?"} className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark">✅ Mark delivered{o.payment_mode === "cod" ? " + collect COD" : ""}</ConfirmSubmit>
+                      <ConfirmSubmit message={o.payment_mode === "cod" ? "Mark delivered? The COD amount due will be recorded as cash collected." : "Mark delivered?"} className="px-4 py-2 rounded-full bg-emerald text-white text-sm font-medium hover:bg-emerald-dark"><Icon g="✅" className="inline-block align-middle w-[1em] h-[1em]" />Mark delivered{o.payment_mode === "cod" ? " + collect COD" : ""}</ConfirmSubmit>
                     </form>
                   )}
-                  <Link href={`/admin/invoice/${o.id}`} className="ml-auto text-xs text-muted hover:text-ink">Open bill →</Link>
+                  <Link href={`/admin/invoice/${o.id}`} className="ml-auto text-xs text-muted hover:text-ink">Open bill <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                 </div>
               )}
             </div>

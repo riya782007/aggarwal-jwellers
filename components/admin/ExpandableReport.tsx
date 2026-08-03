@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import Link from "next/link";
 import { formatPaise } from "@/lib/pricing";
@@ -37,7 +38,7 @@ export function ExpandableReport({
                 <tbody>
                   {orders.map((o) => (
                     <tr key={o.id} className="border-t border-sand/50">
-                      <td className="py-1.5"><Link href={`/admin/invoice/${o.id}`} className="text-emerald nav-link">{String(o.id).slice(0, 8).toUpperCase()} ↗</Link></td>
+                      <td className="py-1.5"><Link href={`/admin/invoice/${o.id}`} className="text-emerald nav-link">{String(o.id).slice(0, 8).toUpperCase()} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link></td>
                       <td className="py-1.5 text-muted">{new Date(o.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</td>
                       <td className="py-1.5 text-ink">{o.customer_name || "Walk-in"}</td>
                       <td className="py-1.5 text-right font-medium">{formatPaise(o.total)}</td>
@@ -47,7 +48,7 @@ export function ExpandableReport({
               </table>
             </div>
           )}
-          <Link href={deep} className="inline-block mt-3 text-sm text-emerald nav-link">Open full {title} report →</Link>
+          <Link href={deep} className="inline-block mt-3 text-sm text-emerald nav-link">Open full {title}report <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
       )}
     </div>

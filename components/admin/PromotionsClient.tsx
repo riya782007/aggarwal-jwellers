@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * Promotions studio — the owner types a rough festive idea, ChatGPT refines it into a poster prompt,
  * Gemini (Nano Banana) renders a high-quality poster, and the retail / wholesale toggles push it to
@@ -47,7 +48,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
       setTitle(r.title ?? "Festive Campaign");
       setRefined(r.refinedPrompt ?? "");
       if (r.categorySlug && categories.some((c) => c.slug === r.categorySlug)) setCategorySlug(r.categorySlug);
-      toast("Prompt refined by ChatGPT ✨ — review, then generate", "success");
+      toast("Prompt refined by ChatGPT — review, then generate", "success");
     } else toast(r.error ?? "Couldn't refine", "error");
   }
 
@@ -57,7 +58,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
     setGenerating(true); setPreviewUrl(null);
     const r = await generatePromoAction({ refinedPrompt: prompt, title, idea, categorySlug: categorySlug || null, aspect, promotionId });
     setGenerating(false);
-    if (r.ok && r.url) { setPreviewUrl(r.url); setPromotionId(r.id); toast("Poster generated ✓ — set toggles & publish", "success"); router.refresh(); }
+    if (r.ok && r.url) { setPreviewUrl(r.url); setPromotionId(r.id); toast("Poster generated — set toggles & publish", "success"); router.refresh(); }
     else toast(r.error ?? "Couldn't generate the poster", "error");
   }
 
@@ -68,7 +69,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
     const r = await publishPromoAction({ id: promotionId, showRetail, showWholesale, categorySlug: categorySlug || null });
     setPublishing(false);
     if (r.ok) {
-      toast(`Published ✓ — live on ${[showRetail && "storefront", showWholesale && "wholesale"].filter(Boolean).join(" & ")} hero`, "success");
+      toast(`Published — live on ${[showRetail && "storefront", showWholesale && "wholesale"].filter(Boolean).join(" & ")} hero`, "success");
       router.refresh();
     } else toast(r.error ?? "Couldn't publish", "error");
   }
@@ -77,7 +78,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
     const showR = which === "retail" ? on : p.show_retail;
     const showW = which === "wholesale" ? on : p.show_wholesale;
     const r = await publishPromoAction({ id: p.id, showRetail: showR, showWholesale: showW, categorySlug: p.category?.slug ?? null });
-    if (r.ok) { toast("Updated ✓", "success"); router.refresh(); } else toast(r.error ?? "Couldn't update", "error");
+    if (r.ok) { toast("Updated", "success"); router.refresh(); } else toast(r.error ?? "Couldn't update", "error");
   }
 
   return (
@@ -94,7 +95,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
             <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={3} className={field}
               placeholder="e.g. Diwali sale, flat 30% off on kundan necklaces, festive vibe" />
             <button onClick={refine} disabled={refining || !ready.openai} className="mt-2 px-4 py-2 rounded-xl bg-emerald text-white text-sm disabled:opacity-50">
-              {refining ? "Refining…" : "✨ Refine with ChatGPT"}
+              {refining ? "Refining…" : " Refine with ChatGPT"}
             </button>
           </div>
 
@@ -128,7 +129,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
           </div>
 
           <button onClick={generate} disabled={generating || !refined.trim() || !ready.gemini} className="w-full px-4 py-2.5 rounded-xl bg-ink text-white text-sm disabled:opacity-50">
-            {generating ? "Generating poster… (15–40s)" : "🎨 Generate poster with Gemini"}
+            {generating ? "Generating poster… (15–40s)" : " Generate poster with Gemini"}
           </button>
         </section>
 
@@ -137,7 +138,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
           <p className="text-sm font-medium text-ink mb-2">Preview</p>
           <div className="rounded-xl bg-cream border border-sand overflow-hidden grid place-items-center min-h-[220px]">
             {previewUrl ? <img src={previewUrl} alt="poster" className="w-full h-auto" />
-              : <span className="text-xs text-muted p-6 text-center">Your generated poster appears here. Refine an idea → generate → then choose where to publish.</span>}
+              : <span className="text-xs text-muted p-6 text-center">Your generated poster appears here. Refine an idea <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />generate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />then choose where to publish.</span>}
             {generating && <span className="text-xs text-muted p-4">Generating…</span>}
           </div>
 
@@ -145,11 +146,11 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
             <div className="mt-4 space-y-3">
               <p className="text-xs text-muted">Choose where this poster goes live. The system places it in the hero of the selected section.</p>
               <label className="flex items-center justify-between rounded-xl border border-sand px-3 py-2.5">
-                <span className="text-sm text-ink">🛍 Publish on storefront (retail)</span>
+                <span className="text-sm text-ink"><Icon g="🛍" className="inline-block align-middle w-[1em] h-[1em]" />Publish on storefront (retail)</span>
                 <input type="checkbox" checked={showRetail} onChange={(e) => setShowRetail(e.target.checked)} className="accent-emerald w-4 h-4" />
               </label>
               <label className="flex items-center justify-between rounded-xl border border-sand px-3 py-2.5">
-                <span className="text-sm text-ink">📦 Publish on wholesale panel</span>
+                <span className="text-sm text-ink"><Icon g="📦" className="inline-block align-middle w-[1em] h-[1em]" />Publish on wholesale panel</span>
                 <input type="checkbox" checked={showWholesale} onChange={(e) => setShowWholesale(e.target.checked)} className="accent-emerald w-4 h-4" />
               </label>
               <div className="flex items-center gap-2">
@@ -180,8 +181,8 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
                   </div>
                   <p className="text-[11px] text-muted mt-0.5">{p.category?.name ? `Section: ${p.category.name}` : "Whole shop"}</p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
-                    <button onClick={() => toggleScope(p, "retail", !p.show_retail)} className={`px-2 py-1 rounded-full border ${p.show_retail ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}>🛍 Retail</button>
-                    <button onClick={() => toggleScope(p, "wholesale", !p.show_wholesale)} className={`px-2 py-1 rounded-full border ${p.show_wholesale ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}>📦 Wholesale</button>
+                    <button onClick={() => toggleScope(p, "retail", !p.show_retail)} className={`px-2 py-1 rounded-full border ${p.show_retail ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}><Icon g="🛍" className="inline-block align-middle w-[1em] h-[1em]" />Retail</button>
+                    <button onClick={() => toggleScope(p, "wholesale", !p.show_wholesale)} className={`px-2 py-1 rounded-full border ${p.show_wholesale ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}><Icon g="📦" className="inline-block align-middle w-[1em] h-[1em]" />Wholesale</button>
                     <a href={p.image_path ?? "#"} target="_blank" className="px-2 py-1 rounded-full bg-ink/5 hover:bg-ink/10">View</a>
                     <form action={setPromoStatusAction} className="inline">
                       <input type="hidden" name="id" value={p.id} />

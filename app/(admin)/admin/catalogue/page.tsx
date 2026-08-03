@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getProductsPage, getPricingFormula, getCategories } from "@/lib/supabase/queries";
@@ -51,11 +52,11 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
           <p className="text-sm text-muted">{total} products · AI-drafted pages, one-tap approve</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canCreate && <Link href="/admin/upload" className="px-4 py-2.5 text-sm font-medium rounded-full bg-ink text-white hover:bg-ink/90 transition-colors" title="Add a new product / inventory">＋ Add inventory</Link>}
+          {canCreate && <Link href="/admin/upload" className="px-4 py-2.5 text-sm font-medium rounded-full bg-ink text-white hover:bg-ink/90 transition-colors" title="Add a new product / inventory"><Icon g="＋" className="inline-block align-middle w-[1em] h-[1em]" />Add inventory</Link>}
           {canPrice && <Link href="/admin/pricing" className="px-3 py-2.5 text-sm font-medium rounded-full border border-sand text-muted hover:border-emerald hover:text-ink transition-colors" title="Pricing formula — markup & retail/MRP multipliers (fixed setup)">％ Pricing</Link>}
-          <Link href="/catalog" target="_blank" className="px-4 py-2.5 text-sm font-medium rounded-full bg-gold text-ink hover:opacity-90 transition-opacity">📤 Share Catalogue ↗</Link>
+          <Link href="/catalog" target="_blank" className="px-4 py-2.5 text-sm font-medium rounded-full bg-gold text-ink hover:opacity-90 transition-opacity"><Icon g="📤" className="inline-block align-middle w-[1em] h-[1em]" />Share Catalogue <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
           {canAi && <>
-            <form action={genAllContent}><button className="btn-primary px-4 py-2.5 text-sm font-medium">✨ Generate all AI pages</button></form>
+            <form action={genAllContent}><button className="btn-primary px-4 py-2.5 text-sm font-medium"><Icon g="✨" className="inline-block align-middle w-[1em] h-[1em]" />Generate all AI pages</button></form>
             <form action={genEmbeddings}><button className="px-4 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald-mist transition-colors">⌖ Build recommendations</button></form>
           </>}
         </div>

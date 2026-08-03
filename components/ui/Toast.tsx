@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useCallback } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 type ToastType = "success" | "info" | "error";
 type Toast = { id: number; msg: string; type: ToastType };
@@ -10,7 +11,7 @@ const STYLE: Record<ToastType, string> = {
   info: "bg-ink text-cream",
   error: "bg-rose text-white",
 };
-const ICON: Record<ToastType, string> = { success: "✓", info: "✦", error: "!" };
+const ICON: Record<ToastType, string> = { success: "check", info: "info", error: "warn" };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
@@ -25,7 +26,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] space-y-2 pointer-events-none w-max max-w-[92vw]">
         {items.map((t) => (
           <div key={t.id} className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-luxe animate-[fadeUp_.3s_ease] ${STYLE[t.type]}`}>
-            <span className="opacity-90">{ICON[t.type]}</span>{t.msg}
+            <span className="opacity-90"><Icon name={ICON[t.type]} className="w-4 h-4" /></span>{t.msg}
           </div>
         ))}
       </div>

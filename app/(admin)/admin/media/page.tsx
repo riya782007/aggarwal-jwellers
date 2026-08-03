@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { getProductsWithMedia } from "@/lib/supabase/queries";
 import { geminiConfigured } from "@/lib/ai/gemini";
@@ -11,9 +12,9 @@ export default async function Media() {
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Product Photos</h1>
-      <p className="text-sm text-muted mb-2">Upload the raw design shot → generate a ready-to-publish professional model photo → add angles. The AI reproduces your design exactly.</p>
+      <p className="text-sm text-muted mb-2">Upload the raw design shot <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />generate a ready-to-publish professional model photo <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />add angles. The AI reproduces your design exactly.</p>
       <div className={`rounded-xl px-4 py-2.5 mb-5 text-sm ${ready ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>
-        {ready ? "● AI photo generation connected — generate professional photos from raw shots (Gemini, with OpenAI fallback)." : "○ Not connected — add GEMINI_API_KEY or OPENAI_API_KEY to enable photo generation. You can still upload raw photos now."}
+        {ready ? "AI photo generation connected — generate professional photos from raw shots (Gemini, with OpenAI fallback)." : "Not connected — add GEMINI_API_KEY or OPENAI_API_KEY to enable photo generation. You can still upload raw photos now."}
       </div>
       <p className="text-xs text-muted mb-3">Open a product's <b>AI Studio</b> to generate a hero, angles &amp; enhancements with art-direction controls.</p>
       <MediaSearchGrid products={products as any} ready={ready} />

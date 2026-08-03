@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 
 type Promo = { id: string; title: string | null; image_path: string; cta_href: string | null; category?: { slug?: string; name?: string } | null };
@@ -14,8 +15,7 @@ export function PromoHero({ promos }: { promos: Promo[] }) {
   return (
     <Link href={href} aria-label={p.title ?? "View offer"} className="block group relative">
       <img src={p.image_path} alt={p.title ?? "Festive offer"} className="w-full h-auto max-h-[70vh] object-cover" />
-      <span className="absolute bottom-3 right-3 rounded-full bg-white/90 text-ink text-xs font-medium px-3.5 py-1.5 shadow-sm opacity-90 group-hover:opacity-100 transition">
-        Shop now →
+      <span className="absolute bottom-3 right-3 rounded-full bg-white/90 text-ink text-xs font-medium px-3.5 py-1.5 shadow-sm opacity-90 group-hover:opacity-100 transition">Shop now <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />
       </span>
     </Link>
   );

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
@@ -73,7 +74,7 @@ export default async function Backorders() {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={7} className="p-4 text-muted">No backorders — every sale so far was within stock. 🎉</td></tr>
+                  <tr><td colSpan={7} className="p-4 text-muted">No backorders — every sale so far was within stock. <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></td></tr>
                 )}
                 {rows.map((r) => {
                   const paid = r.amount_paid ?? 0;
@@ -83,7 +84,7 @@ export default async function Backorders() {
                     <tr key={r.id} className="border-t border-sand/60 hover:bg-cream/40">
                       <td className="p-3">
                         <Link href={`/admin/invoice/${r.id}`} className="text-emerald nav-link font-medium">
-                          {r.invoice_no || String(r.id).slice(0, 8).toUpperCase()} ↗
+                          {r.invoice_no || String(r.id).slice(0, 8).toUpperCase()} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" />
                         </Link>
                       </td>
                       <td className="p-3 text-muted whitespace-nowrap">{new Date(r.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
@@ -94,7 +95,7 @@ export default async function Backorders() {
                       <td className="p-3 text-right">
                         <form action={fulfillBackorderAction}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button className="px-2.5 py-1 rounded-full bg-emerald text-white text-xs font-medium hover:bg-emerald-dark whitespace-nowrap" title="Stock has arrived — mark this backorder fulfilled and count it as a normal sale">✓ Convert to sale</button>
+                          <button className="px-2.5 py-1 rounded-full bg-emerald text-white text-xs font-medium hover:bg-emerald-dark whitespace-nowrap" title="Stock has arrived — mark this backorder fulfilled and count it as a normal sale"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Convert to sale</button>
                         </form>
                       </td>
                     </tr>

@@ -3,11 +3,12 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { divaPlan, divaRun, getDivaSuggestions, type DivaSuggestion } from "@/app/actions/diva";
+import { Icon } from "@/components/ui/Icon";
 
 type Msg = { who: "owner" | "diva"; text: string };
 type Step = { tool: string; args: Record<string, any>; label: string; kind: string; needsConfirm: boolean; status: "pending" | "running" | "done" | "error" | "skipped"; message?: string; confirmed?: boolean };
 
-const STATUS_ICON: Record<string, string> = { pending: "○", running: "◔", done: "✓", error: "✕", skipped: "—" };
+const STATUS_ICON: Record<string, string> = { pending: "pending", running: "pending", done: "check", error: "close", skipped: "remove" };
 
 export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const router = useRouter();
@@ -17,7 +18,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const [busy, setBusy] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [listening, setListening] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime. 🏭 NEW: ek voice note me kai products bolo — “gold jhumka 50 piece cost 80, oxidised kada 30 piece 120” — main sab create karungi; phir “photos banao” aur “sab publish kar do”." }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ who: "diva", text: "Hi Aggarwal, I'm DIVA. Talk to me in English, Hindi or Hinglish — e.g. “AJ1010 me 20 add kar do”, “Blue kundan necklace ka stock kitna hai?”, “AJ1004 ka wholesale price?”, “oxidised necklace ka catalog whatsapp pe bhejo”, “new product create karo”, “customer Ravi ko wholesale bana do”, “pending orders dikhao”. Speak or type — you can Stop me anytime. NEW: ek voice note me kai products bolo — “gold jhumka 50 piece cost 80, oxidised kada 30 piece 120” — main sab create karungi; phir “photos banao” aur “sab publish kar do”." }]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<DivaSuggestion[] | null>(null);
@@ -85,9 +86,9 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
       const errN = s.filter((x) => x.status === "error").length;
       const skipN = s.filter((x) => x.status === "skipped").length;
       const clean = errN === 0 && skipN === 0;
-      toast(clean ? "DIVA finished ✓" : "DIVA finished with issues", clean ? undefined : "error");
+      toast(clean ? "DIVA finished" : "DIVA finished with issues", clean ? undefined : "error");
       // Honest summary — never claim "Done" when a step actually failed.
-      const summaryText = clean ? (okN ? "All done ✓" : "Nothing to do.") : `Finished — ${okN} done${errN ? `, ${errN} couldn't run` : ""}${skipN ? `, ${skipN} skipped` : ""}. Check the lines marked ✕.`;
+      const summaryText = clean ? (okN ? "All done." : "Nothing to do.") : `Finished — ${okN} done${errN ? `, ${errN} couldn't run` : ""}${skipN ? `, ${skipN} skipped` : ""}. Check the lines that couldn't run.`;
       setMsgs((m) => [...m, { who: "diva", text: summaryText }]);
       const lastMsg = [...stepsRef.current].reverse().find((x) => x.status === "done" && x.message)?.message;
       speak(lastMsg && okN === 1 && errN === 0 ? lastMsg : summaryText);
@@ -140,8 +141,8 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
             <button onClick={() => setVoiceLang((l) => (l === "hi-IN" ? "en-IN" : "hi-IN"))} title="Mic language (Hindi / English)"
               className="text-[11px] font-semibold px-2 py-1 rounded-full bg-white/10 text-cream/80 hover:text-white transition-colors">{voiceLang === "hi-IN" ? "हिं" : "EN"}</button>
             <button onClick={() => setSpeakBack((v) => !v)} title={speakBack ? "Voice replies on" : "Voice replies off"}
-              className="text-sm px-1 text-cream/80 hover:text-white transition-colors">{speakBack ? "🔊" : "🔇"}</button>
-            <button onClick={() => setOpen(false)} className="text-cream/70 hover:text-white text-lg px-1">✕</button>
+              className="text-sm px-1 text-cream/80 hover:text-white transition-colors"><Icon g={speakBack ? "🔊" : "🔇"} className="w-4 h-4" /></button>
+            <button onClick={() => setOpen(false)} className="text-cream/70 hover:text-white px-1"><Icon g="✕" className="w-4 h-4" /></button>
           </div>
 
           <div ref={logRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-cream/30">
@@ -161,7 +162,7 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
                 {steps.map((s, i) => (
                   <div key={i} className="text-sm">
                     <div className="flex items-center gap-2">
-                      <span className={`w-4 text-center ${s.status === "done" ? "text-emerald" : s.status === "error" ? "text-rose" : s.status === "running" ? "text-gold-dark animate-pulse" : "text-muted"}`}>{STATUS_ICON[s.status]}</span>
+                      <span className={`w-4 flex justify-center ${s.status === "done" ? "text-emerald" : s.status === "error" ? "text-rose" : s.status === "running" ? "text-gold-dark animate-pulse" : "text-muted"}`}><Icon name={STATUS_ICON[s.status]} className="w-3.5 h-3.5" /></span>
                       <span className={`flex-1 ${s.status === "skipped" ? "line-through text-muted" : "text-ink"}`}>{s.label}</span>
                       {s.needsConfirm && s.status === "pending" && <span className="text-[10px] text-gold-dark">needs OK</span>}
                     </div>
@@ -187,18 +188,18 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
                 {suggestions.slice(0, 3).map((s) => (
                   <button key={s.id} onClick={() => submit(s.command)}
                     className="w-full text-left text-xs px-3 py-2 rounded-xl bg-cream hover:bg-emerald-mist/50 text-ink flex items-start gap-2 transition-colors">
-                    <span aria-hidden>{s.icon}</span><span className="flex-1">{s.text}</span>
+                    <span aria-hidden className="mt-0.5"><Icon g={s.icon} className="w-4 h-4" /></span><span className="flex-1">{s.text}</span>
                   </button>
                 ))}
               </div>
             )}
             <div className="flex items-center gap-2">
-              <button onClick={toggleMic} title="Speak" className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${listening ? "bg-rose text-white animate-pulse" : "bg-cream text-ink hover:bg-emerald-mist"}`}>🎤</button>
+              <button onClick={toggleMic} title="Speak" className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${listening ? "bg-rose text-white animate-pulse" : "bg-cream text-ink hover:bg-emerald-mist"}`}><Icon g="🎤" className="w-5 h-5" /></button>
               <input
                 value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()}
                 placeholder={busy ? "Type to redirect DIVA…" : listening ? "Listening…" : "Tell DIVA what to do…"}
                 className="flex-1 rounded-full border border-sand px-4 py-2.5 text-sm outline-none focus:border-emerald" />
-              <button onClick={() => submit()} disabled={!input.trim()} className="btn-primary w-10 h-10 shrink-0 rounded-full flex items-center justify-center disabled:opacity-50">➤</button>
+              <button onClick={() => submit()} disabled={!input.trim()} className="btn-primary w-10 h-10 shrink-0 rounded-full flex items-center justify-center disabled:opacity-50"><Icon g="➤" className="w-4 h-4" /></button>
             </div>
           </div>
         </div>

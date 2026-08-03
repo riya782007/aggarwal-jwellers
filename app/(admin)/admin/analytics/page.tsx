@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Owner Console · Analytics & SEO" };
@@ -12,7 +13,7 @@ function Card({ href, title, sub, accent }: { href: string; title: string; sub: 
   return (
     <a href={href} target="_blank" rel="noreferrer"
       className={`block rounded-2xl p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-luxe ${accent ? "bg-ink text-cream" : "bg-white"}`}>
-      <p className={`font-medium ${accent ? "text-ivory" : "text-ink"}`}>{title} <span className="opacity-60">↗</span></p>
+      <p className={`font-medium ${accent ? "text-ivory" : "text-ink"}`}>{title} <span className="opacity-60"><Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></span></p>
       <p className={`text-sm mt-1 ${accent ? "text-cream/70" : "text-muted"}`}>{sub}</p>
     </a>
   );
@@ -35,7 +36,7 @@ export default function Analytics() {
         <Card href={ga("/reports/intelligenthome")} title="Reports" sub="Visitors, sources, top pages" />
         <Card href="https://analytics.google.com/" title="Full dashboard" sub="Everything in Google Analytics" />
       </div>
-      {!PID && <p className="text-xs text-muted mb-6">Tip: for one-click deep links straight to these reports, add <span className="font-mono">NEXT_PUBLIC_GA4_PROPERTY_ID</span> (the numeric Property ID from GA → Admin → Property Settings).</p>}
+      {!PID && <p className="text-xs text-muted mb-6">Tip: for one-click deep links straight to these reports, add <span className="font-mono">NEXT_PUBLIC_GA4_PROPERTY_ID</span>(the numeric Property ID from GA <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />Admin <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />Property Settings).</p>}
 
       <h2 className="font-medium text-ink mt-6 mb-3">What you'll see there</h2>
       <div className="grid sm:grid-cols-2 gap-3 mb-8">

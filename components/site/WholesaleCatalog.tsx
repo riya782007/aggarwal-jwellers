@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useMemo } from "react";
 import { formatPaise } from "@/lib/pricing";
 import { ProductImage } from "@/components/Placeholder";
@@ -129,7 +130,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
       <div className="rounded-3xl bg-white border border-sand shadow-card p-8 sm:p-10 text-center max-w-lg mx-auto">
         {claimed ? (
           <>
-            <p className="text-5xl mb-3">✓</p>
+            <p className="text-5xl mb-3"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></p>
             <h2 className="font-display text-3xl text-ink">Thank you!</h2>
             <p className="text-muted mt-2">We&apos;ve noted your payment for order <b className="text-ink">{done.id.slice(0, 8).toUpperCase()}</b>. As soon as we see it in our account we&apos;ll start preparing your order and confirm on WhatsApp.</p>
             <button onClick={() => { setDone(null); setClaimed(false); setPayRef(""); }} className="btn-primary px-6 py-2.5 text-sm font-medium mt-5">Place another order</button>
@@ -201,7 +202,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
               </div>
               <div className="text-right shrink-0">
                 <p className="font-semibold text-ink">{formatPaise(h.total)}</p>
-                <button onClick={() => reorder(h)} className="text-xs text-emerald nav-link">↻ Reorder these</button>
+                <button onClick={() => reorder(h)} className="text-xs text-emerald nav-link"><Icon g="↻" className="inline-block align-middle w-[1em] h-[1em]" />Reorder these</button>
               </div>
             </div>
           ))}
@@ -216,7 +217,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <details className="relative">
-              <summary className="cursor-pointer list-none px-4 py-2 rounded-full border border-sand text-sm text-ink hover:border-gold">⚡ Quick order</summary>
+              <summary className="cursor-pointer list-none px-4 py-2 rounded-full border border-sand text-sm text-ink hover:border-gold"><Icon g="⚡" className="inline-block align-middle w-[1em] h-[1em]" />Quick order</summary>
               <div className="absolute right-0 z-20 mt-2 w-80 bg-white rounded-2xl shadow-luxe border border-sand p-3">
                 <p className="text-xs text-muted mb-2">Paste one per line: <code className="bg-cream px-1 rounded">SKU qty</code> (e.g. <code className="bg-cream px-1 rounded">AJ1001 12</code>).</p>
                 <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} rows={5} className="w-full rounded-xl border border-sand px-3 py-2 text-sm font-mono outline-none focus:border-emerald" placeholder={"AJ1001 12\nBD1002 6"} />
@@ -323,7 +324,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
           <div className="bg-white rounded-3xl shadow-luxe w-full max-w-md p-6 sm:p-7" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-1">
               <h2 className="font-display text-2xl text-ink">{authMode === "login" ? "Sign in to order" : "Create your trade account"}</h2>
-              <button onClick={() => !busy && setShowCheckout(false)} className="text-muted hover:text-ink text-xl leading-none">✕</button>
+              <button onClick={() => !busy && setShowCheckout(false)} className="text-muted hover:text-ink text-xl leading-none"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
             </div>
             <p className="text-sm text-muted mb-4">To place your order of <b className="text-ink">{formatPaise(orderTotal)}</b>, {authMode === "login" ? "sign in to your account." : "set up a quick account — takes a moment, saved for next time."}</p>
 
@@ -362,7 +363,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
       {/* Image enlarge */}
       {zoom && (
         <div className="fixed inset-0 z-[100] bg-ink/90 backdrop-blur-sm grid place-items-center p-5" onClick={() => setZoom(null)}>
-          <button onClick={() => setZoom(null)} className="absolute top-4 right-5 text-cream/80 hover:text-white text-3xl">✕</button>
+          <button onClick={() => setZoom(null)} className="absolute top-4 right-5 text-cream/80 hover:text-white text-3xl"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
           <img src={zoom.src} alt={zoom.name} className="max-w-[92vw] max-h-[85vh] object-contain rounded-xl" onClick={(e) => e.stopPropagation()} />
           <p className="absolute bottom-5 left-0 right-0 text-center text-cream/70 text-sm">{zoom.name}</p>
         </div>

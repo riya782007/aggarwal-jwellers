@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
@@ -249,7 +250,7 @@ export function AddInventoryClient({
         }
       }
 
-      toast(`${res.sku} ${mode === "publish" ? "created & published" : "saved as draft"} ✓`);
+      toast(`${res.sku} ${mode === "publish" ? "created & published" : "saved as draft"}`);
       // Save & continue → clear for the next product. Save draft → keep nothing lingering either.
       setName(""); setBasePrice(""); setInitialStock(""); setSku(""); setType("simple"); setSubId(""); setStyleId("");
       setPicks({ color: [], size: [], polish: [] }); setRows([]); setQ("");
@@ -402,7 +403,7 @@ export function AddInventoryClient({
           <div>
             <p className="text-sm font-semibold text-ink"><span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs mr-2">1</span>Pick the colours, sizes &amp; polishes for this design</p>
             <p className="text-xs text-muted mt-1">Select values under any of these — you can combine them. If you choose more than one attribute we create a variant for every combination (e.g. 2 colours × 2 polishes = 4 variants). Choose from existing master values only.</p>
-            <input className={`${input} mt-3`} placeholder="🔎 Search options…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className={`${input} mt-3`} placeholder=" Search options…" value={q} onChange={(e) => setQ(e.target.value)} />
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {(["color", "size", "polish"] as Attr[]).map((a) => {
                 const opts = filterOpts(a);
@@ -419,7 +420,7 @@ export function AddInventoryClient({
                         return (
                           <button key={o} type="button" onClick={() => togglePick(a, o)}
                             className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${on ? "border-emerald bg-emerald text-white" : "border-sand text-muted hover:border-emerald"}`}>
-                            {on ? "✓ " : ""}{o}
+                            {on && <Icon name="check" className="inline w-3.5 h-3.5 align-[-2px] mr-1" />}{o}
                           </button>
                         );
                       })}
@@ -429,7 +430,7 @@ export function AddInventoryClient({
               })}
             </div>
             {anyPicked && (
-              <button type="button" onClick={generateRows} className="mt-3 px-4 py-2 rounded-xl bg-ink text-white text-sm">Generate {comboCount} variant{comboCount === 1 ? "" : "s"} →</button>
+              <button type="button" onClick={generateRows} className="mt-3 px-4 py-2 rounded-xl bg-ink text-white text-sm">Generate {comboCount}variant{comboCount === 1 ? "" : "s"} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button>
             )}
           </div>
 
@@ -472,10 +473,10 @@ export function AddInventoryClient({
                         <td className="px-2 py-2 text-center"><Toggle on={r.retailPublish} onClick={() => updateRow(i, { retailPublish: !r.retailPublish })} title="Publish to retail" /></td>
                         <td className="px-2 py-2 text-center whitespace-nowrap">
                           <label className="cursor-pointer text-base mr-1.5 align-middle" title={r.image ? `Photo: ${r.image.name}` : "Add a photo for this variant (uploaded after save)"}>
-                            {r.image ? "🖼️" : "📷"}
+                            {r.image ? "" : ""}
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => updateRow(i, { image: e.target.files?.[0] ?? null })} />
                           </label>
-                          <button type="button" onClick={() => removeRow(i)} className="text-muted hover:text-rose align-middle" title="Remove">🗑</button>
+                          <button type="button" onClick={() => removeRow(i)} className="text-muted hover:text-rose align-middle" title="Remove"><Icon g="🗑" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                         </td>
                       </tr>
                     ))}

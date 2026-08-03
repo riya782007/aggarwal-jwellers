@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -100,7 +101,7 @@ export function CatalogSearch({
   return (
     <div ref={boxRef} className="no-print relative w-full sm:w-96">
       <div className="flex items-center gap-2 rounded-full bg-white/95 border border-sand px-4 py-2 shadow-sm focus-within:border-gold">
-        <span className="text-muted text-sm" aria-hidden>🔍</span>
+        <span className="text-muted text-sm" aria-hidden><Icon g="🔍" className="inline-block align-middle w-[1em] h-[1em]" /></span>
         <input
           value={term}
           onChange={(e) => { setTerm(e.target.value); setOpen(true); setActive(0); }}
@@ -111,7 +112,7 @@ export function CatalogSearch({
           aria-label="Search the catalogue"
         />
         {term && (
-          <button type="button" onClick={() => { setTerm(""); setOpen(false); router.push(`/catalog${view === "wholesale" ? "?view=wholesale" : ""}`); }} className="text-muted hover:text-ink text-sm" aria-label="Clear search">✕</button>
+          <button type="button" onClick={() => { setTerm(""); setOpen(false); router.push(`/catalog${view === "wholesale" ? "?view=wholesale" : ""}`); }} className="text-muted hover:text-ink text-sm" aria-label="Clear search"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         )}
       </div>
 

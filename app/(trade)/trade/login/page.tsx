@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -40,7 +41,7 @@ export default async function TradeLogin({ searchParams }: { searchParams: { err
           <h2 className="font-display text-2xl text-emerald-dark mb-2">Become a dealer</h2>
           <p className="text-sm text-emerald-dark/80 mb-4">Trade pricing is unlocked after we verify your shop — this protects everyone&apos;s margins. Apply here with a business proof; you&apos;ll get your access code on WhatsApp once approved.</p>
           <DealerSignupForm />
-          <a href={waHref("Namaste! I want a dealer account at Aggarwal Jewellers.")} target="_blank" rel="noopener" className="block text-center text-xs text-emerald-dark/70 mt-3 hover:underline">Prefer WhatsApp? Message us directly ↗</a>
+          <a href={waHref("Namaste! I want a dealer account at Aggarwal Jewellers.")} target="_blank" rel="noopener" className="block text-center text-xs text-emerald-dark/70 mt-3 hover:underline">Prefer WhatsApp? Message us directly <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a>
         </div>
       </div>
     </div>

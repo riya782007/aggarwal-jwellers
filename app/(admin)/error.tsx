@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -24,7 +25,7 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
   return (
     <div className="min-h-[60vh] grid place-items-center p-8 text-center bg-cream/40">
       <div className="max-w-sm">
-        <p className="text-4xl mb-2">😕</p>
+        <p className="text-4xl mb-2"><Icon g="😕" className="inline-block align-middle w-[1em] h-[1em]" /></p>
         <h2 className="font-display text-2xl text-ink">Couldn&apos;t load that page</h2>
         <p className="text-sm text-muted mt-1">
           {phase === "retrying"

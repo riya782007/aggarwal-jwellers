@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -79,7 +80,7 @@ function NavInner({ collapsed, onNavigate, perms, lang, badges = {} }: { collaps
                 return (
                 <Link key={l.href} href={l.href} onClick={onNavigate} title={collapsed ? t(lang, l.label) : undefined}
                   className={`group relative flex items-center gap-3 rounded-xl text-sm transition-all ${collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2.5 hover:translate-x-0.5"} ${isActive(l.href) ? "bg-white/15 text-ivory" : "text-cream/85 hover:bg-white/10"}`}>
-                  <span className="w-5 text-center text-gold-light shrink-0">{l.icon}</span>
+                  <span className="w-5 flex justify-center text-gold-light shrink-0"><Icon g={l.icon} className="w-[18px] h-[18px]" /></span>
                   {!collapsed && <span className="truncate">{t(lang, l.label)}</span>}
                   {badge > 0 && (!collapsed
                     ? <span className="ml-auto text-[10px] font-semibold rounded-full bg-rose text-white px-1.5 py-0.5 min-w-[18px] text-center">{badge}</span>
@@ -97,8 +98,8 @@ function NavInner({ collapsed, onNavigate, perms, lang, badges = {} }: { collaps
           {EXTERNAL.map((l) => (
             <Link key={l.href} href={l.href} target="_blank" onClick={onNavigate} title={collapsed ? t(lang, l.label) : undefined}
               className={`group flex items-center gap-3 rounded-xl text-sm text-cream/70 hover:bg-white/10 transition-all ${collapsed ? "justify-center py-2.5" : "px-3 py-2.5"}`}>
-              <span className="w-5 text-center text-gold-light/70 shrink-0">{l.icon}</span>
-              {!collapsed && <><span className="truncate">{t(lang, l.label)}</span><span className="ml-auto opacity-0 group-hover:opacity-100">↗</span></>}
+              <span className="w-5 flex justify-center text-gold-light/70 shrink-0"><Icon g={l.icon} className="w-[18px] h-[18px]" /></span>
+              {!collapsed && <><span className="truncate">{t(lang, l.label)}</span><span className="ml-auto opacity-0 group-hover:opacity-100"><Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></span></>}
             </Link>
           ))}
         </div>
@@ -150,7 +151,7 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
             <p className="font-display text-2xl text-ivory leading-none">Aggarwal Jewellers</p>
             <p className="text-[10px] tracking-[0.25em] uppercase text-gold-light mt-1">Owner Console</p>
           </div>
-          <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-cream/70 text-xl px-2">✕</button>
+          <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-cream/70 text-xl px-2"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
         <NavInner collapsed={false} onNavigate={() => setOpen(false)} perms={perms} lang={lang} badges={badges} />
       </aside>

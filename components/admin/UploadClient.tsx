@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/Toast";
@@ -122,7 +123,7 @@ export function UploadClient({
   async function writeAiPage(sku: string, name: string) {
     push({ text: `Writing AI page for ${name} (${sku})…`, status: "run" });
     const r = await generateContentAction(sku);
-    patchLast(r.ok ? "ok" : "err", r.ok ? `AI page written for ${sku} ✓` : `AI page skipped for ${sku}`);
+    patchLast(r.ok ? "ok" : "err", r.ok ? `AI page written for ${sku}` : `AI page skipped for ${sku}`);
   }
 
   // ---- Variant row helpers ----
@@ -187,11 +188,11 @@ export function UploadClient({
       }
 
       let file = fileRef.current?.files?.[0] ?? null;
-      if (file) { push({ text: "Optimising photo…", status: "run" }); file = await compressImage(file); fd.set("image", file); patchLast("ok", "Photo optimised ✓"); }
+      if (file) { push({ text: "Optimising photo…", status: "run" }); file = await compressImage(file); fd.set("image", file); patchLast("ok", "Photo optimised"); }
       push({ text: `Creating ${form.name.trim()}${useVariantRows ? ` with ${realVariants.length} variant${realVariants.length === 1 ? "" : "s"}` : ""}…`, status: "run" });
       const res = await createProductWithImageAction(fd);
       if (!res.ok) { patchLast("err", `Failed: ${res.error}`); toast(res.error ?? "Could not add", "error"); return; }
-      patchLast("ok", `Created ${res.sku} ✓ · saved as draft — publish it from the catalogue when ready`);
+      patchLast("ok", `Created ${res.sku} · saved as draft — publish it from the catalogue when ready`);
 
       // Pillar 16 — attach any per-variant photos picked in the editor. We resolve the
       // freshly-created variants by SKU, match each editor row by colour/size/polish, and
@@ -216,7 +217,7 @@ export function UploadClient({
               const r = await addVariantImageAction(vfd);
               if (r.ok) done++;
             }
-            patchLast(done > 0 ? "ok" : "err", done > 0 ? `Added ${done} variant photo${done === 1 ? "" : "s"} ✓` : "Couldn't match variant photos — add them from the product's Variants tab.");
+            patchLast(done > 0 ? "ok" : "err", done > 0 ? `Added ${done} variant photo${done === 1 ? "" : "s"}` : "Couldn't match variant photos — add them from the product's Variants tab.");
           } catch {
             patchLast("err", "Variant photos skipped — add them from the product's Variants tab.");
           }
@@ -250,11 +251,11 @@ export function UploadClient({
         const r = rows[i];
         push({ text: `Creating ${i + 1} of ${rows.length}: ${r.name}…`, status: "run" });
         const res = await createOneRowAction(catId, r);
-        if (res.ok) { created++; patchLast("ok", `Created ${res.sku} — ${r.name} ✓`); if (writeAi && res.sku) await writeAiPage(res.sku, r.name); }
+        if (res.ok) { created++; patchLast("ok", `Created ${res.sku} — ${r.name}`); if (writeAi && res.sku) await writeAiPage(res.sku, r.name); }
         else patchLast("err", `Skipped ${r.name}: ${res.error}`);
         setProgress({ done: i + 1, total: rows.length });
       }
-      push({ text: `Done — ${created} of ${rows.length} products saved as drafts in ${catName}. Add photos (or Show them) to publish ✓`, status: "ok" });
+      push({ text: `Done — ${created} of ${rows.length} products saved as drafts in ${catName}. Add photos (or Show them) to publish`, status: "ok" });
       toast(`${created} products added`);
       setCsv("");
     } catch (e) {
@@ -343,7 +344,7 @@ export function UploadClient({
                   <p className="text-sm font-medium text-ink">Colours <span className="text-muted font-normal">— tap to select (A–Z)</span></p>
                   {selectedColors.length > 0 && <button type="button" onClick={() => setForm({ ...form, colors: "" })} className="text-[11px] text-muted hover:text-rose">clear ({selectedColors.length})</button>}
                 </div>
-                <input className={input} placeholder="🔎 Search colours…" value={colorQ} onChange={(e) => setColorQ(e.target.value)} />
+                <input className={input} placeholder=" Search colours…" value={colorQ} onChange={(e) => setColorQ(e.target.value)} />
                 <div className="mt-2 max-h-44 overflow-y-auto flex flex-wrap gap-1.5 pr-1">
                   {colorList.length === 0 && !colorQ.trim() && <p className="text-xs text-muted py-2">No colours saved yet — type one above to add it.</p>}
                   {filteredColors.length === 0 && colorQ.trim() && (
@@ -354,7 +355,7 @@ export function UploadClient({
                     return (
                       <button key={c} type="button" onClick={() => toggleColor(c)}
                         className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${on ? "border-emerald bg-emerald text-white" : "border-sand text-muted hover:border-emerald"}`}>
-                        {on ? "✓ " : ""}{c}
+                        {on && <Icon name="check" className="inline w-3.5 h-3.5 align-[-2px] mr-1" />}{c}
                       </button>
                     );
                   })}
@@ -374,8 +375,7 @@ export function UploadClient({
                   </div>
                   <div className="flex items-center gap-2">
                     {form.colors.trim() && (
-                      <button type="button" onClick={buildRowsFromColours} className="px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs hover:bg-emerald-mist/70">
-                        Build from colours →
+                      <button type="button" onClick={buildRowsFromColours} className="px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs hover:bg-emerald-mist/70">Build from colours <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />
                       </button>
                     )}
                     {variants.length > 0 && (
@@ -453,7 +453,7 @@ export function UploadClient({
                             )}
                             {/* Pillar 16 — pick a photo for this variant; uploaded right after the design is created. */}
                             <label className="inline-flex items-center gap-1 cursor-pointer text-emerald-dark hover:underline">
-                              📷 {v.image ? v.image.name.slice(0, 18) : "Add photo"}
+                              <Icon g="📷" className="inline-block align-middle w-[1em] h-[1em]" /> {v.image ? v.image.name.slice(0, 18) : "Add photo"}
                               <input
                                 type="file" accept="image/*" className="hidden"
                                 onChange={(e) => updateVariant(idx, { image: e.target.files?.[0] ?? null })}
@@ -481,7 +481,7 @@ export function UploadClient({
               <label className="text-sm font-medium text-ink">Raw product photo <span className="text-muted font-normal">(optional — AI turns it into a model photo later)</span></label>
               <input ref={fileRef} type="file" accept="image/*" className="mt-1 block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
             </div>
-            <button onClick={addSingle} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Working…" : "✨ Add design"}</button>
+            <button onClick={addSingle} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Working…" : " Add design"}</button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -507,7 +507,7 @@ export function UploadClient({
             }}
               className="block w-full text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-emerald file:text-white file:px-4 file:py-2 file:text-sm file:cursor-pointer" />
             <textarea className={`${input} font-mono text-xs`} rows={6} placeholder={"Kundan Choker, 850, 12, configurable, Red|Green|Blue\nPearl Studs 160 rs 40pcs\nMeena bangles - 540 - 25 - red,green"} value={csv} onChange={(e) => setCsv(e.target.value)} />
-            <button onClick={buildFromList} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Building…" : "✨ Build inventory with AI"}</button>
+            <button onClick={buildFromList} disabled={busy} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">{busy ? "Building…" : " Build inventory with AI"}</button>
           </div>
         )}
 
@@ -523,13 +523,13 @@ export function UploadClient({
             <div className="max-h-56 overflow-y-auto space-y-1 text-sm">
               {log.map((l, i) => (
                 <div key={i} className={`flex items-start gap-2 ${l.status === "err" ? "text-rose" : l.status === "ok" ? "text-emerald-dark" : "text-muted"}`}>
-                  <span className="w-4 text-center shrink-0">{l.status === "ok" ? "✓" : l.status === "err" ? "✕" : "◔"}</span>
+                  <span className="w-4 flex justify-center shrink-0">{l.status === "ok" ? <Icon name="check" className="w-3.5 h-3.5 text-emerald" /> : l.status === "err" ? <Icon name="close" className="w-3.5 h-3.5 text-rose" /> : <Icon name="pending" className="w-3.5 h-3.5 text-muted" />}</span>
                   <span>{l.text}</span>
                 </div>
               ))}
             </div>
             {!busy && progress && progress.done === progress.total && (
-              <Link href="/admin/catalogue" className="inline-block mt-3 text-sm text-emerald nav-link">View in catalogue →</Link>
+              <Link href="/admin/catalogue" className="inline-block mt-3 text-sm text-emerald nav-link">View in catalogue <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
             )}
           </div>
         )}

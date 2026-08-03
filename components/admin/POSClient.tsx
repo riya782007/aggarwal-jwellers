@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useMemo, useRef, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
@@ -134,8 +135,8 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     if (!code) return;
     const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
     const p = exact ?? matches[0];
-    if (p) { addLine(p); setScanMsg({ text: `✓ ${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
-    else setScanMsg({ text: `✕ No product “${code}”`, ok: false });
+    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
+    else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
 
@@ -225,12 +226,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
             pick from the roster or add their own name on the spot. */}
         <div className="shrink-0">
           <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${salesEmp ? "border-emerald" : "border-gold"}`}>
-            <span className="text-muted text-xs whitespace-nowrap">☺ Sold by<span className="text-rose" title="Required">*</span></span>
+            <span className="text-muted text-xs whitespace-nowrap inline-flex items-center gap-1"><Icon g="☺" className="w-3.5 h-3.5" />Sold by<span className="text-rose" title="Required">*</span></span>
             <select ref={empRef} value={salesEmp} onChange={(e) => setSalesEmp(e.target.value)} className="bg-transparent outline-none text-ink max-w-[130px]">
               <option value="">— select —</option>
               {emps.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
             </select>
-            <button type="button" onClick={() => setAddingEmp((v) => !v)} className="text-emerald-dark text-xs hover:underline whitespace-nowrap" title="Add a new salesperson">＋ New</button>
+            <button type="button" onClick={() => setAddingEmp((v) => !v)} className="text-emerald-dark text-xs hover:underline whitespace-nowrap" title="Add a new salesperson"><Icon g="＋" className="inline-block align-middle w-[1em] h-[1em]" />New</button>
           </div>
           {addingEmp && (
             <div className="mt-1 flex items-center gap-1">
@@ -260,7 +261,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
               </div>
               {customers.length > 0 && (
                 <div className="relative">
-                  <input autoFocus className={`${inp} w-full`} placeholder="🔎 Find customer by name / phone…" value={custQ} onChange={(e) => setCustQ(e.target.value)} />
+                  <input autoFocus className={`${inp} w-full`} placeholder=" Find customer by name / phone…" value={custQ} onChange={(e) => setCustQ(e.target.value)} />
                   {custQ.trim() && (
                     <div className="mt-1 max-h-52 overflow-y-auto rounded-lg border border-sand divide-y divide-sand/60">
                       {custMatches.map((c) => (
@@ -313,7 +314,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
                       <td className="px-3 py-1.5 align-middle">
                         <button onClick={() => setExpanded(expanded === l.sku ? null : l.sku)} className="text-left text-ink hover:text-emerald flex items-center gap-1">
                           <span className="truncate max-w-[240px]">{l.name}</span>
-                          <span className={`text-[10px] px-1 rounded ${over ? "bg-rose/10 text-rose" : "text-muted"}`}>{l.stock}{over ? " ⚠" : ""}</span>
+                          <span className={`text-[10px] px-1 rounded ${over ? "bg-rose/10 text-rose" : "text-muted"}`}>{l.stock}{over ? "" : ""}</span>
                         </button>
                       </td>
                       <td className="px-2 py-2 align-middle">
@@ -333,7 +334,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
                       </td>
                       <td className="px-3 py-1.5 text-right font-medium align-middle">{formatPaise(effUnit(l) * l.qty)}</td>
                       <td className="px-2 py-1.5 align-middle text-right">
-                        <button onClick={() => rm(l.sku)} title="Remove" className="text-muted hover:text-rose text-xs">✕</button>
+                        <button onClick={() => rm(l.sku)} title="Remove" className="text-muted hover:text-rose text-xs"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                       </td>
                     </tr>
                     {expanded === l.sku && (
@@ -402,7 +403,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
                       {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
                     <input value={l.amount} onChange={(e) => setPayLine(idx, { amount: e.target.value })} inputMode="numeric" placeholder="₹0" className={`${inp} w-24`} />
-                    <button onClick={() => setPayLines((p) => p.filter((_, i) => i !== idx))} className="px-1 text-muted hover:text-rose">✕</button>
+                    <button onClick={() => setPayLines((p) => p.filter((_, i) => i !== idx))} className="px-1 text-muted hover:text-rose"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-1.5">

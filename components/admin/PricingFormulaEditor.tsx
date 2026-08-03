@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 
 import { useMemo, useState } from "react";
 import type { PricingFormula } from "@/lib/pricing";
@@ -80,7 +81,7 @@ export default function PricingFormulaEditor({ initial, action }: Props) {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Build-up inputs — the sheet, step by step */}
         <div className={`rounded-xl border p-4 ${useBuildup ? "border-stone-200" : "border-stone-200 opacity-50"}`}>
-          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-stone-500">The build-up (base wholesale → retail → MRP)</h3>
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-stone-500">The build-up (base wholesale <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />retail <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />MRP)</h3>
           <p className="mb-3 text-xs text-stone-400">Applied in order, exactly like your Excel sheet.</p>
           <div className="space-y-3">
             <StepRow n={1} label="Free shipping" hint="add % to the wholesale price" unit="%" name="shipping_pct" value={f.shippingPct} onChange={(v) => set("shippingPct", v)} />

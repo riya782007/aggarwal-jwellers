@@ -8,15 +8,15 @@ const KINDS = ["color", "size", "polish"] as const;
 const col = (kind: string) => (kind === "color" ? "color" : kind === "size" ? "size" : "polish");
 
 /** Normalise a user-typed barcode code: uppercase, alphanumeric only, max 12 chars.
- *  Empty string becomes null (= "use the fallback derived from the colour name"). */
+ * Empty string becomes null (= "use the fallback derived from the colour name"). */
 function normaliseCode(raw: FormDataEntryValue | null): string | null {
   const s = String(raw ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
   return s || null;
 }
 
 /** Add a colour / size / polish to the master list (Pillar 7). For colours, an optional
- *  barcode_code is captured — this is the short suffix (RED, MULTI1, SBLUE…) that prints
- *  on the variant's barcode label and forms the auto-generated variant SKU. */
+ * barcode_code is captured — this is the short suffix (RED, MULTI1, SBLUE…) that prints
+ * on the variant's barcode label and forms the auto-generated variant SKU. */
 export async function addOptionAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.edit"))) return;
   const kind = String(formData.get("kind") ?? "color");
@@ -51,7 +51,7 @@ export async function updateOptionAction(formData: FormData): Promise<void> {
 }
 
 /** Remove an option from the master list AND null it out on every variant that still
- *  carries the now-defunct value (Pillar 7 sanity). */
+ * carries the now-defunct value (Pillar 7 sanity). */
 export async function deleteOptionAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.edit"))) return;
   const kind = String(formData.get("kind") ?? "color");
@@ -66,9 +66,9 @@ export async function deleteOptionAction(formData: FormData): Promise<void> {
 }
 
 /** Pillar 7 — one-shot seed action that pours the canonical 75-colour catalog into
- *  variant_options. Idempotent (matches migration 0016): existing rows have their
- *  barcode_code and sort refreshed; their `hex` swatch is preserved. Safe to re-run
- *  from the Colours page whenever the master needs to be re-aligned to canonical. */
+ * variant_options. Idempotent (matches migration 0016): existing rows have their
+ * barcode_code and sort refreshed; their `hex` swatch is preserved. Safe to re-run
+ * from the Colours page whenever the master needs to be re-aligned to canonical. */
 export async function seedDefaultColoursAction(): Promise<{ created: number; updated: number }> {
   if (!(await requirePerm("catalog.edit"))) return { created: 0, updated: 0 };
   const sb = supabaseServer();

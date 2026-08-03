@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { useCart } from "./CartContext";
 import { formatPaise } from "@/lib/pricing";
@@ -19,10 +20,10 @@ export function CartWidget() {
           <div className="absolute right-0 top-0 h-full w-[88%] max-w-md bg-ivory shadow-luxe flex flex-col animate-[fadeIn_.2s_ease]">
             <div className="flex items-center justify-between p-5 border-b border-sand">
               <p className="font-display text-2xl text-ink">Your Bag ({count})</p>
-              <button aria-label="Close" onClick={() => setOpen(false)} className="text-xl hover:text-rose transition-colors">✕</button>
+              <button aria-label="Close" onClick={() => setOpen(false)} className="text-xl hover:text-rose transition-colors"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {items.length === 0 && <p className="text-muted text-sm text-center mt-10">Your bag is empty. Discover something beautiful ✦</p>}
+              {items.length === 0 && <p className="text-muted text-sm text-center mt-10">Your bag is empty. Discover something beautiful.</p>}
               {items.map((i) => (
                 <div key={i.sku + (i.color ?? "")} className="flex gap-3 items-center">
                   <div className="h-16 w-14 rounded-lg overflow-hidden shrink-0"><ProductImage name={i.name} /></div>

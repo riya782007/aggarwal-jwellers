@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { getRoles } from "@/lib/supabase/queries";
 import { createRoleAction, updateRoleAction, deleteRoleAction, regenerateRolePasscodeAction } from "@/app/actions/rbac";
@@ -48,7 +49,7 @@ export default async function Roles() {
               <div className="mt-3 flex items-center gap-4">
                 <form action={regenerateRolePasscodeAction}>
                   <input type="hidden" name="id" value={r.id} />
-                  <button className="text-xs text-emerald hover:underline">↻ Regenerate passcode</button>
+                  <button className="text-xs text-emerald hover:underline"><Icon g="↻" className="inline-block align-middle w-[1em] h-[1em]" />Regenerate passcode</button>
                 </form>
                 <form action={deleteRoleAction}>
                   <input type="hidden" name="id" value={r.id} />

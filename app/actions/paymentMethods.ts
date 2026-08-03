@@ -93,7 +93,7 @@ export async function archivePaymentMethodAction(formData: FormData): Promise<vo
 }
 
 /** Delete is allowed ONLY for a method with no ledger history — otherwise we must preserve the
- *  historical record, so the caller should archive instead. */
+ * historical record, so the caller should archive instead. */
 export async function deletePaymentMethodAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("payments.delete"))) return;
   const id = String(formData.get("id") ?? "").trim();

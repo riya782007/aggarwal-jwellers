@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getStockMovements, getOpenEstimateReservations } from "@/lib/supabase/queries";
@@ -54,14 +55,14 @@ export default async function StockMovements({ searchParams }: { searchParams: {
       {reservations.length > 0 && (
         <div className="mb-5 rounded-2xl border border-gold/40 bg-gold/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-gold-dark">🔖 Reserved by open estimates — {reservedTotal} pcs across {reservations.length} quote{reservations.length > 1 ? "s" : ""}</h2>
+            <h2 className="text-sm font-semibold text-gold-dark"><Icon g="🔖" className="inline-block align-middle w-[1em] h-[1em]" />Reserved by open estimates — {reservedTotal}pcs across {reservations.length}quote{reservations.length > 1 ? "s" : ""}</h2>
             <span className="text-[11px] text-muted">Soft holds — stock only moves when the estimate is billed.</span>
           </div>
           <ul className="divide-y divide-gold/20">
             {(reservations as any[]).map((e) => (
               <li key={e.id} className="py-2 flex items-start justify-between gap-3 text-sm">
                 <div className="flex-1 min-w-0">
-                  <Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link font-medium">EST-{String(e.id).slice(0, 8).toUpperCase()} →</Link>
+                  <Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link font-medium">EST-{String(e.id).slice(0, 8).toUpperCase()} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                   <span className="text-muted"> · {e.customer_name || "Walk-in"} · {new Date(e.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
                   <div className="text-xs text-muted mt-0.5 truncate">{e.lines.map((l: any) => `${l.name ?? l.sku} ×${l.qty}`).join(", ")}</div>
                 </div>

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getEstimates, getStorefront, getCustomersDb } from "@/lib/supabase/queries";
@@ -134,10 +135,10 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
                 <td className="p-3 text-muted whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-1.5 justify-end items-center">
-                    <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">🖶 Print</Link>
+                    <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</Link>
                     {e.status === "open" && <>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" /><button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST →</button></form>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Cash →</button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" /><button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Cash <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                       <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</button></form>
                     </>}
                     {(e.status === "converted" || e.status === "cash_billed") && e.order_id &&
@@ -157,7 +158,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
         <div className="flex items-center gap-2 mb-2">
           <h2 className="font-display text-2xl text-ink">Dealer rate requests</h2>
           {quoteRows.length > 0 && <span className="text-[11px] rounded-full bg-gold/15 text-gold-dark px-2 py-0.5">{quoteRows.length} active</span>}
-          <Link href="/admin/quotes" className="ml-auto text-sm text-emerald nav-link">Full archive →</Link>
+          <Link href="/admin/quotes" className="ml-auto text-sm text-emerald nav-link">Full archive <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
         <p className="text-sm text-muted mb-4">Wholesale buyers asking for rates from the trade portal. Reply on WhatsApp, note what you quoted, then mark it.</p>
         <div className="space-y-3">
@@ -176,7 +177,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
               {r.quote_note && <p className="text-xs text-emerald-dark mt-1">Quoted: {r.quote_note}</p>}
               <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-sand/60">
                 {waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `) && (
-                  <a href={waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `)} target="_blank" className="px-4 py-1.5 rounded-full bg-emerald text-white text-xs font-medium">Reply on WhatsApp ↗</a>
+                  <a href={waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `)} target="_blank" className="px-4 py-1.5 rounded-full bg-emerald text-white text-xs font-medium">Reply on WhatsApp <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a>
                 )}
                 <form action={setQuoteStatusAction} className="flex items-center gap-2 flex-1 min-w-[240px]">
                   <input type="hidden" name="id" value={r.id} />

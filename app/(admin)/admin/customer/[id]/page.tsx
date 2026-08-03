@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -23,7 +24,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-6xl">
-      <Link href="/admin/customers" className="text-sm text-muted hover:text-ink">← Customers</Link>
+      <Link href="/admin/customers" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Customers</Link>
       <div className="flex items-center gap-3 mt-1 mb-5">
         <h1 className="font-display text-4xl text-ink">{c.name}</h1>
         <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${c.type === "wholesale" ? "bg-gold/15 text-gold-dark" : "bg-emerald-mist text-emerald-dark"}`}>{c.type}</span>
@@ -64,7 +65,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
                 <option value="bank">Bank</option>
               </select>
               <input name="note" placeholder="Note (optional)" className="rounded-xl border border-sand bg-white px-3 h-11 text-[15px] outline-none focus:border-emerald w-36" />
-              <SubmitOnce className="px-5 h-11 rounded-xl bg-emerald text-white text-[15px] font-medium hover:bg-emerald-dark">✓ Received</SubmitOnce>
+              <SubmitOnce className="px-5 h-11 rounded-xl bg-emerald text-white text-[15px] font-medium hover:bg-emerald-dark"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Received</SubmitOnce>
             </form>
           </div>
         </div>
@@ -83,7 +84,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
             </div>
             <div className="flex items-center gap-2">
               {c.wholesale_approved && (
-                <form action={regenWholesaleCodeAction}><input type="hidden" name="id" value={c.id} /><button className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">↻ New code</button></form>
+                <form action={regenWholesaleCodeAction}><input type="hidden" name="id" value={c.id} /><button className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="↻" className="inline-block align-middle w-[1em] h-[1em]" />New code</button></form>
               )}
               <form action={approveWholesaleAction}>
                 <input type="hidden" name="id" value={c.id} />
@@ -137,7 +138,7 @@ export default async function CustomerDetail({ params }: { params: { id: string 
               <tbody>
                 {orders.map((o: any) => (
                   <tr key={o.id} className="border-t border-sand/50">
-                    <td className="py-2"><Link href={`/admin/invoice/${o.id}`} className="text-emerald nav-link">{String(o.id).slice(0, 8).toUpperCase()} ↗</Link></td>
+                    <td className="py-2"><Link href={`/admin/invoice/${o.id}`} className="text-emerald nav-link">{String(o.id).slice(0, 8).toUpperCase()} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link></td>
                     <td className="py-2 text-muted">{new Date(o.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
                     <td className="py-2 text-xs uppercase text-muted">{o.bill_type === "cash" ? "Cash" : "GST"} · {o.channel}</td>
                     <td className="py-2 text-right font-medium">{formatPaise(o.total)}</td>

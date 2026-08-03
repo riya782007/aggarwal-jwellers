@@ -18,7 +18,7 @@ export function ReorderClient({ candidateCount }: { candidateCount: number }) {
     setBusy(true);
     const res = await generateReorderPlanAction();
     setBusy(false); setRecs(res.recs); setProvider(res.provider);
-    if (res.recs.length === 0) toast("Inventory looks healthy — nothing to reorder ✦", "info");
+    if (res.recs.length === 0) toast("Inventory looks healthy — nothing to reorder", "info");
   }
   async function approve(r: Rec) {
     await approveReorderAction({ sku: r.sku, name: r.name, action: r.action, qty: r.qty });
@@ -31,7 +31,7 @@ export function ReorderClient({ candidateCount }: { candidateCount: number }) {
     <div>
       <div className="flex items-center gap-3 mb-5">
         <button onClick={generate} disabled={busy} className="btn-primary px-5 py-2.5 text-sm font-medium disabled:opacity-50">
-          {busy ? "Thinking…" : "✨ Generate AI reorder plan"}
+          {busy ? "Thinking…" : " Generate AI reorder plan"}
         </button>
         <span className="text-sm text-muted">{candidateCount} items need attention</span>
         {provider && <span className="text-xs text-muted">· drafted by {provider === "rules" ? "rule engine (no AI key)" : provider}</span>}
@@ -51,7 +51,7 @@ export function ReorderClient({ candidateCount }: { candidateCount: number }) {
               <p className="text-sm text-ink/75 mt-2">{r.rationale}</p>
               <button onClick={() => approve(r)} disabled={done[r.sku]}
                 className="mt-3 px-4 py-1.5 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20 disabled:opacity-60">
-                {done[r.sku] ? "✓ Notified" : "Approve & notify"}
+                {done[r.sku] ? "Notified" : "Approve & notify"}
               </button>
             </div>
           ))}

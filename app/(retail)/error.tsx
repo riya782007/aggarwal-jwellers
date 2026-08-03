@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useEffect, useRef, useState } from "react";
 
 /** Friendly storefront error boundary — auto-retries a transient cold-start once, then offers retry. */
@@ -16,7 +17,7 @@ export default function ShopError({ error, reset }: { error: Error & { digest?: 
   return (
     <div className="min-h-[60vh] grid place-items-center p-8 text-center">
       <div className="max-w-sm">
-        <p className="text-4xl mb-2">💎</p>
+        <p className="text-4xl mb-2"><Icon g="💎" className="inline-block align-middle w-[1em] h-[1em]" /></p>
         <h2 className="font-display text-2xl text-ink">Just a moment</h2>
         <p className="text-sm text-muted mt-1">{phase === "retrying" ? "Loading…" : "That didn't load — please try again."}</p>
         <div className="flex justify-center gap-2 mt-4">

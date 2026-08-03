@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
@@ -46,7 +47,7 @@ export function MediaCard({ p }: { p: P; geminiReady?: boolean }) {
     <div className="bg-white rounded-2xl p-5 shadow-card">
       <div className="flex items-center justify-between mb-3">
         <div><p className="font-medium text-ink">{p.name}</p><p className="text-xs text-muted">{p.category} · {p.sku}</p></div>
-        {hasModel && <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-mist text-emerald-dark">Model photo ✓</span>}
+        {hasModel && <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-mist text-emerald-dark">Model photo <Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></span>}
       </div>
 
       {p.images.length > 0 ? (
@@ -69,10 +70,10 @@ export function MediaCard({ p }: { p: P; geminiReady?: boolean }) {
         <input ref={rawRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "flatlay")} />
         <button onClick={() => rawRef.current?.click()} disabled={busy === "flatlay"} className="px-3 py-1.5 rounded-full border border-sand text-ink text-xs font-medium hover:border-emerald transition-colors disabled:opacity-50">{busy === "flatlay" ? "Uploading…" : hasRaw ? "Replace raw photo" : "Upload raw photo"}</button>
 
-        <GeminiPhotoButton category={p.category || p.name} label="✨ Create photo on Google Flow" />
+        <GeminiPhotoButton category={p.category || p.name} label=" Create photo on Google Flow" />
 
         <input ref={modelRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "model")} />
-        <button onClick={() => modelRef.current?.click()} disabled={busy === "model"} className="px-3 py-1.5 rounded-full bg-emerald text-white text-xs font-medium hover:bg-emerald-dark transition-colors disabled:opacity-50">{busy === "model" ? "Uploading…" : "⬆ Upload finished photo"}</button>
+        <button onClick={() => modelRef.current?.click()} disabled={busy === "model"} className="px-3 py-1.5 rounded-full bg-emerald text-white text-xs font-medium hover:bg-emerald-dark transition-colors disabled:opacity-50">{busy === "model" ? "Uploading…" : "Upload finished photo"}</button>
 
         <input ref={angleRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "angle")} />
         <button onClick={() => angleRef.current?.click()} disabled={busy === "angle"} className="px-3 py-1.5 rounded-full border border-sand text-ink text-xs font-medium hover:border-emerald transition-colors disabled:opacity-50">{busy === "angle" ? "Uploading…" : "+ Add angle"}</button>

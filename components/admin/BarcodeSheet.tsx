@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useMemo } from "react";
 import { Barcode } from "@/components/admin/Barcode";
 import { QrCode } from "@/components/admin/QrCode";
@@ -225,15 +226,15 @@ export function BarcodeSheet({ products }: { products: P[] }) {
                   <button
                     onClick={() => makeLabelsPdf(pdfLabels(), "print").catch((e) => alert(e?.message || "Couldn't generate the labels."))}
                     className="btn-primary px-6 py-2.5 text-sm font-medium"
-                  >🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
+                  ><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print {labels.length}label{labels.length === 1 ? "" : "s"}</button>
                   <button
                     onClick={() => makeLabelsPdf(pdfLabels(), "download").catch((e) => alert(e?.message || "Couldn't generate the PDF."))}
                     className="px-4 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald/10"
                     title="Save the exact-size PDF to print later."
-                  >⬇ Save PDF</button>
+                  ><Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />Save PDF</button>
                 </>
               ) : (
-                <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium">🖶 Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
+                <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print {labels.length}label{labels.length === 1 ? "" : "s"}</button>
               )}
             </div>
           )}
@@ -246,32 +247,26 @@ export function BarcodeSheet({ products }: { products: P[] }) {
           <div className="barcode-grid grid" style={{ "--bc-cols": cols, "--bc-rows": rowsPerSheet, "--bc-barh": `${preset.barh}mm`, "--bc-rowh": `${rowH_MM.toFixed(2)}mm`, "--bc-colgap": `${COL_GAP_MM}mm`, "--bc-rowgap": `${ROW_GAP_MM}mm`, gridTemplateColumns: `repeat(${cols}, 1fr)` } as any}>
             {labels.map((it, i) => {
               const line = priceLine(it);
-              return (
-                isThermal ? (
-                  // Thermal 2in × 1in: QR on the LEFT, text stacked on the RIGHT.
-                  <div key={i} className="barcode-label bg-white break-inside-avoid flex items-center gap-2 text-left">
-                    <div className="shrink-0" style={{ width: 54, height: 54 }}>
-                      {labelType === "qr"
-                        ? <QrCode value={qrValue(it.sku)} size={54} />
-                        : <Barcode value={it.sku} height={40} unit={1} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {opts.name && <p className="bc-name font-semibold text-ink leading-tight">{it.name}</p>}
-                      {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
-                      {line && <p className="bc-price font-medium text-ink">{line}</p>}
-                    </div>
-                  </div>
-                ) : (
-                  <div key={i} className="barcode-label text-center bg-white break-inside-avoid">
-                    {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
-                    {labelType === "qr"
-                      ? <QrCode value={qrValue(it.sku)} size={cols >= 8 ? 34 : 44} />
-                      : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
-                    {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
-                    {line && <p className="bc-price font-medium text-ink">{line}</p>}
-                  </div>
-                )
-              );
+              return (isThermal ? // Thermal 2in × 1in: QR on the LEFT, text stacked on the RIGHT.
+              (<div key={i} className="barcode-label bg-white break-inside-avoid flex items-center gap-2 text-left">
+                <div className="shrink-0" style={{ width: 54, height: 54 }}>
+                  {labelType === "qr"
+                    ? <QrCode value={qrValue(it.sku)} size={54} />
+                    : <Barcode value={it.sku} height={40} unit={1} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {opts.name && <p className="bc-name font-semibold text-ink leading-tight">{it.name}</p>}
+                  {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
+                  {line && <p className="bc-price font-medium text-ink">{line}</p>}
+                </div>
+              </div>) : (<div key={i} className="barcode-label text-center bg-white break-inside-avoid">
+                {opts.name && <p className="bc-name font-semibold text-ink truncate">{it.name}</p>}
+                {labelType === "qr"
+                  ? <QrCode value={qrValue(it.sku)} size={cols >= 8 ? 34 : 44} />
+                  : <Barcode value={it.sku} height={28} unit={cols >= 8 ? 0.85 : 1.1} />}
+                {opts.sku && <p className="bc-sku tracking-wide text-ink">SKU {it.sku}</p>}
+                {line && <p className="bc-price font-medium text-ink">{line}</p>}
+              </div>));
             })}
           </div>
         </div>

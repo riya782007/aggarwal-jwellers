@@ -45,7 +45,7 @@ export async function updateEstimateLineAction(formData: FormData): Promise<void
 }
 
 /** Pillar 4/15: edit a line's UNIT PRICE (₹) on an open estimate — the negotiated rate
- *  is stored and carries straight through to the final bill on conversion. */
+ * is stored and carries straight through to the final bill on conversion. */
 export async function updateEstimateLinePriceAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("estimates.create"))) return;
   const itemId = String(formData.get("item_id") ?? "");
@@ -200,7 +200,7 @@ export async function reopenEstimateAction(formData: FormData) {
 }
 
 /** Convert a backorder into a fulfilled sale once stock has arrived — clears the backorder flag so
- *  it drops off the Backorders list and counts as a normal completed sale. */
+ * it drops off the Backorders list and counts as a normal completed sale. */
 export async function fulfillBackorderAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.sell"))) return;
   const id = String(formData.get("id") ?? "").trim();
@@ -222,8 +222,8 @@ export async function recordReturnAction(input: { orderId: string; reason: strin
 }
 
 /** Cancel a whole bill (owner/refund permission): restocks every line net of returns,
- *  reverses the sale + tender in the day-book, marks it cancelled. All downstream views
- *  (Udhaar, cashbook, dashboard, revenue) already exclude cancelled bills (0045/0046). */
+ * reverses the sale + tender in the day-book, marks it cancelled. All downstream views
+ * (Udhaar, cashbook, dashboard, revenue) already exclude cancelled bills (0045/0046). */
 export async function cancelOrderAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.refund"))) return;
   const id = String(formData.get("order_id") ?? "");

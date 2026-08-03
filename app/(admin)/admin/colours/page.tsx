@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getOptionMaster } from "@/lib/supabase/queries";
@@ -73,10 +74,10 @@ export default async function ColoursPage({ searchParams }: { searchParams: { q?
       {(duplicates.length > 0 || missingCode.length > 0) && (
         <div className="rounded-2xl border border-gold/40 bg-gold/5 p-4 mb-5 text-xs text-gold-dark space-y-1">
           {duplicates.length > 0 && (
-            <p>⚠️ <b>Duplicate barcode codes:</b> {duplicates.map(([code, names]) => `${code} → ${names.join(" + ")}`).join("; ")}. Two colours with the same code will produce the same barcode for both — change one to keep scans unambiguous.</p>
+            <p><Icon g="⚠️" className="inline-block align-middle w-[1em] h-[1em]" /> <b>Duplicate barcode codes:</b> {duplicates.map(([code, names]) => `${code} → ${names.join(" + ")}`).join("; ")}. Two colours with the same code will produce the same barcode for both — change one to keep scans unambiguous.</p>
           )}
           {missingCode.length > 0 && (
-            <p>ℹ️ <b>No code set for:</b> {missingCode.slice(0, 8).join(", ")}{missingCode.length > 8 ? ` …and ${missingCode.length - 8} more` : ""}. The system will derive one from the name, but you can pin a specific code below.</p>
+            <p><Icon g="ℹ️" className="inline-block align-middle w-[1em] h-[1em]" /> <b>No code set for:</b> {missingCode.slice(0, 8).join(", ")}{missingCode.length > 8 ? ` …and ${missingCode.length - 8} more` : ""}. The system will derive one from the name, but you can pin a specific code below.</p>
           )}
         </div>
       )}
@@ -103,7 +104,7 @@ export default async function ColoursPage({ searchParams }: { searchParams: { q?
               <span className={`text-[11px] text-right whitespace-nowrap ${c.count > 0 ? "text-ink" : "text-muted"}`} title="Variants using this colour">{c.count}×</span>
               <div className="flex items-center gap-1.5 justify-end">
                 <button className="px-2.5 py-1 rounded-lg bg-ink/5 text-ink text-xs hover:bg-ink/10">Save</button>
-                <button formAction={deleteOptionAction} className="text-muted hover:text-rose text-xs px-1" title="Remove from list">✕</button>
+                <button formAction={deleteOptionAction} className="text-muted hover:text-rose text-xs px-1" title="Remove from list"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
               </div>
             </form>
           ))}
@@ -144,7 +145,7 @@ function OptionList({ kind, title, rows, all, searching }: { kind: "size" | "pol
             <input name="value" defaultValue={r.value} className={`${inp} flex-1 min-w-0`} />
             <span className="text-[11px] text-muted whitespace-nowrap">{r.count}×</span>
             <button className="px-2.5 py-1 rounded-lg bg-ink/5 text-ink text-xs hover:bg-ink/10">Save</button>
-            <button formAction={deleteOptionAction} className="text-muted hover:text-rose text-xs px-1">✕</button>
+            <button formAction={deleteOptionAction} className="text-muted hover:text-rose text-xs px-1"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
           </form>
         ))}
         {rows.length === 0 && <p className="text-sm text-muted">{searching ? "No matches." : "None yet."}</p>}

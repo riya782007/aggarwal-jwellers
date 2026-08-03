@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
@@ -78,7 +79,7 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
                   <div className="flex flex-wrap gap-1.5 justify-end items-center">
                     <Link href={`/admin/products/${r.id}`} className="px-2.5 py-1 rounded-full bg-ink text-white text-xs hover:bg-ink/90">Manage</Link>
                     <Link href={`/admin/product/${r.sku}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">360°</Link>
-                    <Link href={`/shop/${r.categorySlug}/${r.sku}`} target="_blank" className="text-xs text-emerald nav-link">view ↗</Link>
+                    <Link href={`/shop/${r.categorySlug}/${r.sku}`} target="_blank" className="text-xs text-emerald nav-link">view <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                     {can(session, "catalog.publish") && (
                       <form action={setProductVisibilityAction}>
                         <input type="hidden" name="sku" value={r.sku} />
@@ -86,7 +87,7 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
                         <button className="px-2.5 py-1 rounded-full bg-gold/15 text-gold-dark text-xs hover:bg-gold/25">{r.status === "published" ? "Hide" : "Show"}</button>
                       </form>
                     )}
-                    {can(session, "catalog.delete") && <DeleteProductButton sku={r.sku} className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label="🗑" />}
+                    {can(session, "catalog.delete") && <DeleteProductButton sku={r.sku} className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label="" />}
                   </div>
                 </td>
               </tr>

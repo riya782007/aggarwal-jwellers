@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import Link from "next/link";
 import { CatalogueRowActions } from "@/components/admin/CatalogueRowActions";
@@ -68,7 +69,7 @@ export function CatalogueRow({
                   {showWholesale
                     ? <span className="font-semibold text-emerald-dark">{p.wholesaleLabel}</span>
                     : <span className="font-mono tracking-widest text-muted">••••</span>}
-                  <span className="text-[10px] text-muted">{showWholesale ? "🙈" : "👁 tap"}</span>
+                  <span className="text-[10px] text-muted">{showWholesale ? "" : " tap"}</span>
                 </button>
               </div>
 
@@ -100,9 +101,9 @@ export function CatalogueRow({
 
               {/* Actions */}
               <div className="flex flex-wrap items-start gap-2">
-                {canEdit && <Link href={`/admin/catalogue/${p.sku}`} className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs font-medium hover:bg-ink/10">✎ Edit</Link>}
+                {canEdit && <Link href={`/admin/catalogue/${p.sku}`} className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs font-medium hover:bg-ink/10 inline-flex items-center gap-1"><Icon g="✎" className="w-3 h-3" />Edit</Link>}
                 <Link href={`/admin/product/${p.sku}`} className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">360°</Link>
-                <Link href={`/shop/${p.categorySlug}/${p.sku}`} target="_blank" className="px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs hover:bg-emerald-mist/70">View ↗</Link>
+                <Link href={`/shop/${p.categorySlug}/${p.sku}`} target="_blank" className="px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs hover:bg-emerald-mist/70">View <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                 {canAi && (
                   <form action={genContent}>
                     <input type="hidden" name="sku" value={p.sku} />
@@ -110,7 +111,7 @@ export function CatalogueRow({
                   </form>
                 )}
                 {canAi && <GeneratePhotoButton sku={p.sku} category={p.categoryName || p.name} />}
-                {canDelete && <DeleteProductButton sku={p.sku} className="px-3 py-1.5 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label="🗑 Delete" />}
+                {canDelete && <DeleteProductButton sku={p.sku} className="px-3 py-1.5 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label=" Delete" />}
               </div>
             </div>
           </td>

@@ -1,12 +1,12 @@
 "use server";
 /**
  * AI promotional-poster campaigns.
- *   1. refinePromoAction   — OpenAI turns the owner's rough idea into a detailed poster prompt
- *                            (grounded in the live catalogue) + a suggested category.
- *   2. generatePromoAction — Gemini (Nano Banana) renders the poster from the refined prompt,
- *                            stores it, and saves a DRAFT campaign.
- *   3. publishPromoAction  — the retail / wholesale toggles place the poster in the storefront hero,
- *                            targeted to the most-suited category.
+ * 1. refinePromoAction — OpenAI turns the owner's rough idea into a detailed poster prompt
+ * (grounded in the live catalogue) + a suggested category.
+ * 2. generatePromoAction — Gemini (Nano Banana) renders the poster from the refined prompt,
+ * stores it, and saves a DRAFT campaign.
+ * 3. publishPromoAction — the retail / wholesale toggles place the poster in the storefront hero,
+ * targeted to the most-suited category.
  * All gated on `marketing.manage`. Best-effort + never throws to the client.
  */
 import { revalidatePath } from "next/cache";
@@ -131,7 +131,7 @@ export async function deletePromoAction(formData: FormData): Promise<void> {
 }
 
 /** 0049 — campaign settings: where it shows (hero/strip/popup), its schedule window,
- *  the strip/popup headline and an optional voucher code hook. */
+ * the strip/popup headline and an optional voucher code hook. */
 export async function setPromotionSettingsAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("marketing.manage"))) return;
   const id = String(formData.get("id") ?? "");

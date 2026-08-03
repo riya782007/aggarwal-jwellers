@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MediaCard } from "@/components/admin/MediaCard";
@@ -32,10 +33,10 @@ export function MediaSearchGrid({ products, ready }: { products: Prod[]; ready: 
       <div className="relative mb-4">
         <input
           value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="🔍 Search by product, SKU, or colour (e.g. CCEE5723, Black, necklace)…"
+          placeholder=" Search by product, SKU, or colour (e.g. CCEE5723, Black, necklace)…"
           className="w-full rounded-xl border border-sand bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald"
         />
-        {q && <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-sm">✕</button>}
+        {q && <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-sm"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>}
       </div>
       {q && <p className="text-xs text-muted mb-3">{filtered.length} match{filtered.length === 1 ? "" : "es"} for “{q}”.</p>}
 
@@ -45,7 +46,7 @@ export function MediaSearchGrid({ products, ready }: { products: Prod[]; ready: 
         <div className="grid md:grid-cols-2 gap-4">
           {filtered.map(({ p, hits }) => (
             <div key={p.id} className="relative">
-              <Link href={`/admin/media/${p.id}`} className="absolute right-3 top-3 z-10 px-2.5 py-1 rounded-full bg-ink text-white text-xs hover:bg-ink/90">✦ AI Studio</Link>
+              <Link href={`/admin/media/${p.id}`} className="absolute right-3 top-3 z-10 px-2.5 py-1 rounded-full bg-ink text-white text-xs hover:bg-ink/90 inline-flex items-center gap-1"><Icon g="✦" className="w-3 h-3" />AI Studio</Link>
               <MediaCard p={p as any} geminiReady={ready} />
               {hits.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5 px-1">

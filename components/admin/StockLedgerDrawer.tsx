@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * StockLedgerDrawer — the per-SKU Product Stock Ledger (SAP/Zoho/Tally-style).
  * Opens from a Stock Movement row WITHOUT navigating away. Lazy-loads + paginates the SKU's
@@ -144,7 +145,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
               </div>
             )}
           </div>
-          <button onClick={onClose} className="text-xl text-muted hover:text-ink leading-none">✕</button>
+          <button onClick={onClose} className="text-xl text-muted hover:text-ink leading-none"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
 
         {loading ? (
@@ -172,7 +173,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
             {/* Reservation panel */}
             {data.reservations.length > 0 && (
               <div className="mx-4 mb-3 rounded-xl border border-gold/40 bg-gold/5 p-3">
-                <p className="text-xs font-semibold text-gold-dark mb-1.5">🔖 Reserved by estimates · {h!.reserved} pcs · available after reservation {h!.available}</p>
+                <p className="text-xs font-semibold text-gold-dark mb-1.5"><Icon g="🔖" className="inline-block align-middle w-[1em] h-[1em]" />Reserved by estimates · {h!.reserved}pcs · available after reservation {h!.available}</p>
                 <ul className="divide-y divide-gold/20">
                   {data.reservations.map((r) => (
                     <li key={r.id} className="py-1.5 flex items-center justify-between gap-2 text-xs">
@@ -215,8 +216,8 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search invoice, customer, ref, user…" className="flex-1 min-w-[160px] rounded-lg border border-sand bg-white px-3 py-1.5 text-xs outline-none focus:border-emerald" />
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-sand bg-white px-2 py-1.5 text-xs" />
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-sand bg-white px-2 py-1.5 text-xs" />
-                <button onClick={exportCsv} className="px-2.5 py-1.5 rounded-lg bg-white border border-sand text-xs text-ink hover:border-emerald">⬇ CSV</button>
-                <button onClick={() => window.print()} className="px-2.5 py-1.5 rounded-lg bg-white border border-sand text-xs text-ink hover:border-emerald">🖨 PDF</button>
+                <button onClick={exportCsv} className="px-2.5 py-1.5 rounded-lg bg-white border border-sand text-xs text-ink hover:border-emerald"><Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />CSV</button>
+                <button onClick={() => window.print()} className="px-2.5 py-1.5 rounded-lg bg-white border border-sand text-xs text-ink hover:border-emerald"><Icon g="🖨" className="inline-block align-middle w-[1em] h-[1em]" />PDF</button>
               </div>
             </div>
 
@@ -242,7 +243,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
                           </p>
                         </div>
                         <span className={`font-semibold tabular-nums ${r.delta > 0 ? "text-emerald-dark" : "text-rose"}`}>{r.delta > 0 ? "+" : ""}{r.delta}</span>
-                        <span className="text-xs text-muted tabular-nums w-14 text-right">→ {r.runningBalance}</span>
+                        <span className="text-xs text-muted tabular-nums w-14 text-right"><Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /> {r.runningBalance}</span>
                       </div>
                     ))}
                   </div>

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { useState } from "react";
 import { IconMenu } from "./Icons";
@@ -14,7 +15,7 @@ export function MobileMenu({ categories }: { categories: { name: string; slug: s
           <div className="absolute left-0 top-0 h-full w-72 bg-ivory p-6 animate-[fadeIn_.2s_ease] shadow-luxe">
             <div className="flex items-center justify-between mb-6">
               <span className="font-display text-2xl text-ink">Aggarwal Jewellers</span>
-              <button aria-label="Close" onClick={() => setOpen(false)} className="text-xl">✕</button>
+              <button aria-label="Close" onClick={() => setOpen(false)} className="text-xl"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
             </div>
             <nav className="space-y-1">
               <Link href="/shop" onClick={() => setOpen(false)} className="block py-2 text-ink">All Jewellery</Link>

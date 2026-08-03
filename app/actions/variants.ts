@@ -11,12 +11,12 @@ const BUCKET = "product-media";
 
 /** Ensure the variants/product-images bucket exists AND is public.
  *
- *  Why this is a function (not just `createBucket(... public:true)`): a previous run may have
- *  created the bucket with `public: false`, and `createBucket` errors on existing buckets
- *  (which we swallow). Without `updateBucket`, every subsequent upload would land in a
- *  bucket where `getPublicUrl(...)` returns a URL that 404s for end users — exactly the
- *  "image uploaded but won't load" symptom reported (Pillar 16).
- *  This helper is idempotent and cheap; we call it everywhere we put bytes in. */
+ * Why this is a function (not just `createBucket(... public:true)`): a previous run may have
+ * created the bucket with `public: false`, and `createBucket` errors on existing buckets
+ * (which we swallow). Without `updateBucket`, every subsequent upload would land in a
+ * bucket where `getPublicUrl(...)` returns a URL that 404s for end users — exactly the
+ * "image uploaded but won't load" symptom reported (Pillar 16).
+ * This helper is idempotent and cheap; we call it everywhere we put bytes in. */
 async function ensureMediaBucket(sb: ReturnType<typeof supabaseServer>) {
   const created = await sb.storage.createBucket(BUCKET, { public: true }).catch(() => null);
   if (created === null || (created && (created as any).error)) {
@@ -26,12 +26,12 @@ async function ensureMediaBucket(sb: ReturnType<typeof supabaseServer>) {
 }
 
 /** Build a readable variant SKU suffix from whichever attributes are present, preferring
- *  the canonical colour code from the colours master (Pillar 11). Examples:
- *    autoSku("AJ2024", { color: "Red" })              → "AJ2024-RED"
- *    autoSku("AJ2024", { color: "Red", size: "M" })   → "AJ2024-RED-M"
- *    autoSku("AJ2024", { size: "M", polish: "Matte"}) → "AJ2024-M-MATT"
- *  If `colorCode` is supplied (a DB-resolved override from `variant_options.barcode_code`)
- *  it wins over the static fallback in `lib/colors.ts`. */
+ * the canonical colour code from the colours master (Pillar 11). Examples:
+ * autoSku("AJ2024", { color: "Red" }) → "AJ2024-RED"
+ * autoSku("AJ2024", { color: "Red", size: "M" }) → "AJ2024-RED-M"
+ * autoSku("AJ2024", { size: "M", polish: "Matte"}) → "AJ2024-M-MATT"
+ * If `colorCode` is supplied (a DB-resolved override from `variant_options.barcode_code`)
+ * it wins over the static fallback in `lib/colors.ts`. */
 function autoSku(
   productSku: string,
   parts: { color?: string | null; size?: string | null; polish?: string | null },
@@ -125,7 +125,7 @@ export async function deleteVariantAction(formData: FormData): Promise<void> {
 }
 
 /** Upload one or more photos for a single variant (so blue shows the blue piece, etc.).
- *  Returns a result so the client uploader can show success/error feedback (Pillar 16). */
+ * Returns a result so the client uploader can show success/error feedback (Pillar 16). */
 export async function addVariantImageAction(formData: FormData): Promise<{ ok: boolean; urls?: string[]; error?: string }> {
   if (!(await requirePerm("catalog.edit"))) return { ok: false, error: "Your role can't edit the catalogue." };
   const id = String(formData.get("id") ?? "");
@@ -169,7 +169,7 @@ export async function deleteVariantImageAction(formData: FormData): Promise<void
 export type VariantImgResult = { ok: boolean; reason?: string; error?: string; url?: string };
 
 /** List a product's variants (by SKU) with their attributes + id — used by the Upload form
- *  to attach per-variant photos straight after the product+variants are created (Pillar 16). */
+ * to attach per-variant photos straight after the product+variants are created (Pillar 16). */
 export async function getProductVariantsAction(sku: string): Promise<{ id: string; color: string | null; size: string | null; polish: string | null; sku: string }[]> {
   if (!(await requirePerm("catalog.create"))) return [];
   const trimmed = (sku ?? "").trim();

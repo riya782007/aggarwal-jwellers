@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * ProductManager — the enterprise Product Management (PIM) surface for /admin/products/[id].
  * 9 tabs (General, Pricing, Inventory, Variants, Retail, Wholesale, Media, SEO, History) over a
@@ -15,9 +16,9 @@ import {
 } from "@/app/actions/products";
 
 const TABS = [
-  ["general", "General", "📋"], ["pricing", "Pricing", "₹"], ["inventory", "Inventory", "📦"],
-  ["variants", "Variants", "🎨"], ["retail", "Retail Storefront", "🛍"], ["wholesale", "Wholesale Storefront", "🏭"],
-  ["media", "Media", "🖼"], ["seo", "SEO", "🔎"], ["history", "History", "🕑"],
+  ["general", "General", "📋"], ["pricing", "Pricing", "₹"], ["inventory", "Inventory", ""],
+  ["variants", "Variants", ""], ["retail", "Retail Storefront", ""], ["wholesale", "Wholesale Storefront", "🏭"],
+  ["media", "Media", ""], ["seo", "SEO", ""], ["history", "History", "🕑"],
 ] as const;
 type TabKey = (typeof TABS)[number][0];
 
@@ -60,10 +61,10 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
     <div className="max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
-        <Link href="/admin/inventory" className="text-sm text-muted hover:text-ink">← Inventory</Link>
+        <Link href="/admin/inventory" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Inventory</Link>
         <div className="flex items-center gap-2">
           <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === "published" ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>{p.status === "published" ? "Published" : "Hidden"}</span>
-          <Link href={`/shop/${p.category?.slug}/${p.sku}`} target="_blank" className="text-xs text-emerald nav-link">view ↗</Link>
+          <Link href={`/shop/${p.category?.slug}/${p.sku}`} target="_blank" className="text-xs text-emerald nav-link">view <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
       </div>
       <h1 className="font-display text-3xl text-ink">{p.name}</h1>
@@ -71,7 +72,7 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
 
       {warns.length > 0 && (
         <div className="mb-4 rounded-xl border border-gold/50 bg-gold/10 px-4 py-2 text-xs text-ink">
-          ⚠ {warns.join("  ·  ")}
+          <Icon g="⚠" className="inline-block align-middle w-[1em] h-[1em]" /> {warns.join("  ·  ")}
         </div>
       )}
 
@@ -80,7 +81,7 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
         {TABS.map(([key, lbl, icon]) => (
           <button key={key} type="button" onClick={() => setTab(key)}
             className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 ${tab === key ? "bg-ink text-white" : "text-muted hover:text-ink hover:bg-cream"}`}>
-            <span aria-hidden>{icon}</span><span className="hidden sm:inline">{lbl}</span>
+            {icon && <span aria-hidden><Icon g={icon} className="w-4 h-4" /></span>}<span className="hidden sm:inline">{lbl}</span>
           </button>
         ))}
       </div>
@@ -194,12 +195,12 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
           {p.type !== "configurable" ? (
             <p className="text-sm text-muted">This is a <b>Simple</b> product (single SKU, single inventory). Switch it to <b>Configurable</b> on the General tab to add variants.</p>
           ) : data.variants.length === 0 ? (
-            <p className="text-sm text-muted">No variants yet. Add colours/sizes in the <Link href={`/admin/catalogue/${p.sku}?tab=variants`} className="text-emerald nav-link">variant editor →</Link></p>
+            <p className="text-sm text-muted">No variants yet. Add colours/sizes in the <Link href={`/admin/catalogue/${p.sku}?tab=variants`} className="text-emerald nav-link">variant editor <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link></p>
           ) : (
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-1">
                 <p className="text-sm font-medium text-ink">{data.variants.length} variants</p>
-                <Link href={`/admin/catalogue/${p.sku}?tab=variants`} className="text-xs text-emerald nav-link">Add / edit / bulk →</Link>
+                <Link href={`/admin/catalogue/${p.sku}?tab=variants`} className="text-xs text-emerald nav-link">Add / edit / bulk <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
               </div>
               {data.variants.map((v: any) => (
                 <div key={v.id} className="rounded-xl border border-sand p-3 flex flex-wrap items-center gap-3 text-sm">
@@ -278,7 +279,7 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
         <div className={card}>
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm font-medium text-ink">{data.images.length} image(s)</p>
-            <Link href={`/admin/catalogue/${p.sku}?tab=photos`} className="text-xs text-emerald nav-link">Upload / reorder / AI photos →</Link>
+            <Link href={`/admin/catalogue/${p.sku}?tab=photos`} className="text-xs text-emerald nav-link">Upload / reorder / AI photos <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
           </div>
           {data.images.length === 0 ? (
             <p className="text-sm text-muted">No images yet.</p>

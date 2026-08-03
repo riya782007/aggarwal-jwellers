@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * SelectableCatalog — the shareable catalogue grid (Phase 5).
  *
@@ -125,26 +126,26 @@ export function SelectableCatalog({ products, view, brand, phone }: { products: 
       <div className="no-print flex flex-wrap items-center gap-2 mb-4">
         <button onClick={() => { setPicking((p) => !p); setSel(new Set()); }}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${picking ? "bg-ink text-white" : "bg-white border border-sand text-ink hover:border-gold"}`}>
-          {picking ? "✓ Selecting — tap pieces" : "✷ Select pieces to share"}
+          {picking ? "Selecting — tap pieces" : "Select pieces to share"}
         </button>
         {picking && (
           <>
             <button onClick={allSelected ? clearAll : selectAll}
               className="px-4 py-2 rounded-full bg-white border border-sand text-ink text-sm hover:border-gold">
-              {allSelected ? "✕ Clear all" : `✓ Select all (${products.length})`}
+              {allSelected ? "Clear all" : `Select all (${products.length})`}
             </button>
             <span className="text-sm text-muted">{sel.size} selected</span>
           </>
         )}
         <button onClick={copy} className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">
-          {copied ? "Link copied ✓" : sel.size ? `🔗 Copy link (${sel.size})` : "🔗 Copy link"}
+          {copied ? "Link copied" : sel.size ? ` Copy link (${sel.size})` : " Copy link"}
         </button>
         <button onClick={whatsapp} className="px-4 py-2 rounded-full bg-emerald text-white text-sm hover:bg-emerald-dark">
           {sel.size ? `Share ${sel.size} on WhatsApp` : "Share on WhatsApp"}
         </button>
         <button onClick={savePdf} disabled={products.length === 0}
           className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium hover:opacity-90 disabled:opacity-40">
-          ⬇ Save as PDF{sel.size ? ` (${sel.size})` : ""}
+          <Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />Save as PDF{sel.size ? ` (${sel.size})` : ""}
         </button>
       </div>
 
@@ -163,7 +164,7 @@ export function SelectableCatalog({ products, view, brand, phone }: { products: 
                 <div className="aspect-[4/5] bg-cream relative">
                   <ProductImage src={p.image} name={p.name} />
                   {picking && (
-                    <span className={`absolute top-2 left-2 h-6 w-6 rounded-full grid place-items-center text-xs ${on ? "bg-emerald text-white" : "bg-white/80 text-ink border border-sand"}`}>{on ? "✓" : ""}</span>
+                    <span className={`absolute top-2 left-2 h-6 w-6 rounded-full grid place-items-center text-xs ${on ? "bg-emerald text-white" : "bg-white/80 text-ink border border-sand"}`}>{on && <Icon name="check" className="w-3.5 h-3.5" />}</span>
                   )}
                   {!picking && p.hasOffer && view === "retail" && <span className="absolute top-2 left-2 bg-rose text-white text-[10px] px-2 py-0.5 rounded-full">{p.offerPct}% OFF</span>}
                   {p.wholesaleOnly && <span className="absolute bottom-2 left-2 bg-ink/80 text-gold-light text-[10px] px-2 py-0.5 rounded-full">Wholesale only</span>}

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useRef, useState } from "react";
 import { quickAddProductAction } from "@/app/actions/catalog";
 import { t, type Lang } from "@/lib/i18n";
@@ -87,7 +88,7 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
   if (done) {
     return (
       <div className="max-w-xl bg-white rounded-2xl p-8 shadow-card text-center">
-        <p className="text-4xl mb-2">🎉</p>
+        <p className="text-4xl mb-2"><Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></p>
         <h2 className="font-display text-2xl text-ink">{t(lang, "qaDone")}</h2>
         <p className="text-ink font-medium mt-2">{done.name} <span className="font-mono text-muted">· {done.sku}</span></p>
         <p className="text-sm text-muted mt-2">{t(lang, "qaDoneNote")}</p>
@@ -110,7 +111,7 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => (speech.listening ? speech.stop() : speech.start(voiceLang))}
               className={`h-11 w-11 rounded-full text-xl shrink-0 ${speech.listening ? "bg-rose text-white animate-pulse" : "bg-emerald text-white"}`}>
-              {speech.listening ? "◼" : "🎤"}
+              {speech.listening ? <Icon g="◼" className="w-4 h-4" /> : <Icon g="🎤" className="w-4 h-4" />}
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-ink font-medium">{speech.listening ? t(lang, "qaVoiceListening") : t(lang, "qaVoiceTitle")}</p>
@@ -133,7 +134,7 @@ export function QuickAddClient({ categories, lang = "en" }: { categories: Cat[];
           className={`w-full rounded-2xl border-2 border-dashed ${preview ? "border-emerald" : "border-sand"} bg-cream/40 hover:bg-cream transition-colors overflow-hidden`}>
           {preview
             ? <img src={preview} alt="" className="w-full max-h-72 object-contain" />
-            : <span className="flex flex-col items-center gap-2 py-10 text-muted"><span className="text-4xl">📷</span><span className="text-sm">{t(lang, "qaTakePhoto")}</span></span>}
+            : <span className="flex flex-col items-center gap-2 py-10 text-muted"><span className="text-4xl"><Icon g="📷" className="inline-block align-middle w-[1em] h-[1em]" /></span><span className="text-sm">{t(lang, "qaTakePhoto")}</span></span>}
         </button>
         <input ref={fileRef} type="file" name="image" accept="image/*" capture="environment" required
           className="sr-only" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />

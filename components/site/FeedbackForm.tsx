@@ -1,4 +1,6 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
+import { Star } from "lucide-react";
 import { useState } from "react";
 import { submitFeedbackAction } from "@/app/actions/feedback";
 
@@ -28,10 +30,10 @@ export function FeedbackForm({ storePhone, orderRef = "" }: { storePhone: string
 
   if (done) return (
     <div className="text-center py-6">
-      <p className="text-5xl">💛</p>
+      <p className="text-5xl"><Icon g="💛" className="inline-block align-middle w-[1em] h-[1em]" /></p>
       <h2 className="font-display text-2xl text-ink mt-2">Thank you!</h2>
       <p className="text-sm text-muted mt-1">We've received your feedback and truly appreciate it.</p>
-      <a href={waHref} target="_blank" rel="noreferrer" className="inline-block mt-4 px-5 py-3 rounded-full bg-[#25D366] text-white text-sm font-medium">Also send us on WhatsApp →</a>
+      <a href={waHref} target="_blank" rel="noreferrer" className="inline-block mt-4 px-5 py-3 rounded-full bg-[#25D366] text-white text-sm font-medium">Also send us on WhatsApp <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></a>
     </div>
   );
 
@@ -40,7 +42,7 @@ export function FeedbackForm({ storePhone, orderRef = "" }: { storePhone: string
       <div className="flex gap-1.5 justify-center text-4xl">
         {[1, 2, 3, 4, 5].map((s) => (
           <button key={s} type="button" onClick={() => setRating(s)} onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)}
-            className={`transition-transform hover:scale-110 ${(hover || rating) >= s ? "text-gold" : "text-sand"}`} aria-label={`${s} star${s > 1 ? "s" : ""}`}>★</button>
+            className={`transition-transform hover:scale-110 ${(hover || rating) >= s ? "text-gold" : "text-sand"}`} aria-label={`${s} star${s > 1 ? "s" : ""}`}><Star className="w-7 h-7" strokeWidth={1.5} style={{ fill: (hover || rating) >= s ? "currentColor" : "none" }} /></button>
         ))}
       </div>
       <textarea className={input} rows={4} placeholder="Tell us about your experience — what you loved, what we can improve…" value={msg} onChange={(e) => setMsg(e.target.value)} />

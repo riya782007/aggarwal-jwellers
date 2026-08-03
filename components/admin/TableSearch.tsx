@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useRef, useState } from "react";
 
 /**
@@ -44,7 +45,7 @@ export function TableSearch({
 
   return (
     <div className={`relative w-full sm:max-w-md ${className}`}>
-      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">🔍</span>
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"><Icon g="🔍" className="inline-block align-middle w-[1em] h-[1em]" /></span>
       <input
         ref={inputRef}
         type="search"
@@ -62,7 +63,7 @@ export function TableSearch({
         aria-label="Clear search"
         className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-lg text-muted hover:bg-cream hover:text-ink"
       >
-        ✕
+        <Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" />
       </button>
     </div>
   );

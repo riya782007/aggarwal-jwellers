@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
@@ -57,8 +58,8 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
       const hasVariants = (products.find((p) => p.id === l.mappedProductId)?.variants ?? []).length > 0;
       return hasVariants && !l.variantId;
     });
-    if (missing) { setMsg(`✕ Pick a colour for "${missing.mappedName}" — products with colours are bought per colour, not as the whole product.`); return; }
-    if (over) { setMsg(`✕ Paid ${formatPaise(paidNow * 100)} is more than the bill total ${formatPaise(total * 100)} — reduce a method.`); return; }
+    if (missing) { setMsg(`Pick a colour for "${missing.mappedName}" — products with colours are bought per colour, not as the whole product.`); return; }
+    if (over) { setMsg(`Paid ${formatPaise(paidNow * 100)} is more than the bill total ${formatPaise(total * 100)} — reduce a method.`); return; }
     setBusy(true); setMsg(""); if (!force) setConfirmDup(false);
     // Split payment: send one leg per method that has an amount. The rest is left as credit.
     const payments = METHODS
@@ -72,10 +73,10 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
     setBusy(false);
     if (res.ok) {
       const owed = Math.max(0, total - paidNow);
-      setMsg(`✓ Purchase recorded (${formatPaise(res.total ?? 0)})${owed > 0 ? ` — ${formatPaise(owed * 100)} on credit to supplier` : " — paid in full"}. Stock updated.`);
+      setMsg(`Purchase recorded (${formatPaise(res.total ?? 0)})${owed > 0 ?` — ${formatPaise(owed * 100)} on credit to supplier` : " — paid in full"}. Stock updated.`);
       setLines([{ supplierSku: "", mappedProductId: "", mappedName: "", variantId: "", qty: "", cost: "" }]); setBillNo(""); setPay({ cash: "", upi: "", bank: "" }); setConfirmDup(false); router.refresh();
     }
-    else { setMsg(`✕ ${res.error}`); setConfirmDup(!!res.duplicateBillNo); }
+    else { setMsg(`${res.error}`); setConfirmDup(!!res.duplicateBillNo); }
   }
 
   return (
@@ -97,7 +98,7 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
                 onChange={(e) => { set(i, { supplierSku: e.target.value }); setOpenIdx(i); }} onFocus={() => setOpenIdx(i)} />
               {l.mappedName ? (
                 <>
-                  <p className="text-[11px] text-emerald-dark mt-0.5">→ {l.mappedName} <button onClick={() => set(i, { mappedProductId: "", mappedName: "", variantId: "" })} className="text-muted underline ml-1">change</button></p>
+                  <p className="text-[11px] text-emerald-dark mt-0.5"><Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /> {l.mappedName} <button onClick={() => set(i, { mappedProductId: "", mappedName: "", variantId: "" })} className="text-muted underline ml-1">change</button></p>
                   {(() => {
                     const vs = products.find((p) => p.id === l.mappedProductId)?.variants ?? [];
                     if (!vs.length) return null;
@@ -140,7 +141,7 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
             <div className="col-span-2 flex items-center justify-end gap-2 pt-2 text-sm">
               <span className="sensitive">{formatPaise((Number(l.qty) || 0) * (Number(l.cost) || 0) * 100)}</span>
               <button type="button" onClick={() => setLines((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p))}
-                title="Remove this line" className="text-muted hover:text-rose leading-none shrink-0">✕</button>
+                title="Remove this line" className="text-muted hover:text-rose leading-none shrink-0"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
             </div>
           </div>
         ))}
@@ -177,7 +178,7 @@ export function PurchaseClient({ suppliers, products, lastCosts }: { suppliers: 
             ) : credit > 0 ? (
               <span className="text-muted">Paid {formatPaise(paidNow * 100)} now · <b className="text-gold-dark">{formatPaise(credit * 100)} on credit</b></span>
             ) : (
-              <span className="text-emerald-dark">Paid in full ✓</span>
+              <span className="text-emerald-dark">Paid in full <Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></span>
             )}
           </p>
           <div className="flex items-center gap-2 ml-auto">

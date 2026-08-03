@@ -85,8 +85,8 @@ export async function recordPurchaseAction(input: {
   // Payment: whatever is paid now is recorded as one supplier_payment PER method (so a bill can be
   // split across cash + upi + bank in a single purchase); anything left unpaid stays owed on the
   // supplier ledger (credit). Best-effort — a payment hiccup never unwinds the recorded stock.
-  //   • NEW callers pass `payments: [{mode, amountRupees}, …]`.
-  //   • Legacy callers pass a single `paymentMode` + `amountPaidRupees`; we adapt it to one leg.
+  // • NEW callers pass `payments: [{mode, amountRupees}, …]`.
+  // • Legacy callers pass a single `paymentMode` + `amountPaidRupees`; we adapt it to one leg.
   const splits: PurchasePayment[] = (input.payments?.length)
     ? input.payments
     : (input.paymentMode && input.paymentMode !== "credit")
@@ -112,8 +112,8 @@ export async function recordPurchaseAction(input: {
 }
 
 /** Return goods from a purchase back to the supplier (debit note). Per-line caps and a
- *  stock-availability guard live in the record_purchase_return RPC (migration 0046);
- *  payables everywhere are net of purchases.return_amount. */
+ * stock-availability guard live in the record_purchase_return RPC (migration 0046);
+ * payables everywhere are net of purchases.return_amount. */
 export async function recordPurchaseReturnAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("purchases.create"))) return;
   const purchaseId = String(formData.get("purchase_id") ?? "");
@@ -132,9 +132,9 @@ export async function recordPurchaseReturnAction(formData: FormData): Promise<vo
   revalidatePath("/admin/returns"); revalidatePath("/admin/stock-movements"); revalidatePath("/admin/suppliers");
 }
 
-/** 0049 — Bulk paste a supplier bill: one line per item, "SKU  qty  price" in any common
- *  separator (tab/comma/dash/spaces). SKUs map to products/variants automatically; unmapped
- *  lines are still recorded (supplier_sku only) so nothing on the paper bill is lost. */
+/** 0049 — Bulk paste a supplier bill: one line per item, "SKU qty price" in any common
+ * separator (tab/comma/dash/spaces). SKUs map to products/variants automatically; unmapped
+ * lines are still recorded (supplier_sku only) so nothing on the paper bill is lost. */
 export async function recordPurchaseFromPasteAction(formData: FormData): Promise<{ ok: boolean; purchaseId?: string; mapped?: number; unmapped?: number; error?: string }> {
   if (!(await requirePerm("purchases.create"))) return { ok: false, error: "Your role can't record purchases." };
   const supplierId = String(formData.get("supplier_id") ?? "");
@@ -173,7 +173,7 @@ export async function recordPurchaseFromPasteAction(formData: FormData): Promise
     if (productId) mapped++; else unmapped++;
     lines.push({ supplier_sku: sku, mapped_product_id: productId, variant_id: variantId, qty, unit_cost: Math.round(priceR * 100) });
   }
-  if (!lines.length) return { ok: false, error: "Couldn't read any lines — format each as: SKU  qty  price." };
+  if (!lines.length) return { ok: false, error: "Couldn't read any lines — format each as: SKU qty price." };
 
   const { data, error } = await sb.rpc("record_purchase", { p_supplier_id: supplierId, p_bill_no: billNo || null, p_items: lines });
   if (error) return { ok: false, error: error.message };

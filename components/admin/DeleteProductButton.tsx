@@ -22,7 +22,7 @@ export function DeleteProductButton({ sku, className = "", label }: { sku: strin
   return (
     <>
       <button onClick={() => setOpen(true)} disabled={busy} title="Delete product"
-        className={className || "text-muted hover:text-rose text-xs"}>{label ?? "🗑 Delete"}</button>
+        className={className || "text-muted hover:text-rose text-xs"}>{label ?? " Delete"}</button>
 
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" onClick={() => !busy && setOpen(false)}>

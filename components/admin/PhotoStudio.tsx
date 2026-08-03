@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * PhotoStudio — the AI Jewellery Photography Studio (mockup-faithful, fully wired).
  * Upload a raw shot → AI inspects it → generate a professional hero + angles → regenerate with
@@ -174,7 +175,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
     setCoverBusy(true);
     try {
       const r = await setProductThumbnailAction({ productId: p.id, url: url ?? "" });
-      if (r.ok) { setCover(url); toast(url ? "Storefront cover updated ✓" : "Cover set to automatic ✓", "success"); scheduleRefresh(); }
+      if (r.ok) { setCover(url); toast(url ? "Storefront cover updated" : "Cover set to automatic", "success"); scheduleRefresh(); }
       else { toast(r.reason === "not_an_image_of_this_product" ? "That image isn't on this product." : (r.reason ? `Couldn't set cover (${r.reason})` : "Couldn't set the cover"), "error"); }
     } catch { toast("Network error — try again.", "error"); }
     finally { setCoverBusy(false); }
@@ -213,7 +214,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
       const r = await generateStudioImageAction({ productId: p.id, shotType: shotType as any, settings: settings(), style: styleParam, variantId, matchColorName: opts?.matchColorName });
       if (!r.ok) { const m = reasonText(r.reason, r.error); setErr(m); toast(m, "error"); return false; }
       if (r.url) setResults((x) => ({ ...x, [slot(shotType, variantId)]: r.url! })); // show instantly
-      if (!opts?.silent) toast("Image generated ✓", "success");
+      if (!opts?.silent) toast("Image generated", "success");
       scheduleRefresh(); // sync DB status/candidates shortly, without cancelling other in-flight gens
       return true;
     } catch {
@@ -236,7 +237,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
       const ok = await gen(shotType, `${prefix}-${v.id}`, v.id, { matchColorName: !!recolor[v.id], silent: true });
       if (ok) done++; // each result shows instantly via optimistic state; no mid-loop refresh to cancel others
     }
-    toast(`Bulk done — ${done}/${variants.length} generated ✓`, done === variants.length ? "success" : "info");
+    toast(`Bulk done — ${done}/${variants.length} generated`, done === variants.length ? "success" : "info");
     scheduleRefresh();
   }
 
@@ -253,7 +254,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
       Array.from(files).forEach((f) => fd.append("images", f));
       const r = await addVariantImageAction(fd);
       if (!r.ok) { const m = r.error || "Upload failed."; setErr(m); toast(m, "error"); }
-      else { toast("Raw photo added — generate now uses it ✓", "success"); router.refresh(); }
+      else { toast("Raw photo added — generate now uses it", "success"); router.refresh(); }
     } catch {
       const m = "Upload failed — try again."; setErr(m); toast(m, "error");
     } finally {
@@ -284,7 +285,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
       const base64 = dataUrl.split(",")[1];
       const r = await uploadBrandedImageAction({ productId: p.id, variantId, base64, mime: "image/jpeg", shotType: "branded_stand" });
       if (!r.ok) { const m = reasonText(r.reason, r.error) || "Could not brand & publish."; setErr(m); toast(m, "error"); }
-      else { toast("Branded & published ✓", "success"); router.refresh(); }
+      else { toast("Branded & published", "success"); router.refresh(); }
     } catch {
       const m = "Couldn't process the image (cross-origin). Try re-generating."; setErr(m); toast(m, "error");
     } finally {
@@ -295,20 +296,20 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
   function redetect() {
     const key = "detect"; addBusy(key);
     toast("Re-checking the piece…", "info");
-    (async () => { try { await detectJewelleryAction(p.id); toast("Re-detected ✓", "success"); router.refresh(); } finally { dropBusy(key); } })();
+    (async () => { try { await detectJewelleryAction(p.id); toast("Re-detected", "success"); router.refresh(); } finally { dropBusy(key); } })();
   }
 
   return (
     <div className="grid lg:grid-cols-[1fr_280px] gap-6 max-w-6xl">
       <div>
         <div className="flex items-center justify-between mb-1">
-          <Link href="/admin/media" className="text-sm text-muted hover:text-ink">← All product photos</Link>
+          <Link href="/admin/media" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />All product photos</Link>
           {data.detected && <span className="text-[11px] text-muted">AI detected: <b className="text-ink capitalize">{[data.detected.category, data.detected.material, data.detected.style].filter(Boolean).join(" · ")}</b> <button onClick={redetect} className="ml-1 text-emerald nav-link">re-detect</button></span>}
         </div>
         <h1 className="font-display text-3xl text-ink">Product Photos</h1>
-        <p className="text-sm text-muted mb-3">Upload the raw design shot → make a professional model photo in <b>Google Flow</b> → upload it back → add angles. Flow reproduces your design exactly, at no API cost.</p>
+        <p className="text-sm text-muted mb-3">Upload the raw design shot <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />make a professional model photo in <b>Google Flow</b> <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />upload it back <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />add angles. Flow reproduces your design exactly, at no API cost.</p>
         <div className="rounded-xl px-4 py-3 mb-4 bg-gold/10 border border-gold/30 flex flex-wrap items-center gap-3">
-          <GeminiPhotoButton category={data.detected?.category ?? null} label="✨ Create photo on Google Flow" className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink/90" />
+          <GeminiPhotoButton category={data.detected?.category ?? null} label=" Create photo on Google Flow" className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink/90" />
           <span className="text-xs text-gold-dark">Opens Google Flow with your prompt copied. Paste it, attach the raw photo, press Enter — then download &amp; upload the result below.</span>
         </div>
         {err && <div className="rounded-xl px-4 py-2 mb-4 text-sm bg-rose/10 text-rose">{err}</div>}
@@ -340,15 +341,14 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
               target="_blank" rel="noopener noreferrer"
               className="ml-auto shrink-0 px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs font-medium hover:bg-emerald/20 whitespace-nowrap"
               title="Open this product's live view page in a new tab"
-            >
-              View product page ↗
+            >View product page <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" />
             </a>
           </div>
 
           <div className="grid sm:grid-cols-[120px_1fr_220px] gap-4">
             {/* Raw */}
             <div>
-              <p className="text-[11px] text-muted mb-1">⬆ Raw uploaded</p>
+              <p className="text-[11px] text-muted mb-1"><Icon g="⬆" className="inline-block align-middle w-[1em] h-[1em]" />Raw uploaded</p>
               <div className="aspect-[4/5] rounded-xl bg-cream border border-sand overflow-hidden">
                 {data.raw ? <img src={data.raw.path} alt="raw" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-[10px] text-muted text-center px-2">No raw yet</div>}
               </div>
@@ -362,14 +362,14 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                 {hero && <span className="text-[9px] uppercase tracking-wide bg-emerald-mist text-emerald-dark px-1.5 py-0.5 rounded-full">{hero.status === "published" ? "Published" : "Best for website"}</span>}
               </div>
               <div className="aspect-[4/5] rounded-xl bg-cream border border-sand overflow-hidden relative">
-                {heroUrl ? <img src={heroUrl} alt="hero" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-xs text-muted">Generate a hero →</div>}
+                {heroUrl ? <img src={heroUrl} alt="hero" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-xs text-muted">Generate a hero <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></div>}
                 {isBusy("hero") && <div className="absolute inset-0 bg-ink/40 grid place-items-center text-cream text-sm">Generating…</div>}
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
                 {heroUrl && <a href={heroUrl} target="_blank" className="px-2 py-1 rounded-lg bg-ink/5 hover:bg-ink/10">View</a>}
-                {heroUrl && <a href={heroUrl} download className="px-2 py-1 rounded-lg bg-ink/5 hover:bg-ink/10">⬇ Download</a>}
+                {heroUrl && <a href={heroUrl} download className="px-2 py-1 rounded-lg bg-ink/5 hover:bg-ink/10"><Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />Download</a>}
                 <button onClick={() => gen("hero", "hero")} disabled={isBusy("hero")} className="px-2 py-1 rounded-lg bg-gold/15 text-gold-dark hover:bg-gold/25 disabled:opacity-50">{isBusy("hero") ? "…" : "⟳ Regenerate"}</button>
-                {hero && <button onClick={() => openRefine(hero)} className="px-2 py-1 rounded-lg bg-emerald-mist text-emerald-dark hover:bg-emerald/20" title="Mark a wrong area and tell the AI what to fix — only that spot changes">✏️ Fix a detail</button>}
+                {hero && <button onClick={() => openRefine(hero)} className="px-2 py-1 rounded-lg bg-emerald-mist text-emerald-dark hover:bg-emerald/20" title="Mark a wrong area and tell the AI what to fix — only that spot changes"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Fix a detail</button>}
                 {hero && hero.status !== "published" && (
                   <form action={publishGenerationAction}><input type="hidden" name="id" value={hero.id} /><button className="px-2 py-1 rounded-lg bg-emerald text-white">Publish</button></form>
                 )}
@@ -408,7 +408,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                   <input value={mood} onChange={(e) => setMood(e.target.value)} placeholder="Mood" className={sel} />
                 </div>
               )}
-              <button onClick={() => gen("hero", "hero")} disabled={isBusy("hero")} className="w-full mt-2 px-3 py-2 rounded-xl bg-ink text-white text-sm disabled:opacity-50">{isBusy("hero") ? "Generating…" : "✦ Regenerate image"}</button>
+              <button onClick={() => gen("hero", "hero")} disabled={isBusy("hero")} className="w-full mt-2 px-3 py-2 rounded-xl bg-ink text-white text-sm disabled:opacity-50">{isBusy("hero") ? "Generating…" : "Regenerate image"}</button>
             </div>
           </div>
 
@@ -422,7 +422,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => chooseCover(null)} disabled={coverBusy}
                   className={`w-16 h-20 rounded-lg border grid place-items-center text-[10px] text-center leading-tight disabled:opacity-50 ${cover === null ? "border-emerald ring-2 ring-emerald bg-emerald-mist/30 text-emerald-dark" : "border-sand text-muted hover:border-emerald"}`}>
-                  Auto{cover === null ? " ✓" : ""}
+                  Auto{cover === null && <Icon name="check" className="inline w-3.5 h-3.5 align-[-2px] ml-1" />}
                 </button>
                 {coverOptions.map((o) => (
                   <button key={o.url} type="button" onClick={() => chooseCover(o.url)} disabled={coverBusy}
@@ -453,7 +453,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                     </div>
                     <div className="flex items-center justify-between gap-1 mt-0.5">
                       <button onClick={() => gen(a.key, a.key)} disabled={isBusy(a.key)} className="text-[10px] text-gold-dark hover:underline disabled:opacity-50">{isBusy(a.key) ? "…" : (cand.length ? "⟳ Regen" : "Make")}</button>
-                      {top && <button onClick={() => openRefine(top)} className="text-[10px] text-emerald-dark hover:underline" title="Fix a detail on this shot">✏️ Fix</button>}
+                      {top && <button onClick={() => openRefine(top)} className="text-[10px] text-emerald-dark hover:underline" title="Fix a detail on this shot"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Fix</button>}
                       {top && top.status !== "published" && <form action={publishGenerationAction}><input type="hidden" name="id" value={top.id} /><button className="text-[10px] text-emerald">Pub</button></form>}
                     </div>
                   </div>
@@ -496,7 +496,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                           <p className="text-[10px] text-muted font-mono">{v.sku}</p>
                           {/* Upload the true raw reference for this colour */}
                           <label className={`inline-block mt-0.5 text-[10px] cursor-pointer ${isBusy(upKey) ? "text-muted" : "text-emerald hover:underline"}`}>
-                            {isBusy(upKey) ? "Uploading…" : (v.image ? "↺ Replace raw" : "⬆ Upload raw")}
+                            {isBusy(upKey) ? "Uploading…" : (v.image ? "Replace raw" : "Upload raw")}
                             <input type="file" accept="image/*" multiple className="hidden" disabled={isBusy(upKey)}
                               onChange={(e) => { uploadRaw(v.id, e.target.files); e.currentTarget.value = ""; }} />
                           </label>
@@ -507,7 +507,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                             ? <img src={vModelUrl} alt="model" className="w-10 h-12 rounded object-cover inline-block" />
                             : <div className="w-10 h-12 rounded bg-cream inline-grid place-items-center text-[9px] text-muted relative">{isBusy(`vm-${v.id}`) && <span className="absolute inset-0 grid place-items-center bg-ink/30 text-cream text-[9px]">…</span>}model</div>}
                           <button onClick={() => gen("model", `vm-${v.id}`, v.id, { matchColorName: !!recolor[v.id] })} disabled={isBusy(`vm-${v.id}`)} className="block text-[10px] text-gold-dark hover:underline mt-0.5 w-full disabled:opacity-50">{isBusy(`vm-${v.id}`) ? "…" : (vModelUrl ? "⟳ Model" : "＋ Model")}</button>
-                          {vModel && <button onClick={() => openRefine(vModel)} className="block text-[10px] text-emerald-dark hover:underline w-full" title="Fix a detail on this model shot">✏️ Fix</button>}
+                          {vModel && <button onClick={() => openRefine(vModel)} className="block text-[10px] text-emerald-dark hover:underline w-full" title="Fix a detail on this model shot"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Fix</button>}
                         </div>
                         {/* Branded stand */}
                         <div className="text-center">
@@ -521,7 +521,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                             {isBusy(`br-${v.id}`) ? "Branding…" : "Brand & Publish"}
                           </button>
                         )}
-                        {vStand?.status === "published" && <span className="ml-auto text-[11px] text-emerald-dark">✓ Branded</span>}
+                        {vStand?.status === "published" && <span className="ml-auto text-[11px] text-emerald-dark"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Branded</span>}
                       </div>
                       {/* Colour handling: photo wins by default; toggle to force-recolour to the label. */}
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pl-1 text-[11px]">
@@ -531,8 +531,8 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
                         </label>
                         {mismatch && (
                           <span className="flex items-center gap-1.5 text-gold-dark bg-gold/10 rounded-full px-2.5 py-0.5">
-                            ⚠ Photo looks <b>{guess[v.id]}</b>, label says <b>{v.color}</b> — {recolor[v.id] ? `will recolour to ${v.color}` : "using the photo as-is"}.
-                            <button onClick={() => setDismissed((s) => new Set(s).add(v.id))} className="ml-1 hover:text-ink" title="Dismiss">✕</button>
+                            <Icon g="⚠" className="inline-block align-middle w-[1em] h-[1em]" />Photo looks <b>{guess[v.id]}</b>, label says <b>{v.color}</b>— {recolor[v.id] ? `will recolour to ${v.color}` : "using the photo as-is"}.
+                                                        <button onClick={() => setDismissed((s) => new Set(s).add(v.id))} className="ml-1 hover:text-ink" title="Dismiss"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                           </span>
                         )}
                       </div>
@@ -567,7 +567,7 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
           onDone={(g, url) => {
             setResults((x) => ({ ...x, [slot(g.shot_type, g.variant_id ?? undefined)]: url }));
             setRefineGen(null);
-            toast("Detail fixed — saved as a new candidate ✓", "success");
+            toast("Detail fixed — saved as a new candidate", "success");
             scheduleRefresh();
           }}
           onError={(m) => { setErr(m); toast(m, "error"); }}
@@ -579,11 +579,11 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
         <div className="bg-white rounded-2xl border border-sand p-4 shadow-card">
           <p className="text-sm font-medium text-ink mb-2">How to get best results</p>
           <ul className="text-xs text-muted space-y-1.5">
-            <li>📷 Use clean, high-resolution raw shots</li>
-            <li>💡 Good lighting, neutral background</li>
-            <li>💍 Show full piece, not extreme close-up</li>
-            <li>✦ Avoid props — let the jewellery shine</li>
-            <li>🎯 Choose the right angle &amp; model</li>
+            <li><Icon g="📷" className="inline-block align-middle w-[1em] h-[1em]" />Use clean, high-resolution raw shots</li>
+            <li className="flex items-center gap-1.5"><Icon g="💡" className="w-3.5 h-3.5" /> Good lighting, neutral background</li>
+            <li><Icon g="💍" className="inline-block align-middle w-[1em] h-[1em]" />Show full piece, not extreme close-up</li>
+            <li className="flex items-center gap-1.5"><Icon g="✦" className="w-3.5 h-3.5" /> Avoid props — let the jewellery shine</li>
+            <li><Icon g="🎯" className="inline-block align-middle w-[1em] h-[1em]" />Choose the right angle & model</li>
           </ul>
         </div>
         <div className="bg-white rounded-2xl border border-sand p-4 shadow-card">
@@ -603,10 +603,10 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
           </ul>
           <p className="text-[11px] font-medium text-ink mt-3">What converts best</p>
           <ul className="text-xs text-muted space-y-1 mt-1">
-            <li>✓ Clear full view of the piece</li>
-            <li>✓ Close-up for details</li>
-            <li>✓ On-model for feel &amp; size</li>
-            <li>✓ Lifestyle for storytelling</li>
+            <li><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Clear full view of the piece</li>
+            <li><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Close-up for details</li>
+            <li><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />On-model for feel & size</li>
+            <li><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Lifestyle for storytelling</li>
           </ul>
         </div>
       </aside>
@@ -724,7 +724,7 @@ function RefineModal({
             <p className="font-display text-xl text-ink">Fix a detail</p>
             <p className="text-xs text-muted">Drag a box over the wrong area, then say what it should be. Only that spot changes — everything else stays exactly the same.</p>
           </div>
-          <button onClick={onClose} className="text-muted hover:text-ink text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink text-lg leading-none"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
 
         <div className="my-3 grid place-items-center">
@@ -745,7 +745,7 @@ function RefineModal({
             )}
           </div>
           <div className="mt-1 flex items-center gap-3 text-[11px] text-muted">
-            <span>{rect && rect.w > 6 ? "✓ Area marked" : "Tip: drag to mark the exact spot"}</span>
+            <span>{rect && rect.w > 6 ? "Area marked" : "Tip: drag to mark the exact spot"}</span>
             {rect && <button onClick={() => { setRect(null); setStart(null); }} className="text-emerald nav-link">clear box</button>}
           </div>
         </div>
@@ -761,7 +761,7 @@ function RefineModal({
         <div className="flex items-center gap-2 mt-4">
           <button onClick={submit} disabled={submitting || !instruction.trim()}
             className="px-4 py-2 rounded-xl bg-ink text-white text-sm disabled:opacity-50">
-            {submitting ? "Fixing…" : "✏️ Apply fix"}
+            {submitting ? "Fixing…" : " Apply fix"}
           </button>
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-ink/5 text-ink text-sm hover:bg-ink/10">Cancel</button>
           <span className="ml-auto text-[11px] text-muted">Saved as a new candidate — your current image is kept.</span>

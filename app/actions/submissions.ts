@@ -3,14 +3,14 @@
  * "Sell with us" — product submissions from customers (storefront) and approved wholesalers
  * (trade panel). Two halves:
  *
- *   1. submitProductAction(formData)  — PUBLIC. Anyone on the storefront, or a logged-in
- *                                       wholesaler, proposes a product (name, price, qty, photo).
- *                                       It's stored as 'pending' and the owner is pinged on
- *                                       WhatsApp. Nothing touches the live catalogue yet.
- *   2. decideSubmissionAction(formData) — ADMIN (catalog.create). Approve → the submission is
- *                                       turned into a DRAFT catalogue product (reusing the same
- *                                       creation engine staff use), then the owner can publish it
- *                                       from the catalogue. Reject → archived with a note.
+ * 1. submitProductAction(formData) — PUBLIC. Anyone on the storefront, or a logged-in
+ * wholesaler, proposes a product (name, price, qty, photo).
+ * It's stored as 'pending' and the owner is pinged on
+ * WhatsApp. Nothing touches the live catalogue yet.
+ * 2. decideSubmissionAction(formData) — ADMIN (catalog.create). Approve → the submission is
+ * turned into a DRAFT catalogue product (reusing the same
+ * creation engine staff use), then the owner can publish it
+ * from the catalogue. Reject → archived with a note.
  *
  * Keeping approved items as DRAFT (not auto-published) is deliberate: a stranger's submission
  * never appears on the storefront without a human saying "publish".
@@ -193,7 +193,7 @@ export async function decideSubmissionAction(
   // Let the submitter know we accepted it (best-effort).
   const subPhone = toE164(s.submitter_phone);
   if (subPhone) {
-    await sendWhatsAppText(subPhone, `Good news! ${STORE()} has accepted your product “${s.product_name}”. Our team will be in touch about the next steps. 💛`).catch(() => {});
+    await sendWhatsAppText(subPhone, `Good news! ${STORE()} has accepted your product “${s.product_name}”. Our team will be in touch about the next steps. `).catch(() => {});
   }
 
   revalidatePath("/admin/submissions");

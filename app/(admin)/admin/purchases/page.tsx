@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { getSuppliers, getProductsForPurchase, getRecentPurchases, getLastPurchaseCosts } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
@@ -44,7 +45,7 @@ export default async function Purchases() {
               {purchases.length === 0 && <tr><td colSpan={3} className="py-3 text-muted">No purchases yet.</td></tr>}
               {purchases.map((p: any) => (
                 <tr key={p.id} className="border-t border-sand/50">
-                  <td className="py-2"><a href={`/admin/purchase/${p.id}`} className="text-emerald nav-link">{p.bill_no || String(p.id).slice(0, 6).toUpperCase()} ↗</a></td>
+                  <td className="py-2"><a href={`/admin/purchase/${p.id}`} className="text-emerald nav-link">{p.bill_no || String(p.id).slice(0, 6).toUpperCase()} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a></td>
                   <td className="py-2 text-muted">{p.supplier?.name}{p.supplier?.city ? ` · ${p.supplier.city}` : ""}</td>
                   <td className="py-2 text-right font-medium"><span className="sensitive">{formatPaise(p.total)}</span></td>
                 </tr>

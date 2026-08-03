@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getCashBankBook, getCashBankLedger, getPaymentMethodsWithBalances, getPaymentDashboard } from "@/lib/supabase/queries";
@@ -68,9 +69,9 @@ export default async function CashBook({ searchParams }: { searchParams: { tende
   const rangeLabel = from || to ? `${from || "start"} → ${to || "today"}` : "All time";
 
   const cards: { label: string; value: number; tone?: string }[] = [
-    { label: "💵 Cash balance", value: dash.cashBalance, tone: "bg-emerald-mist/30" },
-    { label: "🏦 Bank balance", value: dash.bankBalance, tone: "bg-blue-50" },
-    { label: "📱 UPI / Wallet", value: dash.upiBalance, tone: "bg-violet-50" },
+    { label: " Cash balance", value: dash.cashBalance, tone: "bg-emerald-mist/30" },
+    { label: " Bank balance", value: dash.bankBalance, tone: "bg-blue-50" },
+    { label: " UPI / Wallet", value: dash.upiBalance, tone: "bg-violet-50" },
     { label: "Σ Total across accounts", value: dash.totalAcross, tone: "bg-gold/10" },
   ];
 
@@ -99,8 +100,8 @@ export default async function CashBook({ searchParams }: { searchParams: { tende
           {/* Tender heads — click to see ONLY cash or ONLY bank */}
           <div className="flex gap-1.5">
             <Link href={href({ tender: "all" })} className={tenderTab("all", "All")}>All</Link>
-            <Link href={href({ tender: "cash" })} className={tenderTab("cash", "Cash")}>💵 Cash</Link>
-            <Link href={href({ tender: "bank" })} className={tenderTab("bank", "Bank")}>🏦 Bank / UPI</Link>
+            <Link href={href({ tender: "cash" })} className={tenderTab("cash", "Cash")}><Icon g="💵" className="inline-block align-middle w-[1em] h-[1em]" />Cash</Link>
+            <Link href={href({ tender: "bank" })} className={tenderTab("bank", "Bank")}><Icon g="🏦" className="inline-block align-middle w-[1em] h-[1em]" />Bank / UPI</Link>
           </div>
         </div>
 
@@ -162,7 +163,7 @@ export default async function CashBook({ searchParams }: { searchParams: { tende
                     {d.items.map((m, i) => (
                       <tr key={i} className="border-t border-sand/60">
                         <td className="px-4 py-2 text-ink">
-                          {m.link ? <Link href={m.link} className="text-emerald nav-link">{m.label} ↗</Link> : m.label}
+                          {m.link ? <Link href={m.link} className="text-emerald nav-link">{m.label} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link> : m.label}
                           {m.bank > 0 && m.method && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700">{m.method}</span>}
                         </td>
                         {tender !== "bank" && <td className={`px-3 py-2 text-right whitespace-nowrap ${m.cash < 0 ? "text-rose" : m.cash > 0 ? "text-emerald-dark" : "text-muted/40"}`}>{m.cash ? `${m.cash > 0 ? "+" : ""}${formatPaise(m.cash)}` : "—"}</td>}

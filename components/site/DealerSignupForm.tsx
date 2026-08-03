@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { applyDealerAction } from "@/app/actions/dealer";
 
@@ -23,7 +24,7 @@ export function DealerSignupForm() {
   }
 
   if (result?.ok) {
-    return <div className="bg-white rounded-xl p-4 text-sm text-emerald-dark">✅ {result.message}</div>;
+    return <div className="bg-white rounded-xl p-4 text-sm text-emerald-dark"><Icon g="✅" className="inline-block align-middle w-[1em] h-[1em]" /> {result.message}</div>;
   }
   return (
     <form onSubmit={onSubmit} className="space-y-3">

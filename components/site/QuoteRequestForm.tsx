@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { createQuoteRequestAction } from "@/app/actions/quotes";
 
@@ -19,7 +20,7 @@ export function QuoteRequestForm({ defaultName = "", loggedIn = false }: { defau
     finally { setBusy(false); }
   }
 
-  if (result?.ok) return <div className="bg-emerald-mist rounded-2xl p-5 text-emerald-dark">✅ {result.message}</div>;
+  if (result?.ok) return <div className="bg-emerald-mist rounded-2xl p-5 text-emerald-dark"><Icon g="✅" className="inline-block align-middle w-[1em] h-[1em]" /> {result.message}</div>;
   return (
     <form onSubmit={onSubmit} className="bg-white rounded-2xl p-6 shadow-card space-y-3">
       {!loggedIn && (

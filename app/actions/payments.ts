@@ -16,8 +16,8 @@ export async function recordPaymentAction(formData: FormData): Promise<void> {
 }
 
 /** Udhaar: receive a lump payment from a PARTY (customer), allocated across their open
- *  bills oldest-first by the record_party_payment RPC (migration 0043). Amount in rupees.
- *  Any surplus is kept as an advance on the customer's account. */
+ * bills oldest-first by the record_party_payment RPC (migration 0043). Amount in rupees.
+ * Any surplus is kept as an advance on the customer's account. */
 export async function recordPartyPaymentAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.sell"))) return;
   const customerId = String(formData.get("customer_id") ?? "");
@@ -51,7 +51,7 @@ export async function saveOrderNoteAction(formData: FormData): Promise<void> {
 }
 
 /** Convert a bill between Cash Memo and GST Tax Invoice (both ways) — customers change
- *  their mind mid-billing. Assigns an invoice number when becoming a GST invoice. */
+ * their mind mid-billing. Assigns an invoice number when becoming a GST invoice. */
 export async function setBillTypeAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.gst"))) return;
   const orderId = String(formData.get("order_id") ?? "");
@@ -80,10 +80,10 @@ export async function setDocTypeAction(formData: FormData): Promise<void> {
 }
 
 /** Pillar 3 — choose how GST is shown on a tax invoice:
- *   'exclusive' → rate is pre-tax, GST added on top (taxable + GST = grand total)
- *   'inclusive' → rate already includes GST (back-computed from the stored total)
- *   'auto'      → clear the override; fall back to the channel default
- *                 (wholesale = exclusive, retail/pos = inclusive). */
+ * 'exclusive' → rate is pre-tax, GST added on top (taxable + GST = grand total)
+ * 'inclusive' → rate already includes GST (back-computed from the stored total)
+ * 'auto' → clear the override; fall back to the channel default
+ * (wholesale = exclusive, retail/pos = inclusive). */
 export async function setGstModeAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.gst"))) return;
   const orderId = String(formData.get("order_id") ?? "");
@@ -95,8 +95,8 @@ export async function setGstModeAction(formData: FormData): Promise<void> {
 }
 
 /** Refund excess money on an over-collected bill (post-return / over-tender). The
- *  record_refund RPC (0051) clamps to the true refundable excess, reverses the right
- *  tender bucket, posts the day-book debit and audit-logs it. Amount in rupees. */
+ * record_refund RPC (0051) clamps to the true refundable excess, reverses the right
+ * tender bucket, posts the day-book debit and audit-logs it. Amount in rupees. */
 export async function recordRefundAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("billing.refund"))) return;
   const orderId = String(formData.get("order_id") ?? "");

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { getStorefront, getWholesaleOrderHistory, getCategories, getActivePromotions } from "@/lib/supabase/queries";
@@ -49,8 +50,8 @@ export default async function TradeDashboard() {
       : null;
   const tradeQuickLinks = (
     <div className="flex flex-wrap gap-2 my-4">
-      <a href="/trade/line-sheet" className="px-4 py-2 rounded-full bg-ink text-white text-sm">📄 Printable line sheet</a>
-      <a href="/trade/quote" className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium">💬 Request a bulk quote</a>
+      <a href="/trade/line-sheet" className="px-4 py-2 rounded-full bg-ink text-white text-sm"><Icon g="📄" className="inline-block align-middle w-[1em] h-[1em]" />Printable line sheet</a>
+      <a href="/trade/quote" className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium"><Icon g="💬" className="inline-block align-middle w-[1em] h-[1em]" />Request a bulk quote</a>
     </div>
   );
   const categories = (await getCategories()).map((c) => ({ id: c.id, name: c.name }));
@@ -76,9 +77,9 @@ export default async function TradeDashboard() {
               account, our buying team reviews each piece, and approved designs are added to the catalogue.
             </p>
             <ul className="mt-4 space-y-2 text-sm text-ink/75">
-              <li className="flex gap-2"><span className="text-emerald">✓</span> Linked to your verified trade account</li>
-              <li className="flex gap-2"><span className="text-emerald">✓</span> Set your asking price &amp; quantity</li>
-              <li className="flex gap-2"><span className="text-emerald">✓</span> Nothing goes live until we approve it</li>
+              <li className="flex gap-2"><span className="text-emerald"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></span> Linked to your verified trade account</li>
+              <li className="flex gap-2"><span className="text-emerald"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></span> Set your asking price &amp; quantity</li>
+              <li className="flex gap-2"><span className="text-emerald"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></span> Nothing goes live until we approve it</li>
             </ul>
           </div>
           <div className="bg-white rounded-2xl shadow-card p-6 border border-sand">

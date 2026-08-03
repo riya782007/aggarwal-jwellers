@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 
 /** Internal, admin-only per-product status tags (e.g. "inventory updated", "variant images sorted").
- *  Never shown on the storefront. */
+ * Never shown on the storefront. */
 async function loadTags(sku: string): Promise<{ id: string; tags: string[] } | null> {
   const sb = supabaseServer();
   const { data } = await sb.from("products").select("id,admin_tags").ilike("sku", sku).maybeSingle();

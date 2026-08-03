@@ -6,7 +6,7 @@ import { formatPaise } from "@/lib/pricing";
 
 export async function askAssistantAction(message: string): Promise<{ ok: boolean; reply: string }> {
   const msg = (message ?? "").trim().slice(0, 500);
-  if (!msg) return { ok: true, reply: "Ask me anything about our jewellery — styles, prices, what's in stock, or gifting ideas ✨" };
+  if (!msg) return { ok: true, reply: "Ask me anything about our jewellery — styles, prices, what's in stock, or gifting ideas " };
 
   const { products, formula } = await getStorefront();
   const lines = products.slice(0, 40).map((p) => {

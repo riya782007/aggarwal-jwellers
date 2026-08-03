@@ -18,8 +18,8 @@ export function PasscodeChip({ code }: { code: string }) {
       <span className="select-none">{shown ? code : masked}</span>
       {isReal && (
         <>
-          <button onClick={toggle} title={shown ? "Hide" : "Reveal"} className="text-[11px] leading-none text-muted hover:text-ink transition-colors">{shown ? "🙈" : "👁"}</button>
-          <button onClick={copy} title="Copy passcode" className="text-[10px] leading-none text-muted hover:text-ink transition-colors">{copied ? "copied ✓" : "copy"}</button>
+          <button onClick={toggle} title={shown ? "Hide" : "Reveal"} className="text-[11px] leading-none text-muted hover:text-ink transition-colors">{shown ? "" : ""}</button>
+          <button onClick={copy} title="Copy passcode" className="text-[10px] leading-none text-muted hover:text-ink transition-colors">{copied ? "copied" : "copy"}</button>
         </>
       )}
     </span>

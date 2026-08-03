@@ -2,11 +2,11 @@
 /**
  * Website-order fulfillment (0047): accept / reject / dispatch / deliver.
  * Integrity notes:
- *  • Reject rides on cancel_order (0046) — stock back, day-book + tender reversed, dead
- *    status excluded from revenue/Udhaar/cashbook automatically (0045 formula).
- *  • Deliver on a COD bill records the cash collected at the door via record_payment
- *    (clamped to the true GST-aware due), so the cash book and Udhaar settle themselves.
- *  • WhatsApp pings are best-effort and never block the workflow.
+ * • Reject rides on cancel_order (0046) — stock back, day-book + tender reversed, dead
+ * status excluded from revenue/Udhaar/cashbook automatically (0045 formula).
+ * • Deliver on a COD bill records the cash collected at the door via record_payment
+ * (clamped to the true GST-aware due), so the cash book and Udhaar settle themselves.
+ * • WhatsApp pings are best-effort and never block the workflow.
  */
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -58,7 +58,7 @@ export async function confirmWholesalePaymentAction(formData: FormData): Promise
   }).eq("id", id);
   await sb.from("audit_log").insert({ actor: "owner", action: "wholesale_payment_confirmed", ref: id, detail: `UPI payment confirmed for wholesale order ${String(id).slice(0, 8).toUpperCase()}.` }).then(() => {}, () => {});
   await sendWhatsAppText((o as any).customer_phone,
-    `Namaste ${(o as any).customer_name ?? ""}! We've received your payment for Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} — it's now being prepared. 🙏`).catch(() => {});
+    `Namaste ${(o as any).customer_name ?? ""}! We've received your payment for Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} — it's now being prepared. `).catch(() => {});
   revalidateOrderSurfaces(id);
 }
 
@@ -117,7 +117,7 @@ export async function dispatchOrderAction(formData: FormData): Promise<void> {
   if (!o || ["cancelled", "void", "refunded"].includes((o as any).status)) return;
   await sb.from("orders").update({ status: "dispatched", dispatched_at: new Date().toISOString(), fulfillment: "accepted" }).eq("id", id);
   await sendWhatsAppText((o as any).customer_phone,
-    `📦 Your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} is on its way!`).catch(() => {});
+    ` Your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()} is on its way!`).catch(() => {});
   revalidateOrderSurfaces(id);
 }
 
@@ -138,6 +138,6 @@ export async function deliverOrderAction(formData: FormData): Promise<void> {
   }
   await sb.from("orders").update({ status: "delivered", delivered_at: new Date().toISOString(), fulfillment: "accepted" }).eq("id", id);
   await sendWhatsAppText((o as any).customer_phone,
-    `✅ Delivered! Your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()}${due > 0 ? ` (${formatPaise(due)} collected)` : ""}. Thank you — we'd love a review!`).catch(() => {});
+    ` Delivered! Your Aggarwal Jewellers order ${String(id).slice(0, 8).toUpperCase()}${due > 0 ? ` (${formatPaise(due)} collected)` : ""}. Thank you — we'd love a review!`).catch(() => {});
   revalidateOrderSurfaces(id);
 }

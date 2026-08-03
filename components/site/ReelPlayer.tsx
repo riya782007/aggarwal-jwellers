@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useEffect, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 /** Work out how to play a reel from its stored URL. */
 function resolve(url: string | null): { kind: "instagram" | "video" | "none"; src: string } {
@@ -57,7 +58,7 @@ export function ReelPlayer({ videoUrl, caption }: { videoUrl: string | null; cap
       <button onClick={() => { const m = !muted; setMuted(m); if (vid.current) vid.current.muted = m; }} className="relative w-full h-full block group" aria-label="Toggle sound">
         <video ref={vid} src={src} muted={muted} loop playsInline preload="metadata" className="w-full h-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent pointer-events-none" />
-        <span className="absolute bottom-3 right-3 h-8 w-8 rounded-full bg-white/85 grid place-items-center text-ink text-xs">{muted ? "🔇" : "🔊"}</span>
+        <span className="absolute bottom-3 right-3 h-8 w-8 rounded-full bg-white/85 grid place-items-center text-ink">{muted ? <Icon g="🔇" className="w-3.5 h-3.5" /> : <Icon g="🔊" className="w-3.5 h-3.5" />}</span>
         <span className="absolute bottom-3 left-3 right-12 text-cream text-sm font-medium drop-shadow text-left">{caption}</span>
       </button>
     );

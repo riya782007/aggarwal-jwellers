@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -73,7 +74,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
       <style dangerouslySetInnerHTML={{ __html: "@media print{@page{size:A5;margin:6mm}.print-area{font-size:11px}.print-area .font-display{font-size:1.25rem}}" }} />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
-          <Link href="/admin/billing" className="text-sm text-emerald nav-link">← New sale</Link>
+          <Link href="/admin/billing" className="text-sm text-emerald nav-link"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />New sale</Link>
           <PrintButton />
         </div>
 
@@ -309,12 +310,12 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                     <option value="cash">Cash</option>
                     <option value="bank">Bank / UPI</option>
                   </select>
-                  <ConfirmSubmit message="Record this refund? amount_paid and the cash/bank book will come down." className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium hover:bg-gold-dark">↩ Record refund</ConfirmSubmit>
+                  <ConfirmSubmit message="Record this refund? amount_paid and the cash/bank book will come down." className="px-4 py-2 rounded-full bg-gold text-ink text-sm font-medium hover:bg-gold-dark"><Icon g="↩" className="inline-block align-middle w-[1em] h-[1em]" />Record refund</ConfirmSubmit>
                 </form>
               </div>
             )}
             {isDeadOrder(order.status) && (
-              <div className="bg-rose/10 rounded-2xl p-5 text-rose text-sm font-medium">⊘ This bill is {order.status} — it no longer counts in stock, revenue, Udhaar or the cash book.</div>
+              <div className="bg-rose/10 rounded-2xl p-5 text-rose text-sm font-medium"><Icon g="⊘" className="inline-block align-middle w-[1em] h-[1em]" />This bill is {order.status}— it no longer counts in stock, revenue, Udhaar or the cash book.</div>
             )}
             {can(session, "billing.refund") && !isDeadOrder(order.status) && (
               <div className="bg-white rounded-2xl p-5 shadow-card border border-rose/20">
@@ -323,7 +324,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                 <form action={cancelOrderAction} className="flex items-center gap-2 flex-wrap">
                   <input type="hidden" name="order_id" value={order.id} />
                   <input name="reason" placeholder="Reason (optional)" className="rounded-xl border border-sand px-3 py-2 text-sm flex-1 min-w-[160px] outline-none focus:border-emerald" />
-                  <ConfirmSubmit message="Cancel this whole bill? Stock is restored and any recorded payment is reversed. This cannot be undone." className="px-4 py-2 rounded-full bg-rose/10 text-rose text-sm font-medium hover:bg-rose/20">⊘ Cancel bill</ConfirmSubmit>
+                  <ConfirmSubmit message="Cancel this whole bill? Stock is restored and any recorded payment is reversed. This cannot be undone." className="px-4 py-2 rounded-full bg-rose/10 text-rose text-sm font-medium hover:bg-rose/20"><Icon g="⊘" className="inline-block align-middle w-[1em] h-[1em]" />Cancel bill</ConfirmSubmit>
                 </form>
               </div>
             )}
@@ -384,7 +385,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               <div className="bg-white rounded-2xl p-5 shadow-card">
                 <h2 className="font-medium text-ink mb-1">Ask for feedback</h2>
                 <p className="text-xs text-muted mb-3">Nudge {order.customer_name || "the customer"} on WhatsApp to rate their experience.</p>
-                <a href={`https://wa.me/91${String(order.customer_phone).replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`Thank you for shopping with ${BUSINESS.brand}! 💛 We'd love your feedback: ${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/feedback?ref=${invNo}`)}`} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-full bg-[#25D366] text-white text-sm font-medium">Request on WhatsApp →</a>
+                <a href={`https://wa.me/91${String(order.customer_phone).replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`Thank you for shopping with ${BUSINESS.brand}! We'd love your feedback: ${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/feedback?ref=${invNo}`)}`} target="_blank" rel="noreferrer" className="inline-block px-4 py-2 rounded-full bg-[#25D366] text-white text-sm font-medium">Request on WhatsApp <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></a>
               </div>
             )}
           </div>

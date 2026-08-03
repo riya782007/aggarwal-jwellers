@@ -38,7 +38,7 @@ export default async function NotifyMe() {
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {r.people.map((p, i) => (
-                  <a key={i} href={p.phone ? `https://wa.me/91${p.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`Good news! "${r.name}" is back in stock at Aggarwal Jewellers. 💛`)}` : undefined}
+                  <a key={i} href={p.phone ? `https://wa.me/91${p.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`Good news! "${r.name}" is back in stock at Aggarwal Jewellers. `)}` : undefined}
                     target="_blank" rel="noreferrer"
                     className="text-[11px] px-2 py-1 rounded-full bg-cream border border-sand text-ink hover:border-emerald">
                     {p.name}{p.phone ? ` · ${p.phone}` : ""}

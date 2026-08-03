@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { askAssistantAction } from "@/app/actions/assistant";
+import { Icon } from "@/components/ui/Icon";
 
 type Msg = { role: "user" | "diva"; text: string };
 
@@ -8,7 +9,7 @@ export function Assistant() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
-  const [msgs, setMsgs] = useState<Msg[]>([{ role: "diva", text: "Hi, I'm Diva ✨ Looking for something special? Tell me the occasion or your budget and I'll suggest pieces." }]);
+  const [msgs, setMsgs] = useState<Msg[]>([{ role: "diva", text: "Hi, I'm Diva Looking for something special? Tell me the occasion or your budget and I'll suggest pieces." }]);
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
 
@@ -22,13 +23,13 @@ export function Assistant() {
   return (
     <>
       <button aria-label="Chat with Diva" onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-ink text-gold-light shadow-luxe grid place-items-center text-2xl hover:scale-105 transition-transform">
-        {open ? "✕" : "✦"}
+        className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-ink text-gold-light shadow-luxe grid place-items-center hover:scale-105 transition-transform">
+        <Icon g={open ? "✕" : "✦"} className="w-6 h-6" />
       </button>
       {open && (
         <div className="fixed bottom-24 right-5 z-50 w-[92vw] max-w-sm bg-ivory rounded-2xl shadow-luxe border border-sand flex flex-col overflow-hidden animate-[fadeUp_.3s_ease]" style={{ height: "min(70vh, 520px)" }}>
           <div className="bg-ink text-cream px-4 py-3 flex items-center gap-2">
-            <span className="h-8 w-8 rounded-full bg-gold/20 grid place-items-center text-gold-light">✦</span>
+            <span className="h-8 w-8 rounded-full bg-gold/20 grid place-items-center text-gold-light"><Icon g="✦" className="w-4 h-4" /></span>
             <div><p className="font-medium text-sm leading-none">Diva</p><p className="text-[11px] text-cream/60">Your jewellery concierge</p></div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">

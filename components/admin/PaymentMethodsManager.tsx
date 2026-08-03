@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * PaymentMethodsManager — the master Payment Method registry UI (single source of truth).
  * Add / edit / disable / archive / delete / reorder / set-default, with live per-method balances,
@@ -127,8 +128,8 @@ export function PaymentMethodsManager({ methods }: { methods: M[] }) {
               {/* Row actions */}
               <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
                 {!m.active && !m.archived && <span className="text-rose">Disabled</span>}
-                <form action={reorderPaymentMethodAction}><input type="hidden" name="id" value={m.id} /><input type="hidden" name="dir" value="up" /><button className="px-2 py-1 rounded-lg hover:bg-cream text-muted" title="Move up">↑</button></form>
-                <form action={reorderPaymentMethodAction}><input type="hidden" name="id" value={m.id} /><input type="hidden" name="dir" value="down" /><button className="px-2 py-1 rounded-lg hover:bg-cream text-muted" title="Move down">↓</button></form>
+                <form action={reorderPaymentMethodAction}><input type="hidden" name="id" value={m.id} /><input type="hidden" name="dir" value="up" /><button className="px-2 py-1 rounded-lg hover:bg-cream text-muted" title="Move up"><Icon g="↑" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
+                <form action={reorderPaymentMethodAction}><input type="hidden" name="id" value={m.id} /><input type="hidden" name="dir" value="down" /><button className="px-2 py-1 rounded-lg hover:bg-cream text-muted" title="Move down"><Icon g="↓" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                 <button onClick={() => { setEditId(editId === m.id ? null : m.id); setAdding(false); }} className="px-2 py-1 rounded-lg hover:bg-cream text-ink">Edit</button>
                 {!m.is_default && (
                   <form action={setDefaultPaymentMethodAction}><input type="hidden" name="id" value={m.id} /><button className="px-2 py-1 rounded-lg hover:bg-cream text-gold-dark">Set default</button></form>

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -29,16 +30,16 @@ export default async function EstimatePrint({ params }: { params: { id: string }
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
-          <Link href="/admin/estimates" className="text-sm text-emerald nav-link">← Estimates</Link>
+          <Link href="/admin/estimates" className="text-sm text-emerald nav-link"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Estimates</Link>
           <div className="flex items-center gap-2">
-            {canEdit && <a href="#edit-estimate" className="px-4 py-2 rounded-full bg-emerald-mist text-emerald-dark text-sm font-medium hover:bg-emerald/20">✏️ Edit items &amp; prices</a>}
+            {canEdit && <a href="#edit-estimate" className="px-4 py-2 rounded-full bg-emerald-mist text-emerald-dark text-sm font-medium hover:bg-emerald/20"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Edit items & prices</a>}
             <PrintButton />
           </div>
         </div>
         {!isOpen && (
           <div className="no-print mb-4 rounded-2xl border border-gold/40 bg-gold/5 p-3 text-sm text-gold-dark">
             This estimate is <b className="capitalize">{String(estimate.status).replace("_", " ")}</b>, so its items and prices are locked.
-            {estimate.order_id && <> View the <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">billed invoice →</Link></>}
+            {estimate.order_id && <> View the <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">billed invoice <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link></>}
             {(estimate.status === "denied" || estimate.status === "expired") && <> Re-open it from the <Link href="/admin/estimates" className="text-emerald nav-link">Estimates list</Link> to edit again.</>}
           </div>
         )}

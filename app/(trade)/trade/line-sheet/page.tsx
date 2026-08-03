@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -28,7 +29,7 @@ export default async function LineSheet() {
           <p className="text-xs text-muted">Rates as on {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · GST extra on tax invoice · E&OE</p>
         </div>
         <div className="no-print flex gap-2">
-          <Link href="/trade" className="px-4 py-2 rounded-xl bg-ink/5 text-ink text-sm">← Portal</Link>
+          <Link href="/trade" className="px-4 py-2 rounded-xl bg-ink/5 text-ink text-sm"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Portal</Link>
           <PrintButton />
         </div>
       </div>

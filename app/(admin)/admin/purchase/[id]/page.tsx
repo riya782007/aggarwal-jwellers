@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,7 +20,7 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-3xl">
-      <Link href="/admin/purchases" className="text-sm text-muted hover:text-ink">← Purchases</Link>
+      <Link href="/admin/purchases" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Purchases</Link>
       <h1 className="font-display text-4xl text-ink mt-1">Purchase · {ref}</h1>
       <p className="text-sm text-muted mb-5">{p.supplier?.name}{p.supplier?.city ? ` · ${p.supplier.city}` : ""} · {new Date(p.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
 
@@ -34,7 +35,7 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
                 <td className="p-3 text-ink">{it.supplier_sku || "—"}</td>
                 <td className="p-3 text-muted">{it.product ? `${it.product.name} (${it.product.sku})` : <span className="text-rose">unmapped</span>}{it.variant?.color ? <span className="text-xs"> · {it.variant.color}</span> : null}</td>
                 <td className="p-3 text-right">{it.qty}</td>
-                <td className="p-3 text-right">{(it.returned_qty ?? 0) > 0 ? <span className="text-gold-dark">↩ {it.returned_qty}</span> : <span className="text-muted">—</span>}</td>
+                <td className="p-3 text-right">{(it.returned_qty ?? 0) > 0 ? <span className="text-gold-dark"><Icon g="↩" className="inline-block align-middle w-[1em] h-[1em]" /> {it.returned_qty}</span> : <span className="text-muted">—</span>}</td>
                 <td className="p-3 text-right">{formatPaise(it.unit_cost)}</td>
                 <td className="p-3 text-right font-medium">{formatPaise(it.unit_cost * it.qty)}</td>
               </tr>
@@ -61,7 +62,7 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
             ))}
             <div className="flex items-center gap-2 pt-2">
               <input name="reason" placeholder="Reason (e.g. damaged, wrong design)" className={`${fld} flex-1`} />
-              <ConfirmSubmit message="Return these pieces to the supplier? Stock will reduce and a debit note will be recorded." className="px-4 py-2 rounded-xl bg-gold text-ink text-sm font-medium hover:bg-gold-dark">↩ Record return</ConfirmSubmit>
+              <ConfirmSubmit message="Return these pieces to the supplier? Stock will reduce and a debit note will be recorded." className="px-4 py-2 rounded-xl bg-gold text-ink text-sm font-medium hover:bg-gold-dark"><Icon g="↩" className="inline-block align-middle w-[1em] h-[1em]" />Record return</ConfirmSubmit>
             </div>
           </form>
         </div>
@@ -87,7 +88,7 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
             <h2 className="font-medium text-ink mb-1">Delete purchase</h2>
             <p className="text-xs text-muted mb-3">Deleting reverses the stock it added and the ledger entry. For safety this needs the <b>owner's OTP</b> on the Approvals page — it isn't applied instantly.</p>
             {deletionPending ? (
-              <p className="text-sm text-gold-dark">⏳ Deletion requested — waiting for owner OTP on <Link href="/admin/approvals" className="nav-link text-emerald">Approvals</Link>.</p>
+              <p className="text-sm text-gold-dark"><Icon g="⏳" className="inline-block align-middle w-[1em] h-[1em]" />Deletion requested — waiting for owner OTP on <Link href="/admin/approvals" className="nav-link text-emerald">Approvals</Link>.</p>
             ) : (
               <form action={requestPurchaseDeletionAction}>
                 <input type="hidden" name="id" value={p.id} />

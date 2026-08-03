@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
@@ -90,7 +91,7 @@ export default async function Categories({ searchParams }: { searchParams: { q?:
                     title={`View ${s.name} products`}
                     className="inline-flex items-center gap-1 rounded-full bg-emerald-mist/60 text-emerald-dark text-xs px-3 py-1.5 hover:bg-emerald-mist transition-colors"
                   >
-                    {s.name} <span aria-hidden className="opacity-60">↗</span>
+                    {s.name} <span aria-hidden className="opacity-60"><Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></span>
                   </a>
                   {canEdit && (
                     <form action={setSubcategoryStyleAction} className="inline-flex items-center gap-1">

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { supabaseServer } from "@/lib/supabase/server";
 import { setQuoteStatusAction } from "@/app/actions/quotes";
@@ -43,7 +44,7 @@ export default async function Quotes({ searchParams }: { searchParams: { tab?: s
             {r.quote_note && <p className="text-xs text-emerald-dark mt-1">Quoted: {r.quote_note}</p>}
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-sand/60">
               {waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `) && (
-                <a href={waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `)} target="_blank" className="px-4 py-1.5 rounded-full bg-emerald text-white text-xs font-medium">Reply on WhatsApp ↗</a>
+                <a href={waLink(r.phone, `Namaste ${r.name}! About your rate enquiry at Aggarwal Jewellers:\n${r.items}\n\nOur rates: `)} target="_blank" className="px-4 py-1.5 rounded-full bg-emerald text-white text-xs font-medium">Reply on WhatsApp <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a>
               )}
               <form action={setQuoteStatusAction} className="flex items-center gap-2 flex-1 min-w-[240px]">
                 <input type="hidden" name="id" value={r.id} />

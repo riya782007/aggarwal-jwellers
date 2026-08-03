@@ -10,6 +10,7 @@
  * survives a refresh — handy for DIVA links like "open photos for AJ1001".
  */
 import { useState, useCallback } from "react";
+import { Icon } from "@/components/ui/Icon";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export type TabKey = "basic" | "pricing" | "inventory" | "photos" | "variants" | "catalog" | "history";
@@ -40,7 +41,7 @@ export function ProductWorkspace({ tabs, initial = "basic" }: { tabs: WorkspaceT
             <button key={t.key} role="tab" aria-selected={on} type="button" onClick={() => select(t.key)}
               className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 on ? "bg-ink text-white shadow-sm" : "text-muted hover:text-ink hover:bg-cream"}`}>
-              <span aria-hidden>{t.icon}</span>
+              {t.icon && <span aria-hidden><Icon g={t.icon} className="w-4 h-4" /></span>}
               <span>{t.label}</span>
               {t.badge != null && (
                 <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${on ? "bg-white/20 text-white" : "bg-cream text-muted"}`}>{t.badge}</span>

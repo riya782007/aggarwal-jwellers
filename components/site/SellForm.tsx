@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useRef, useState } from "react";
 import { submitProductAction } from "@/app/actions/submissions";
 
@@ -52,7 +53,7 @@ export function SellForm({
   if (done)
     return (
       <div className="text-center py-8">
-        <p className="text-5xl">📦</p>
+        <p className="text-5xl"><Icon g="📦" className="inline-block align-middle w-[1em] h-[1em]" /></p>
         <h2 className="font-display text-2xl text-ink mt-2">Submission received!</h2>
         <p className="text-sm text-muted mt-1 max-w-md mx-auto">
           Thank you — our team will review your product and get in touch about pricing and next steps.

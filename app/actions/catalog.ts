@@ -24,8 +24,8 @@ export async function createCategoryAction(formData: FormData) {
 
 /** Delete a category — only when it has no products (to avoid orphaning the catalogue). */
 /** Delete a category WITHOUT deleting its inventory. Products in it are moved to an auto-created
- *  "Uncategorized" category (products.category_id is NOT NULL, so they must land somewhere) and the
- *  category's subcategories are removed. Returns a result so the UI can confirm + report. */
+ * "Uncategorized" category (products.category_id is NOT NULL, so they must land somewhere) and the
+ * category's subcategories are removed. Returns a result so the UI can confirm + report. */
 export async function deleteCategoryAction(id: string): Promise<{ ok: boolean; moved?: number; error?: string }> {
   if (!(await requirePerm("catalog.edit"))) return { ok: false, error: "Your role can't edit the catalogue." };
   id = (id ?? "").trim();
@@ -74,14 +74,14 @@ async function nextSku(sb: ReturnType<typeof supabaseServer>): Promise<number> {
 }
 
 /** A single owner-defined variant row from the Upload form.
- *  Any of colour / size / polish is enough — at least one must be present for the row to count.
- *  Price fields are in rupees (UI-friendly) and are converted to paise before insert.
- *  null/undefined/<=0 = "inherit the formula / product price". */
+ * Any of colour / size / polish is enough — at least one must be present for the row to count.
+ * Price fields are in rupees (UI-friendly) and are converted to paise before insert.
+ * null/undefined/<=0 = "inherit the formula / product price". */
 export type VariantInput = {
   color?: string;
   size?: string;
   polish?: string;
-  sku?: string;                // manual SKU; blank = auto from parent SKU + attributes
+  sku?: string; // manual SKU; blank = auto from parent SKU + attributes
   qty: number;
   retailRupees?: number | null;
   wholesaleRupees?: number | null;
@@ -96,7 +96,7 @@ export type NewProduct = {
   colors: string[];
   manualSku?: string;
   /** Optional richer variant definitions. If provided (and type === 'configurable'),
-   *  these take precedence over the legacy `colors` comma-list shortcut. */
+   * these take precedence over the legacy `colors` comma-list shortcut. */
   variants?: VariantInput[];
 };
 export type RowResult = { row: number; ok: boolean; sku?: string; error?: string };
@@ -325,7 +325,7 @@ export async function createProductWithImageAction(formData: FormData): Promise<
 }
 
 /** Wholesale quantity-break tiers (0048): up to 3 rows of {min_qty, pct_off}, applied
- *  per line at trade-order time. Empty rows are dropped; tiers are stored sorted. */
+ * per line at trade-order time. Empty rows are dropped; tiers are stored sorted. */
 export async function saveWholesaleTiersAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.price_edit"))) return;
   const tiers: { min_qty: number; pct_off: number }[] = [];
@@ -342,9 +342,9 @@ export async function saveWholesaleTiersAction(formData: FormData): Promise<void
 }
 
 /** Photo-first stock entry (the owner's top wish): photo → category → cost → qty, DONE.
- *  Everything else is drafted automatically — the AI looks at the photo and writes the
- *  name/description/SEO (deterministic fallback when no AI key), the SKU is auto-generated,
- *  and wholesale/retail/MRP come from the pricing formula. Lands as a DRAFT for review. */
+ * Everything else is drafted automatically — the AI looks at the photo and writes the
+ * name/description/SEO (deterministic fallback when no AI key), the SKU is auto-generated,
+ * and wholesale/retail/MRP come from the pricing formula. Lands as a DRAFT for review. */
 export async function quickAddProductAction(formData: FormData): Promise<RowResult & { name?: string }> {
   if (!(await requirePerm("catalog.create"))) return { row: 0, ok: false, error: "Your role can't add products." };
   const sb = supabaseServer();
@@ -360,7 +360,7 @@ export async function quickAddProductAction(formData: FormData): Promise<RowResu
   const file = formData.get("image") as File | null;
   if (!categoryId) return { row: 0, ok: false, error: "Pick a category." };
   if (!(price > 0)) return { row: 0, ok: false, error: "Enter the cost / base price (₹)." };
-  if (!file || typeof file !== "object" || file.size === 0) return { row: 0, ok: false, error: "A photo is required — that's the whole point ✨" };
+  if (!file || typeof file !== "object" || file.size === 0) return { row: 0, ok: false, error: "A photo is required — that's the whole point " };
 
   // 1) The AI looks at the photo and names the piece. Falls back to "New {category}".
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -419,18 +419,18 @@ export async function aiParseRowsAction(rawText: string): Promise<{ rows: Parsed
     const system = `You convert a messy product list into clean JSON for a jewellery store. Output STRICT JSON:
 {"rows":[{
   "name":string,
-  "base_price":number,                        // wholesale cost in rupees, no currency symbols
-  "qty":number,                                // total stock, integer
+  "base_price":number, // wholesale cost in rupees, no currency symbols
+  "qty":number, // total stock, integer
   "type":"simple"|"configurable",
-  "colors":string[],                           // ["Red","Green"] — empty = simple
-  "sku":string,                                // optional existing product code — copy verbatim, else ""
-  "variants":[{                                // optional — only when sizes / polishes / per-variant prices appear
-    "color":string,                            // any of color / size / polish must be present per row
+  "colors":string[], // ["Red","Green"] — empty = simple
+  "sku":string, // optional existing product code — copy verbatim, else ""
+  "variants":[{ // optional — only when sizes / polishes / per-variant prices appear
+    "color":string, // any of color / size / polish must be present per row
     "size":string,
     "polish":string,
     "sku":string,
     "qty":number,
-    "retail":number,                           // optional rupees override
+    "retail":number, // optional rupees override
     "wholesale":number,
     "mrp":number
   }]
@@ -618,7 +618,7 @@ export async function createSubcategoryAction(formData: FormData): Promise<void>
 }
 
 /** JSON-friendly subcategory create for inline use (Add Inventory). Returns the new row so the
- *  client can select it immediately — mirrors createCategoryJsonAction. */
+ * client can select it immediately — mirrors createCategoryJsonAction. */
 export async function createSubcategoryJsonAction(name: string, categoryId: string): Promise<{ id: string; name: string; slug: string; categoryId: string } | null> {
   if (!(await requirePerm("catalog.edit"))) return null;
   const nm = (name ?? "").trim();
@@ -704,7 +704,7 @@ export async function deleteSubcategoryAction(formData: FormData): Promise<void>
 }
 
 /** Pillar 12: set the AI image style for a subcategory — 'auto' | 'indian' | 'western'.
- *  Drives which model the per-product photo generator uses (e.g. western necklace → foreign model). */
+ * Drives which model the per-product photo generator uses (e.g. western necklace → foreign model). */
 export async function setSubcategoryStyleAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.edit"))) return;
   const id = String(formData.get("id") ?? "").trim();
@@ -784,9 +784,9 @@ export async function savePricingAction(formData: FormData): Promise<void> {
 }
 
 /** Module 4 — save the GLOBAL pricing formula (pricing_settings): the %-build-up
- *  (cost → +shipping% → +packing% → +promotion% → +reseller% (wholesale) →
- *  +customer_discount% (retail) → +mrp% (MRP)) plus the legacy multipliers and rounding.
- *  Re-prices the whole catalogue, so it's permission-gated and revalidates the storefront. */
+ * (cost → +shipping% → +packing% → +promotion% → +reseller% (wholesale) →
+ * +customer_discount% (retail) → +mrp% (MRP)) plus the legacy multipliers and rounding.
+ * Re-prices the whole catalogue, so it's permission-gated and revalidates the storefront. */
 export async function savePricingFormulaAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.price_edit"))) return;
   const num = (k: string, d: number) => {
@@ -796,7 +796,7 @@ export async function savePricingFormulaAction(formData: FormData): Promise<void
   const patch = {
     use_buildup: String(formData.get("use_buildup") ?? "") === "on",
     shipping_pct: num("shipping_pct", 10),
-    packing_flat: Math.max(0, Math.round(num("packing_flat_rupees", 25) * 100)),     // ₹ → paise (flat)
+    packing_flat: Math.max(0, Math.round(num("packing_flat_rupees", 25) * 100)), // ₹ → paise (flat)
     promotion_flat: Math.max(0, Math.round(num("promotion_flat_rupees", 25) * 100)), // ₹ → paise (flat)
     reseller_pct: num("reseller_pct", 15),
     customer_discount_pct: num("customer_discount_pct", 5),
@@ -820,8 +820,8 @@ export async function savePricingFormulaAction(formData: FormData): Promise<void
 import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";
 
 /** AI-processed bulk import: reads a messy CSV/spreadsheet/freeform list, maps columns
- *  intelligently to {name, base_price, qty, type, colors}, then inserts. Falls back to
- *  naive comma parsing if no AI key. */
+ * intelligently to {name, base_price, qty, type, colors}, then inserts. Falls back to
+ * naive comma parsing if no AI key. */
 export async function aiBulkUploadAction(categoryId: string, rawText: string): Promise<{ created: number; results: RowResult[]; usedAi: boolean }> {
   if (!(await requirePerm("catalog.create"))) return { created: 0, results: [{ row: 0, ok: false, error: "Your role can't add products." }], usedAi: false };
   const sb = supabaseServer();
@@ -870,7 +870,7 @@ const STUDIO_BUCKET = "product-media";
 export type FullVariantInput = {
   color?: string; size?: string; polish?: string; sku?: string; qty: number;
   wholesaleRupees?: number | null; // null = same as parent
-  retailRupees?: number | null;    // null = same as parent
+  retailRupees?: number | null; // null = same as parent
   retailPublish: boolean; wholesalePublish: boolean;
 };
 export type CreateProductPayload = {
@@ -883,8 +883,8 @@ export type CreateProductPayload = {
 };
 
 /** Create a complete product (parent + variants + independent retail/wholesale publish settings +
- *  opening stock + a PIM details row + optional raw photo + optional AI content) in one call.
- *  Everything the mockup collects persists; the storefront flags stay in sync. */
+ * opening stock + a PIM details row + optional raw photo + optional AI content) in one call.
+ * Everything the mockup collects persists; the storefront flags stay in sync. */
 export async function createProductFullAction(
   payload: CreateProductPayload,
 ): Promise<{ ok: boolean; productId?: string; sku?: string; error?: string }> {

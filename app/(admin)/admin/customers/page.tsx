@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getCustomersDb, getCustomers, getCreditors } from "@/lib/supabase/queries";
@@ -42,7 +43,7 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <h1 className="font-display text-4xl text-ink">Customers</h1>
         {/* Spend targeting / rewards moved to the Promotions section — this page is just the directory. */}
-        <Link href="/admin/promotions#customer-rewards" className="text-sm text-emerald nav-link whitespace-nowrap">🎯 Reward &amp; target customers →</Link>
+        <Link href="/admin/promotions#customer-rewards" className="text-sm text-emerald nav-link whitespace-nowrap"><Icon g="🎯" className="inline-block align-middle w-[1em] h-[1em]" />Reward & target customers <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
       </div>
       <p className="text-sm text-muted mb-4">Your customer directory — retail &amp; wholesale, with GST details and dues. Click a customer for full history.</p>
 
@@ -90,7 +91,7 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
                     : c.outstanding < 0 ? <span className="text-emerald-dark text-xs font-medium">Advance {formatPaise(-c.outstanding)}</span>
                     : <span className="text-muted">—</span>}
                 </td>
-                <td className="p-3 text-right"><Link href={`/admin/customer/${c.id}`} className="text-emerald nav-link text-xs whitespace-nowrap">Ledger →</Link></td>
+                <td className="p-3 text-right"><Link href={`/admin/customer/${c.id}`} className="text-emerald nav-link text-xs whitespace-nowrap">Ledger <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link></td>
               </tr>
             ))}
           </tbody>

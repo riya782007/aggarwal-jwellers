@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 // Poster generation (Gemini/OpenAI) can take 15–40s — raise the function timeout so it never dies at 10s.
 export const maxDuration = 60;
@@ -58,7 +59,7 @@ export default async function PromotionsPage() {
       {/* ---- Storefront offers ---- */}
       <section>
         <h2 className="font-display text-2xl text-ink mb-1">Storefront offers</h2>
-        <p className="text-sm text-muted mb-4">Type a rough idea → ChatGPT refines it → Gemini designs the poster → choose where it goes live (hero banner, announcement strip, or popup).</p>
+        <p className="text-sm text-muted mb-4">Type a rough idea <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />ChatGPT refines it <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />Gemini designs the poster <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />choose where it goes live (hero banner, announcement strip, or popup).</p>
         <PromotionsClient categories={categories} promos={promos as any} ready={{ openai: openaiConfigured(), gemini: geminiConfigured() }} />
 
         <div className="mt-8">
@@ -90,7 +91,7 @@ export default async function PromotionsPage() {
 
       {/* ---- Customer rewards & targeting (campaign-driven) ---- */}
       <section id="customer-rewards" className="mt-12 scroll-mt-6">
-        <h2 className="font-display text-2xl text-ink mb-1">🎯 Customer rewards &amp; targeting</h2>
+        <h2 className="font-display text-2xl text-ink mb-1"><Icon g="🎯" className="inline-block align-middle w-[1em] h-[1em]" />Customer rewards & targeting</h2>
         <p className="text-sm text-muted mb-4">Run a reward campaign with a spend target and dates. Progress is tracked <b>only within the campaign window</b> — nothing is measured before it starts or after it ends.</p>
 
         {/* Create a reward campaign */}
@@ -124,7 +125,7 @@ export default async function PromotionsPage() {
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-mist text-emerald-dark font-medium">● LIVE</span>
                 <div className="min-w-0">
                   <p className="font-medium text-ink">{c.name} <span className="font-normal text-muted">· target {formatPaise(c.target_paise)}</span></p>
-                  <p className="text-[11px] text-muted">{fmtDate(c.starts_at)} → {c.ends_at ? fmtDate(c.ends_at) : "open-ended"} · {c.scope === "all" ? "all customers" : `${c.scope} only`}{c.reward_note ? ` · 🎁 ${c.reward_note}` : ""}</p>
+                  <p className="text-[11px] text-muted">{fmtDate(c.starts_at)} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /> {c.ends_at ? fmtDate(c.ends_at) : "open-ended"}· {c.scope === "all" ? "all customers" : `${c.scope} only`}{c.reward_note ? ` · ${c.reward_note}` : ""}</p>
                 </div>
                 <span className="ml-auto text-xs text-emerald-dark font-medium">{reached} reached · {close} close</span>
                 <form action={endRewardCampaignAction}><input type="hidden" name="id" value={c.id} /><button className="text-xs px-3 py-1.5 rounded-lg bg-ink/5 text-ink hover:bg-ink/10">End now</button></form>
@@ -140,15 +141,15 @@ export default async function PromotionsPage() {
                       const isReached = cu.spend >= c.target_paise;
                       const remaining = Math.max(0, c.target_paise - cu.spend);
                       const wa = waLink(cu.phone, isReached
-                        ? `Hi ${cu.name}, thank you for shopping with Aggarwal Jewellers! You've reached our ${c.name} target${c.reward_note ? ` — your reward: ${c.reward_note}` : ""}. 🎁`
-                        : `Hi ${cu.name}, you're almost there in our ${c.name} offer! Spend ${formatPaise(remaining)} more to unlock${c.reward_note ? ` ${c.reward_note}` : " your reward"}. ✨`);
+                        ? `Hi ${cu.name}, thank you for shopping with Aggarwal Jewellers! You've reached our ${c.name} target${c.reward_note ? ` — your reward: ${c.reward_note}` : ""}. `
+                        : `Hi ${cu.name}, you're almost there in our ${c.name} offer! Spend ${formatPaise(remaining)} more to unlock${c.reward_note ? ` ${c.reward_note}` : " your reward"}. `);
                       return (
                         <tr key={cu.id} className="border-t border-sand/60 hover:bg-cream/40">
                           <td className="p-3"><Link href={`/admin/customer/${cu.id}`} className="text-emerald nav-link font-medium">{cu.name}</Link>{cu.city ? <span className="block text-[11px] text-muted">{cu.city}</span> : null}</td>
                           <td className="p-3 text-muted">{cu.phone || "—"}</td>
                           <td className="p-3 text-right tabular-nums">{cu.spend ? <span className="font-medium text-ink">{formatPaise(cu.spend)}</span> : <span className="text-muted">—</span>}</td>
-                          <td className="p-3"><div className="flex items-center gap-2"><div className="h-1.5 w-28 rounded-full bg-sand/70 overflow-hidden"><div className={`h-full ${isReached ? "bg-emerald" : "bg-gold"}`} style={{ width: `${pct}%` }} /></div><span className={`text-[11px] tabular-nums ${isReached ? "text-emerald-dark" : "text-muted"}`}>{isReached ? "✓" : `${pct}%`}</span></div></td>
-                          <td className="p-3 text-right">{wa && <a href={wa} target="_blank" rel="noreferrer" className="text-xs text-emerald hover:underline whitespace-nowrap">Reach out ↗</a>}</td>
+                          <td className="p-3"><div className="flex items-center gap-2"><div className="h-1.5 w-28 rounded-full bg-sand/70 overflow-hidden"><div className={`h-full ${isReached ? "bg-emerald" : "bg-gold"}`} style={{ width: `${pct}%` }} /></div><span className={`text-[11px] tabular-nums ${isReached ? "text-emerald-dark" : "text-muted"}`}>{isReached ? <Icon name="check" className="inline w-3 h-3 align-[-1px]" /> : `${pct}%`}</span></div></td>
+                          <td className="p-3 text-right">{wa && <a href={wa} target="_blank" rel="noreferrer" className="text-xs text-emerald hover:underline whitespace-nowrap">Reach out <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></a>}</td>
                         </tr>
                       );
                     })}
@@ -174,7 +175,7 @@ export default async function PromotionsPage() {
               <div key={c.id} className="bg-white/60 rounded-xl p-3 shadow-card flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-ink/5 text-muted">Ended</span>
                 <span className="font-medium text-ink/80">{c.name}</span>
-                <span className="text-muted text-xs">target {formatPaise(c.target_paise)} · {fmtDate(c.starts_at)} → {fmtDate(c.ends_at)}</span>
+                <span className="text-muted text-xs">target {formatPaise(c.target_paise)}· {fmtDate(c.starts_at)} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /> {fmtDate(c.ends_at)}</span>
                 <form action={deleteRewardCampaignAction} className="ml-auto"><input type="hidden" name="id" value={c.id} /><button className="text-xs text-rose hover:underline">Delete</button></form>
               </div>
             ))}

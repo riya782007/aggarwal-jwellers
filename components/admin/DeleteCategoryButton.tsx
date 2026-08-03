@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
@@ -27,7 +28,7 @@ export function DeleteCategoryButton({ id, name, productCount }: { id: string; n
 
   return (
     <>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(true); }} title="Delete category" className="text-muted hover:text-rose text-sm">🗑</button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(true); }} title="Delete category" className="text-muted hover:text-rose text-sm"><Icon g="🗑" className="inline-block align-middle w-[1em] h-[1em]" /></button>
       {open && (
         <div className="fixed inset-0 z-[80] grid place-items-center p-4" onClick={(e) => e.stopPropagation()}>
           <div className="absolute inset-0 bg-ink/40" onClick={() => !busy && setOpen(false)} />

@@ -154,9 +154,9 @@ export async function refineGenerationAction(input: {
   if (!gen || !gen.output_path) return { ok: false, reason: "not_found" };
 
   // Build the image stack fed to the editor, in priority order:
-  //   1. the marked copy (WHERE to edit) — if the owner drew a box,
-  //   2. the clean generated candidate (the image being edited),
-  //   3. the ORIGINAL raw reference (the true design — the fidelity anchor).
+  // 1. the marked copy (WHERE to edit) — if the owner drew a box,
+  // 2. the clean generated candidate (the image being edited),
+  // 3. the ORIGINAL raw reference (the true design — the fidelity anchor).
   const images: { base64: string; mime?: string }[] = [];
   const hasMarker = !!input.markedBase64;
   if (hasMarker) images.push({ base64: input.markedBase64!, mime: input.markedMime ?? "image/png" });
@@ -259,7 +259,7 @@ export async function setGenerationStatusAction(formData: FormData): Promise<voi
 }
 
 /** Publish a candidate → storefront. Copies its URL into product_images and sets it as the
- *  primary hero (or an angle), so every storefront surface updates. Previous images are kept. */
+ * primary hero (or an angle), so every storefront surface updates. Previous images are kept. */
 export async function publishGenerationAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.publish")) && !(await requirePerm("catalog.ai"))) return;
   const id = String(formData.get("id") ?? "").trim();
@@ -293,7 +293,7 @@ export async function publishGenerationAction(formData: FormData): Promise<void>
 }
 
 /** Store a client-composited BRANDED image (the "Aggarwal Jewellers" wordmark was drawn onto the
- *  AI stand shot in the browser) and publish it — attached to the variant if given. */
+ * AI stand shot in the browser) and publish it — attached to the variant if given. */
 export async function uploadBrandedImageAction(input: {
   productId: string; variantId?: string | null; base64: string; mime?: string; shotType?: string;
 }): Promise<GenOut> {

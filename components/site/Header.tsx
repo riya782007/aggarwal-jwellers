@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { PromoBar } from "./PromoBar";
 import { MobileMenu } from "./MobileMenu";
@@ -45,7 +46,7 @@ export function Header({ categories }: { categories: Cat[] }) {
                       )}
                     </div>
                   ))}
-                  <Link href="/shop" className="px-3 py-2 rounded-lg text-gold-dark font-medium hover:bg-cream col-span-2">View all designs →</Link>
+                  <Link href="/shop" className="px-3 py-2 rounded-lg text-gold-dark font-medium hover:bg-cream col-span-2">View all designs <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                 </div>
               </div>
             </div>

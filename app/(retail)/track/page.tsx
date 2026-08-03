@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { findOrderForTracking } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
@@ -8,7 +9,7 @@ export const metadata = { title: "Track your order · Aggarwal Jewellers" };
 function Step({ done, active, icon, title, sub }: { done: boolean; active?: boolean; icon: string; title: string; sub?: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className={`h-9 w-9 rounded-full flex items-center justify-center text-base shrink-0 ${done ? "bg-emerald text-white" : active ? "bg-gold/20 text-gold-dark" : "bg-ink/5 text-muted"}`}>{icon}</div>
+      <div className={`h-9 w-9 rounded-full flex items-center justify-center text-base shrink-0 ${done ? "bg-emerald text-white" : active ? "bg-gold/20 text-gold-dark" : "bg-ink/5 text-muted"}`}><Icon g={icon} className="w-4 h-4" /></div>
       <div className="pb-6">
         <p className={`text-sm font-medium ${done || active ? "text-ink" : "text-muted"}`}>{title}</p>
         {sub && <p className="text-xs text-muted">{sub}</p>}
@@ -32,7 +33,7 @@ export default async function TrackOrder({ searchParams }: { searchParams: { cod
       <form action="/track" className="bg-white rounded-2xl p-5 shadow-card space-y-3 mb-6">
         <input name="code" defaultValue={code} placeholder="Order code · e.g. 9F3A21BC or INV-000123" required className={fld} />
         <input name="phone" defaultValue={phone} placeholder="Phone number" inputMode="tel" required className={fld} />
-        <button className="btn-primary w-full py-3 text-base font-medium">Track →</button>
+        <button className="btn-primary w-full py-3 text-base font-medium">Track <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button>
       </form>
 
       {code && phone && !order && (

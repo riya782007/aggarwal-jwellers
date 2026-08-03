@@ -1,8 +1,8 @@
 "use server";
 /**
  * DIVA — the console operator. Two server actions:
- *   divaPlan(command)      → LLM turns a voice/text command into an ordered list of steps.
- *   divaRun(tool, args)    → executes ONE step (read / navigate / mutate), permission-checked.
+ * divaPlan(command) → LLM turns a voice/text command into an ordered list of steps.
+ * divaRun(tool, args) → executes ONE step (read / navigate / mutate), permission-checked.
  *
  * Owner is logged in via the console passcode → DIVA gets ALL permissions. The granular
  * gate is wired so per-staff roles can scope DIVA later.
@@ -63,11 +63,11 @@ function isoDaysAgo(d: number) { return new Date(Date.now() - d * 86400000).toIS
  * Turn a (possibly Hindi/Hinglish) command into an ordered, executable plan.
  *
  * Strategy:
- *   1. Run the deterministic multilingual NLU engine (lib/diva/nlu) — fast, free, offline,
- *      and the only path that works when no AI key is configured or the network is blocked.
- *   2. If NLU is confident (or it needs a follow-up answer, or no LLM is configured) → use it.
- *   3. Otherwise escalate the same command to the LLM for a best-effort plan, falling back
- *      to whatever the NLU produced.
+ * 1. Run the deterministic multilingual NLU engine (lib/diva/nlu) — fast, free, offline,
+ * and the only path that works when no AI key is configured or the network is blocked.
+ * 2. If NLU is confident (or it needs a follow-up answer, or no LLM is configured) → use it.
+ * 3. Otherwise escalate the same command to the LLM for a best-effort plan, falling back
+ * to whatever the NLU produced.
  *
  * `contextJson` carries conversational memory from the previous turn (multi-turn slot fill,
  * "ye product" references). It is produced by this function and echoed back by the widget.
@@ -87,12 +87,12 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
   };
 
   // 2) Trust the fast deterministic engine ONLY when it's safe:
-  //    - it asked a clarifying question, or
-  //    - no LLM is configured (best effort), or
-  //    - it produced steps that are read/navigate only (harmless), or
-  //    - it produced steps and is highly confident.
-  //    A low/medium-confidence MUTATION is escalated to the LLM so a mis-parse like
-  //    "billvan WH17 gold" never silently runs the wrong change (Aggarwal's complaint).
+  // - it asked a clarifying question, or
+  // - no LLM is configured (best effort), or
+  // - it produced steps that are read/navigate only (harmless), or
+  // - it produced steps and is highly confident.
+  // A low/medium-confidence MUTATION is escalated to the LLM so a mis-parse like
+  // "billvan WH17 gold" never silently runs the wrong change (Aggarwal's complaint).
   const llmAvailable = anyAiConfigured();
   if (nlu.ask || !llmAvailable) return nluPlan;
   const mutating = nluPlan.steps.some((s) => s.kind === "mutate");
@@ -180,11 +180,11 @@ export async function getDivaSuggestions(): Promise<DivaSuggestion[]> {
 
     if (oos.length) {
       const r = oos[0];
-      out.push({ id: "oos", icon: "🚨", text: `${r.name} (${r.sku}) is out of stock${oos.length > 1 ? ` — and ${oos.length - 1} more` : ""}. Restock it?`, command: `add 10 to ${r.sku}` });
+      out.push({ id: "oos", icon: "", text: `${r.name} (${r.sku}) is out of stock${oos.length > 1 ? ` — and ${oos.length - 1} more` : ""}. Restock it?`, command: `add 10 to ${r.sku}` });
     }
     if (low.length) {
       const r = low[0];
-      out.push({ id: "low", icon: "📉", text: `${r.name} (${r.sku}) is low — only ${r.qty} left. Add stock?`, command: `add 20 to ${r.sku}` });
+      out.push({ id: "low", icon: "", text: `${r.name} (${r.sku}) is low — only ${r.qty} left. Add stock?`, command: `add 20 to ${r.sku}` });
     }
     // Colour-level alert (colour-first model): flag a specific colour running low/out.
     const lowVars = ((lowVarRes as any)?.data ?? []) as any[];
@@ -192,24 +192,24 @@ export async function getDivaSuggestions(): Promise<DivaSuggestion[]> {
       const v = lowVars[0];
       const pname = v.product?.name ?? v.product?.sku ?? "A product";
       const psku = v.product?.sku ?? "";
-      out.push({ id: "lowvar", icon: "🎨",
+      out.push({ id: "lowvar", icon: "",
         text: `${pname} ${v.color} ${(v.qty ?? 0) <= 0 ? "is out" : `is low (${v.qty} left)`}${lowVars.length > 1 ? ` — +${lowVars.length - 1} more colours` : ""}. Restock?`,
         command: psku ? `${psku} me 12 ${v.color} add karo` : "low stock dikhao" });
     }
     const pending = (pendingRes as any)?.count ?? 0;
-    if (pending > 0) out.push({ id: "pending", icon: "📦", text: `${pending} pending order${pending > 1 ? "s" : ""} to review.`, command: "pending orders dikhao" });
+    if (pending > 0) out.push({ id: "pending", icon: "", text: `${pending} pending order${pending > 1 ? "s" : ""} to review.`, command: "pending orders dikhao" });
 
     const drafts = ((draftsRes as any)?.rows ?? []) as any[];
     if (drafts.length) {
       const r = drafts[0];
-      out.push({ id: "draft", icon: "✏️", text: `${r.name} (${r.sku}) is still a draft — open it to finish & publish?`, command: `show ${r.sku}` });
+      out.push({ id: "draft", icon: "", text: `${r.name} (${r.sku}) is still a draft — open it to finish & publish?`, command: `show ${r.sku}` });
     }
     if (drafts.length >= 2) {
-      out.push({ id: "factory", icon: "🏭", text: `${drafts.length} naye products draft me hain — AI photos bana ke publish kar dun?`, command: "sab naye products ki photos banao" });
+      out.push({ id: "factory", icon: "", text: `${drafts.length} naye products draft me hain — AI photos bana ke publish kar dun?`, command: "sab naye products ki photos banao" });
     }
     if (dead.length) {
       const r = dead[0];
-      out.push({ id: "dead", icon: "💤", text: `${r.name} hasn't sold lately — share its catalogue to push it?`, command: `${r.name} ka catalog whatsapp pe bhejo` });
+      out.push({ id: "dead", icon: "", text: `${r.name} hasn't sold lately — share its catalogue to push it?`, command: `${r.name} ka catalog whatsapp pe bhejo` });
     }
   } catch { /* suggestions are best-effort */ }
   return out.slice(0, 4);
@@ -255,7 +255,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       case "low_stock": {
         const rows = await getInventoryClassified();
         const list = rows.filter((r) => r.cls === "low" || r.qty === 0).slice(0, 12);
-        return { ok: true, data: list, message: list.length ? `Low/out: ${list.map((r) => `${r.name} (${r.qty})`).join(", ")}.` : "Nothing is low right now 🎉" };
+        return { ok: true, data: list, message: list.length ? `Low/out: ${list.map((r) => `${r.name} (${r.qty})`).join(", ")}.` : "Nothing is low right now " };
       }
       case "find_product": {
         const { rows } = await getProductsPage({ q: String(args.query ?? ""), pageSize: 8 });
@@ -395,7 +395,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
           .not("status", "in", "(completed,delivered,cancelled,refunded)")
           .order("created_at", { ascending: false }).limit(15);
         const rows = (data as any[]) ?? [];
-        if (rows.length === 0) return { ok: true, data: [], message: "No pending orders — you're all caught up 🎉" };
+        if (rows.length === 0) return { ok: true, data: [], message: "No pending orders — you're all caught up " };
         const list = rows.slice(0, 8).map((o) => `${o.invoice_no ?? o.customer_name ?? "order"} (${formatPaise(o.total ?? 0)}, ${o.status})`).join("; ");
         return { ok: true, data: rows, message: `${rows.length} pending: ${list}.` };
       }
@@ -735,11 +735,11 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
           billCount.set(who, (billCount.get(who) ?? 0) + 1);
         }
         if (party) {
-          if (!total) return { ok: true, message: `"${args.party}" ka kuch baaki nahi — all settled ✓` };
+          if (!total) return { ok: true, message: `"${args.party}" ka kuch baaki nahi — all settled ` };
           const [n, v] = [...due.entries()][0];
           return { ok: true, data: { party: n, outstanding: v }, message: `${n} owes ${formatPaise(v)} across ${billCount.get(n) ?? 0} open bill(s). Say "${n} ne <amount> diye" when they pay.` };
         }
-        if (!total) return { ok: true, message: "Nobody owes us anything right now — sab paisa aa chuka hai 🎉" };
+        if (!total) return { ok: true, message: "Nobody owes us anything right now — sab paisa aa chuka hai " };
         const top = [...due.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
           .map(([n, v]) => `${n}: ${formatPaise(v)}`).join(" · ");
         return { ok: true, data: { total, parties: due.size }, message: `Outstanding ${formatPaise(total)} from ${due.size} parties. Biggest: ${top}.` };
@@ -758,7 +758,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         const r: any = data ?? {};
         revalidatePath("/admin/creditors"); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/cashbook"); revalidatePath(`/admin/customer/${c.id}`);
         const adv = Number(r.unallocated ?? 0);
-        return { ok: true, data: r, message: `Received ${formatPaise(amount)} from ${c.name} (${mode}) — settled against ${Number(r.bills ?? 0)} bill(s)${adv > 0 ? `; ${formatPaise(adv)} kept on account as advance` : ""}. ✓` };
+        return { ok: true, data: r, message: `Received ${formatPaise(amount)} from ${c.name} (${mode}) — settled against ${Number(r.bills ?? 0)} bill(s)${adv > 0 ? `; ${formatPaise(adv)} kept on account as advance` : ""}. ` };
       }
       case "payables": {
         const sb = supabaseServer();
@@ -773,7 +773,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         for (const p of (pays as any[]) ?? []) owed.set(p.supplier_id ?? "?", (owed.get(p.supplier_id ?? "?") ?? 0) - Number(p.amount ?? 0));
         const rows = [...owed.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
         const total = rows.reduce((s2, [, v]) => s2 + v, 0);
-        if (!total) return { ok: true, message: "No pending supplier payments — sab clear hai ✓" };
+        if (!total) return { ok: true, message: "No pending supplier payments — sab clear hai " };
         const top = rows.slice(0, 6).map(([id, v]) => `${name.get(id) ?? "Unknown"}: ${formatPaise(v)}`).join(" · ");
         return { ok: true, data: { total }, message: `We owe suppliers ${formatPaise(total)}. ${top}.` };
       }
@@ -784,9 +784,9 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         let health = "";
         try {
           const { data: h } = await sb.from("v_accounting_health").select("*").maybeSingle();
-          if (h) health = ` Receivable ${formatPaise(Number((h as any).receivable_paise ?? 0))} · payable ${formatPaise(Number((h as any).payable_paise ?? 0))}${Number((h as any).negative_stock ?? 0) ? ` · ⚠ ${(h as any).negative_stock} negative-stock items` : ""}.`;
+          if (h) health = ` Receivable ${formatPaise(Number((h as any).receivable_paise ?? 0))} · payable ${formatPaise(Number((h as any).payable_paise ?? 0))}${Number((h as any).negative_stock ?? 0) ? ` · ${(h as any).negative_stock} negative-stock items` : ""}.`;
         } catch { /* view optional */ }
-        return { ok: true, data: d, message: `Today: ${formatPaise(d.revenue)} from ${d.orders} bills (${d.pos} counter, ${d.cod} COD). Stock: ${d.low} low, ${d.dead} dead.${health} ${d.low ? "Suggestion: reorder the low-stock items." : "All healthy ✓"}` };
+        return { ok: true, data: d, message: `Today: ${formatPaise(d.revenue)} from ${d.orders} bills (${d.pos} counter, ${d.cod} COD). Stock: ${d.low} low, ${d.dead} dead.${health} ${d.low ? "Suggestion: reorder the low-stock items." : "All healthy "}` };
       }
       case "inactive_customers": {
         const days = Math.max(7, Number(args.days) || 60);
@@ -813,7 +813,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       case "hide_dead_stock": {
         const rows = await getInventoryClassified();
         const dead = rows.filter((r: any) => r.cls === "dead" && r.sku);
-        if (!dead.length) return { ok: true, message: "No dead stock to hide — everything is moving 🎉" };
+        if (!dead.length) return { ok: true, message: "No dead stock to hide — everything is moving " };
         const sb = supabaseServer();
         const { error } = await sb.from("products").update({ status: "draft" }).in("sku", dead.map((r: any) => r.sku));
         if (error) return { ok: false, message: error.message };
@@ -846,7 +846,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
           const have = new Set(((imgs as any[]) ?? []).map((i: any) => i.product_id));
           targets = ((prods as any[]) ?? []).filter((p) => !have.has(p.id)).slice(0, limit).map((p) => ({ sku: p.sku }));
         }
-        if (!targets.length) return { ok: true, message: "Every product already has a photo 🎉" };
+        if (!targets.length) return { ok: true, message: "Every product already has a photo " };
         const done: string[] = []; const failed: string[] = [];
         for (const t of targets) {
           const r = await generateAdImageAction(t.sku);
@@ -876,7 +876,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         const { error } = await sb.from("products").update({ status: "published" }).in("id", list.map((p) => p.id));
         if (error) return { ok: false, message: error.message };
         revalidatePath("/shop"); revalidatePath("/admin/catalogue");
-        return { ok: true, data: { published: list.length }, message: `Published ${list.length} products — live on the website now ✓ ${list.slice(0, 10).map((p) => p.sku).join(", ")}${list.length > 10 ? "…" : ""}` };
+        return { ok: true, data: { published: list.length }, message: `Published ${list.length} products — live on the website now ${list.slice(0, 10).map((p) => p.sku).join(", ")}${list.length > 10 ? "…" : ""}` };
       }
 
       default:
@@ -908,8 +908,8 @@ const NAME_STOP = new Set([
 ]);
 
 /** Pick the colour variant a command refers to, by colour name or variant SKU. A single-variant
- *  product defaults to its only variant. Returns null when there are several and none matched,
- *  so DIVA asks "which colour?" rather than guessing. */
+ * product defaults to its only variant. Returns null when there are several and none matched,
+ * so DIVA asks "which colour?" rather than guessing. */
 function matchVariant(variants: any[], hint: string): any | null {
   if (!variants?.length) return null;
   const h = (hint ?? "").trim().toLowerCase();
@@ -941,8 +941,8 @@ async function resolveProductByName(query: string): Promise<{ id: string; sku: s
   if (!rows.length) return null;
 
   // 1) ANY token that LOOKS like a SKU (has a digit) must match a real SKU EXACTLY — product
-  //    or variant. If it looks like a SKU but matches nothing, return null so DIVA says
-  //    "no product with that code" instead of fuzzy-guessing a WRONG product (the WBR113→WBR1002 bug).
+  // or variant. If it looks like a SKU but matches nothing, return null so DIVA says
+  // "no product with that code" instead of fuzzy-guessing a WRONG product (the WBR113→WBR1002 bug).
   const skuLike = tokens.filter((t) => /\d/.test(t));
   if (skuLike.length) {
     for (const t of skuLike) {
@@ -961,7 +961,7 @@ async function resolveProductByName(query: string): Promise<{ id: string; sku: s
   }
 
   // 2) Descriptive name match — WHOLE-WORD only (so "wbr" can't match inside "WBR1002").
-  //    Requires a clear winner; ambiguous/weak → null so DIVA asks for the SKU.
+  // Requires a clear winner; ambiguous/weak → null so DIVA asks for the SKU.
   let best: any = null, bestScore = 0, secondScore = 0;
   for (const r of rows) {
     const tags = (((r.generated_content as any)?.tags) ?? []) as string[];

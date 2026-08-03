@@ -140,7 +140,7 @@ export async function saveProductPricingAction(formData: FormData): Promise<void
 }
 
 /** RETAIL / WHOLESALE STOREFRONT + SEO tabs — independent per-channel settings.
- *  After saving, sync products.wholesale_only / retail_only / status from BOTH channels. */
+ * After saving, sync products.wholesale_only / retail_only / status from BOTH channels. */
 export async function saveProductChannelAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.publish")) && !(await requirePerm("catalog.edit"))) return;
   const id = String(formData.get("id") ?? "").trim();

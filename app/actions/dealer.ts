@@ -1,7 +1,7 @@
 "use server";
 /** Dealer self-signup (trade portal): application + business proof upload lands as a PENDING
- *  wholesale customer. The owner approves from the customer page (existing flow) which issues
- *  the trade access code — nothing is auto-granted. */
+ * wholesale customer. The owner approves from the customer page (existing flow) which issues
+ * the trade access code — nothing is auto-granted. */
 import { supabaseServer } from "@/lib/supabase/server";
 
 const PROOF_BUCKET = "dealer-proofs";

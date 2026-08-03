@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
@@ -25,7 +26,7 @@ export function VariantPhotos({ variantId, productSku, color, images }: { varian
       fd.set("product_sku", productSku);
       for (const f of Array.from(files)) fd.append("images", await compressImage(f));
       const res = await addVariantImageAction(fd);
-      if (res.ok) { toast(`Photo added${color ? ` for ${color}` : ""} ✓`); router.refresh(); }
+      if (res.ok) { toast(`Photo added${color ? ` for ${color}`: ""}`); router.refresh(); }
       else toast(res.error ?? "Upload failed", "error");
     } catch {
       toast("Upload failed — try again or use a smaller photo", "error");
@@ -48,7 +49,7 @@ export function VariantPhotos({ variantId, productSku, color, images }: { varian
         <div key={u} className="relative h-14 w-14 rounded-lg overflow-hidden border border-sand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={u} alt={color ?? ""} className="h-full w-full object-cover" />
-          <button onClick={() => del(u)} className="absolute top-0 right-0 bg-ink/70 text-white text-[10px] leading-none px-1 py-0.5 rounded-bl" title="Remove photo">✕</button>
+          <button onClick={() => del(u)} className="absolute top-0 right-0 bg-ink/70 text-white text-[10px] leading-none px-1 py-0.5 rounded-bl" title="Remove photo"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
       ))}
       <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => upload(e.target.files)} />

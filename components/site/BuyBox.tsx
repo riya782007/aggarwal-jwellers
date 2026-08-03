@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/cart/CartContext";
@@ -104,16 +105,16 @@ export function BuyBox({ variants = [], waHref, item }: {
       {/* Secondary: keep building a bag, or order over WhatsApp */}
       <div className="flex gap-3 mt-3">
         <button onClick={onAdd} disabled={outOfStock} className="flex-1 py-3 rounded-full border border-sand text-ink text-sm font-medium transition-colors hover:border-gold disabled:opacity-50">
-          {added ? "✓ Added to cart" : "Add to cart"}
+          {added ? "Added to cart" : "Add to cart"}
         </button>
         <a href={waHref} target="_blank" rel="noreferrer" className="px-5 py-3 rounded-full bg-[#25D366] text-white text-sm font-medium transition-transform hover:-translate-y-0.5 active:scale-95">WhatsApp</a>
       </div>
       {outOfStock && (
         <div className="mt-3 rounded-2xl border border-gold/40 bg-gold/5 p-4">
           {nDone ? (
-            <p className="text-sm text-emerald-dark">✓ Done — we&apos;ll text you on {nPhone} the moment it&apos;s back in stock.</p>
+            <p className="text-sm text-emerald-dark"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Done — we'll text you on {nPhone}the moment it's back in stock.</p>
           ) : !nOpen ? (
-            <button onClick={() => setNOpen(true)} className="w-full py-3 rounded-full bg-ink text-white text-sm font-medium">🔔 Notify me when it&apos;s back</button>
+            <button onClick={() => setNOpen(true)} className="w-full py-3 rounded-full bg-ink text-white text-sm font-medium"><Icon g="🔔" className="inline-block align-middle w-[1em] h-[1em]" />Notify me when it's back</button>
           ) : (
             <div className="space-y-2">
               <p className="text-sm font-medium text-ink">Get a text when it&apos;s restocked</p>
@@ -125,7 +126,7 @@ export function BuyBox({ variants = [], waHref, item }: {
           )}
         </div>
       )}
-      <p className="text-xs text-muted mt-3 flex flex-wrap items-center gap-x-4 gap-y-1"><span>✓ COD available</span><span>✓ Free shipping over ₹999</span><span>✓ 7-day returns</span></p>
+      <p className="text-xs text-muted mt-3 flex flex-wrap items-center gap-x-4 gap-y-1"><span><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />COD available</span><span><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Free shipping over ₹999</span><span><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />7-day returns</span></p>
     </div>
   );
 }

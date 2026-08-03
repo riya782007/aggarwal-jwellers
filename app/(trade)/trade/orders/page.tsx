@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -19,7 +20,7 @@ export default async function TradeOrders() {
   return (
     <div className="max-w-4xl mx-auto px-5 py-8">
       <h1 className="font-display text-4xl text-ink mb-1">Your Orders</h1>
-      <p className="text-sm text-muted mb-6">Your last {history.length || "0"} trade orders. <Link href="/trade" className="text-emerald nav-link">Place a new order →</Link></p>
+      <p className="text-sm text-muted mb-6">Your last {history.length || "0"} trade orders. <Link href="/trade" className="text-emerald nav-link">Place a new order <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link></p>
 
       {history.length === 0 ? (
         <p className="text-sm text-muted bg-white rounded-2xl border border-sand p-8 text-center">No past orders yet — place your first from the dashboard.</p>

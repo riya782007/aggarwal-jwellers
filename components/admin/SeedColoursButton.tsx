@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -46,9 +47,9 @@ export function SeedColoursButton({ seeded, total }: { seeded: number; total: nu
           Seeding…
         </>
       ) : fullySeeded ? (
-        <>✓ Canonical 75 in place · re-sync</>
+        <><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" />Canonical 75 in place · re-sync</>
       ) : (
-        <>✨ Seed canonical 75 colours{total > 0 ? ` (you have ${seeded}/${CATALOG_SIZE})` : ""}</>
+        <><Icon g="✨" className="inline-block align-middle w-[1em] h-[1em]" />Seed canonical 75 colours{total > 0 ? ` (you have ${seeded}/${CATALOG_SIZE})` : ""}</>
       )}
     </button>
   );

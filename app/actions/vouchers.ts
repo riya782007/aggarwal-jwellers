@@ -1,6 +1,6 @@
 "use server";
 /** Voucher admin CRUD (marketing.manage) + the public checkout preview check.
- *  Validation/redemption logic lives in lib/vouchers.ts — single source of truth. */
+ * Validation/redemption logic lives in lib/vouchers.ts — single source of truth. */
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";

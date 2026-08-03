@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -26,7 +27,7 @@ export default async function SupplierLedger({ params }: { params: { id: string 
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-6xl">
-      <Link href="/admin/suppliers" className="text-sm text-muted hover:text-ink">← Suppliers</Link>
+      <Link href="/admin/suppliers" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Suppliers</Link>
       <div className="flex items-center gap-3 mt-1 flex-wrap mb-1">
         <h1 className="font-display text-4xl text-ink">{supplier.name}</h1>
         <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-mist text-emerald-dark capitalize">{supplier.kind}</span>
@@ -73,14 +74,14 @@ export default async function SupplierLedger({ params }: { params: { id: string 
             {rows.map((e: any, i: number) => (
               <tr key={i} className="border-t border-sand/60">
                 <td className="p-3 text-muted whitespace-nowrap">{new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
-                <td className="p-3 text-ink">{e.link ? <Link href={e.link} className="text-emerald nav-link">{e.label} ↗</Link> : e.label}</td>
+                <td className="p-3 text-ink">{e.link ? <Link href={e.link} className="text-emerald nav-link">{e.label} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link> : e.label}</td>
                 <td className="p-3 text-right">{e.debit ? formatPaise(e.debit) : ""}</td>
                 <td className="p-3 text-right text-emerald-dark">{e.credit ? formatPaise(e.credit) : ""}</td>
                 <td className={`p-3 text-right font-medium ${e.balance > 0 ? "text-rose" : "text-ink"}`}>{formatPaise(e.balance)}</td>
                 <td className="p-3 text-right">{e.payId && (
                   <form action={deleteSupplierPaymentAction} className="inline">
                     <input type="hidden" name="id" value={e.payId} /><input type="hidden" name="supplier_id" value={supplier.id} />
-                    <button className="text-muted hover:text-rose text-xs" title="Delete payment">✕</button>
+                    <button className="text-muted hover:text-rose text-xs" title="Delete payment"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                   </form>
                 )}</td>
               </tr>

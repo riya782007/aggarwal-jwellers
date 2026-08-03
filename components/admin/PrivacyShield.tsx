@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { t, type Lang } from "@/lib/i18n";
+import { Icon } from "@/components/ui/Icon";
 
 /**
  * Privacy toggle — one tap hides the WHOLE screen. Instead of blurring individual
@@ -39,7 +40,7 @@ export function PrivacyShield({ children, className = "", lang = "en" }: { child
       {hidden && (
         <div className="privacy-overlay no-print fixed inset-0 z-[54] flex items-center justify-center" aria-hidden>
           <div className="text-center select-none">
-            <p className="text-5xl mb-3">🔒</p>
+            <p className="mb-3 flex justify-center"><Icon g="🔒" className="w-12 h-12 text-ink" /></p>
             <p className="text-ink font-medium">{t(lang, "privacyHiddenMsg")}</p>
             <p className="text-xs text-muted mt-1">Ctrl/⌘ + Shift + H</p>
           </div>
@@ -47,7 +48,7 @@ export function PrivacyShield({ children, className = "", lang = "en" }: { child
       )}
       <button onClick={toggle} title={`${hidden ? t(lang, "privacyShow") : t(lang, "privacyHide")} (Ctrl/⌘ + Shift + H)`}
         className="no-print fixed bottom-24 right-5 z-[56] px-4 py-2.5 rounded-full bg-ink text-white text-sm shadow-luxe hover:bg-ink/90 transition-colors flex items-center gap-1.5">
-        {hidden ? `🙈 ${t(lang, "privacyShow")}` : `👁 ${t(lang, "privacyHide")}`}
+        {hidden ? ` ${t(lang, "privacyShow")}` : ` ${t(lang, "privacyHide")}`}
         <kbd className="text-[9px] font-sans opacity-60 border border-white/30 rounded px-1 leading-none py-0.5">⌃⇧H</kbd>
       </button>
     </div>

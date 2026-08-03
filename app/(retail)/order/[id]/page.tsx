@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,7 +14,7 @@ export default async function OrderConfirm({ params }: { params: { id: string } 
   return (
     <div className="max-w-2xl mx-auto px-5 py-14">
       <div className="text-center">
-        <div className="mx-auto h-16 w-16 rounded-full bg-emerald-mist grid place-items-center text-emerald text-3xl animate-pop">✓</div>
+        <div className="mx-auto h-16 w-16 rounded-full bg-emerald-mist grid place-items-center text-emerald text-3xl animate-pop"><Icon g="✓" className="inline-block align-middle w-[1em] h-[1em]" /></div>
         <h1 className="font-display text-4xl text-ink mt-4">Thank you!</h1>
         <p className="text-muted mt-2">Your order is confirmed. We&apos;ll WhatsApp you the tracking shortly.</p>
         <p className="text-xs text-muted mt-1">Order ID: {String(order.id).slice(0, 8).toUpperCase()}</p>

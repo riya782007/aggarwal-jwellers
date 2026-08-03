@@ -57,7 +57,7 @@ export async function logoutAction() {
 }
 
 /** Switch the console language (English / हिन्दी) and remember it — on the role for
- *  staff (the role is the user in this passcode model) and on doc_settings for the owner. */
+ * staff (the role is the user in this passcode model) and on doc_settings for the owner. */
 export async function setLangAction(formData: FormData) {
   const lang = String(formData.get("lang")) === "hi" ? "hi" : "en";
   const c = cookies();

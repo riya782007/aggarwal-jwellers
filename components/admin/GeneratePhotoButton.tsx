@@ -7,5 +7,5 @@ import { GeminiPhotoButton } from "@/components/admin/GeminiPhotoButton";
  * `sku` is kept for call-site compatibility; `category` tailors the prompt when available.
  */
 export function GeneratePhotoButton({ sku, category }: { sku?: string; category?: string | null }) {
-  return <GeminiPhotoButton category={category} label="✨ Photo" />;
+  return <GeminiPhotoButton category={category} label=" Photo" />;
 }

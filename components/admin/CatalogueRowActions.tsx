@@ -41,7 +41,7 @@ export function CatalogueRowActions({
       const fd = new FormData();
       fd.set("sku", sku); fd.set("status", published ? "draft" : "published");
       await setProductVisibilityAction(fd);
-      toast(published ? `${sku} hidden from store` : `${sku} published ✓`);
+      toast(published ? `${sku} hidden from store` : `${sku} published`);
       router.refresh();
     } finally { setBusy(""); }
   }

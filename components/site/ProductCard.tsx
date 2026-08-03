@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { ProductImage } from "@/components/Placeholder";
 import { AddToCart } from "@/components/cart/AddToCart";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
@@ -40,7 +41,7 @@ export function ProductCard({ p, formula, index = 0, bestseller = false }: { p: 
           <h3 className="text-[14px] font-medium text-ink leading-snug line-clamp-1 group-hover:text-wine transition-colors">{p.name}</h3>
           <p className="mt-1 text-[12.5px] text-muted">
             <span className="text-ink font-medium">{p.rating.toFixed(1)}</span>
-            <span className="text-gold"> ★</span>
+            <Star className="inline w-3.5 h-3.5 text-gold align-[-2px] ml-0.5" strokeWidth={1.5} style={{ fill: "currentColor" }} />
             {p.reviews > 0 && <span> | {p.reviews}</span>}
           </p>
           <div className="mt-1.5 flex items-baseline gap-2">

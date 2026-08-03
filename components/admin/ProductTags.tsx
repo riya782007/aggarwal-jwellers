@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import { addProductTagAction, removeProductTagAction } from "@/app/actions/productTags";
 
@@ -51,7 +52,7 @@ export function ProductTags({ sku, initial, canEdit = true, compact = false, sto
             placeholder="e.g. inventory updated"
             className="w-40 rounded-full border border-sand px-2.5 py-0.5 text-[11px] outline-none focus:border-emerald" />
           <button onClick={add} disabled={busy} className="text-[11px] text-emerald hover:underline">{busy ? "…" : "Add"}</button>
-          <button onClick={() => { setAdding(false); setDraft(""); }} className="text-[11px] text-muted hover:text-ink">✕</button>
+          <button onClick={() => { setAdding(false); setDraft(""); }} className="text-[11px] text-muted hover:text-ink"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </span>
       ) : (
         <button onClick={() => setAdding(true)} className="rounded-full border border-dashed border-sand text-muted hover:border-emerald hover:text-emerald text-[11px] px-2 py-0.5">+ note</button>

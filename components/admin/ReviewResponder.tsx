@@ -20,7 +20,7 @@ export function ReviewResponder({ reviews }: { reviews: R[] }) {
   }
   async function save(id: string) {
     await saveReviewReplyAction(id, drafts[id] ?? "");
-    toast("Reply published ✓");
+    toast("Reply published");
     router.refresh();
   }
 
@@ -40,7 +40,7 @@ export function ReviewResponder({ reviews }: { reviews: R[] }) {
           <textarea value={drafts[r.id] ?? ""} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))}
             placeholder="Your reply…" rows={2} className="w-full mt-3 rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald" />
           <div className="flex gap-2 mt-2">
-            <button onClick={() => draft(r.id)} disabled={busy === r.id} className="px-4 py-1.5 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20 disabled:opacity-50">{busy === r.id ? "Drafting…" : "✨ AI draft"}</button>
+            <button onClick={() => draft(r.id)} disabled={busy === r.id} className="px-4 py-1.5 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20 disabled:opacity-50">{busy === r.id ? "Drafting…" : " AI draft"}</button>
             <button onClick={() => save(r.id)} className="px-4 py-1.5 rounded-full bg-ink text-white text-xs font-medium">Publish reply</button>
           </div>
         </div>

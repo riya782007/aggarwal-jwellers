@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors, getReorderCandidates } from "@/lib/supabase/queries";
@@ -27,7 +28,7 @@ function Tile({ label, children, sub, accent, icon, bar }: { label: string; chil
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar ?? "bg-emerald"}`} />
       <div className="flex items-center justify-between">
         <p className="text-[13px] font-medium text-muted">{label}</p>
-        {icon && <span className="text-gold-dark/70 text-lg">{icon}</span>}
+        {icon && <span className="text-gold-dark/70"><Icon g={icon} className="w-[18px] h-[18px]" /></span>}
       </div>
       <p className={`text-[26px] leading-tight font-semibold mt-0.5 ${accent ?? "text-ink"}`}>{children}</p>
       {sub && <p className="text-[13px] text-muted mt-0.5">{sub}</p>}
@@ -82,7 +83,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
             </div>
             <form action="/admin/dashboard" className="flex items-center gap-1.5 bg-white/10 rounded-full p-1.5">
               <input type="date" name="from" defaultValue={fromDate} className={`${sel} bg-white/90`} />
-              <span className="text-cream/60 text-xs">→</span>
+              <span className="text-cream/60 text-xs"><Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></span>
               <input type="date" name="to" defaultValue={toDate} className={`${sel} bg-white/90`} />
               <button className="px-3 py-1.5 rounded-full bg-gold text-ink text-sm font-medium">{t(lang, "apply")}</button>
             </form>
@@ -159,21 +160,21 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-card">
-          <h2 className="font-medium text-rose mb-4">🔴 Dead stock — act now</h2>
+          <h2 className="font-medium text-rose mb-4"><Icon g="🔴" className="inline-block align-middle w-[1em] h-[1em]" />Dead stock — act now</h2>
           <ul className="text-sm divide-y divide-sand/60">
-            {d.deadList.length === 0 ? <li className="py-2 text-muted">None 🎉</li> : d.deadList.map((p) => (
+            {d.deadList.length === 0 ? <li className="py-2 text-muted">None <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></li> : d.deadList.map((p) => (
               <li key={p.sku} className="flex justify-between py-2"><span>{p.name}</span><span className="text-muted">{p.qty} pcs</span></li>
             ))}
           </ul>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-card sensitive">
-          <h2 className="font-medium text-gold-dark mb-4">⭐ Top sellers</h2>
+          <h2 className="font-medium text-gold-dark mb-4"><Icon g="⭐" className="inline-block align-middle w-[1em] h-[1em]" />Top sellers</h2>
           <ul className="text-sm divide-y divide-sand/60">
             {a.topProducts.map((p) => (
               <li key={p.name} className="flex justify-between py-2"><span className="truncate pr-2">{p.name}</span><span className="text-emerald font-medium whitespace-nowrap">{formatPaise(p.revenue)}</span></li>
             ))}
           </ul>
-          <Link href="/admin/inventory" className="block mt-4 text-sm text-emerald nav-link">View full inventory →</Link>
+          <Link href="/admin/inventory" className="block mt-4 text-sm text-emerald nav-link">View full inventory <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
       </div>
 
@@ -181,7 +182,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           rhythm, not an algorithm, so this is a quiet, collapsed peek, not a headline metric. */}
       <details className="mt-6 bg-white rounded-2xl shadow-card overflow-hidden">
         <summary className="cursor-pointer list-none px-5 py-3.5 text-sm text-muted hover:text-ink flex items-center gap-2">
-          <span className="text-gold-dark/70">✨</span>
+          <span className="text-gold-dark/70"><Icon g="✨" className="inline-block align-middle w-[1em] h-[1em]" /></span>
           <span>AI reorder suggestions</span>
           <span className="ml-1 text-[11px] rounded-full bg-sand/70 text-ink/70 px-2 py-0.5">{reorder.length}</span>
           <span className="ml-auto text-xs text-muted/60">tap to review</span>
@@ -202,7 +203,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
               ))}
             </ul>
           )}
-          <Link href="/admin/reorder" className="block mt-3 text-sm text-emerald nav-link">Open AI reorder planner →</Link>
+          <Link href="/admin/reorder" className="block mt-3 text-sm text-emerald nav-link">Open AI reorder planner <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
       </details>
     </main>

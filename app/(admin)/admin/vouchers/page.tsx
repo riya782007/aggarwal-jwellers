@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatPaise } from "@/lib/pricing";
@@ -47,12 +48,12 @@ export default async function Vouchers() {
                 <td className="p-3 font-mono font-medium text-ink">{v.code}</td>
                 <td className="p-3">{v.kind === "flat" ? formatPaise(v.value) : `${v.value}%${v.cap ? ` (max ${formatPaise(v.cap)})` : ""}`}</td>
                 <td className="p-3 text-muted text-xs">{v.min_order > 0 ? `min ${formatPaise(v.min_order)} · ` : ""}{v.channel}</td>
-                <td className="p-3 text-muted text-xs">{v.starts_at ? new Date(v.starts_at).toLocaleDateString("en-IN") : "now"} → {v.ends_at ? new Date(v.ends_at).toLocaleDateString("en-IN") : "∞"}</td>
+                <td className="p-3 text-muted text-xs">{v.starts_at ? new Date(v.starts_at).toLocaleDateString("en-IN") : "now"} <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /> {v.ends_at ? new Date(v.ends_at).toLocaleDateString("en-IN") : "∞"}</td>
                 <td className="p-3 text-right">{v.used_count}{v.usage_limit ? ` / ${v.usage_limit}` : ""}</td>
                 <td className="p-3">
                   <form action={toggleVoucherAction}>
                     <input type="hidden" name="id" value={v.id} /><input type="hidden" name="active" value={v.active ? "0" : "1"} />
-                    <button className={`text-xs px-2.5 py-1 rounded-full ${v.active ? "bg-emerald-mist text-emerald-dark" : "bg-ink/5 text-muted"}`}>{v.active ? "● Live — tap to pause" : "○ Paused — tap to go live"}</button>
+                    <button className={`text-xs px-2.5 py-1 rounded-full ${v.active ? "bg-emerald-mist text-emerald-dark" : "bg-ink/5 text-muted"}`}>{v.active ? "Live — tap to pause" : "Paused — tap to go live"}</button>
                   </form>
                 </td>
                 <td className="p-3 text-right">

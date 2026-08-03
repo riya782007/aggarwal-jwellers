@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -25,7 +26,7 @@ export function PromoStrip({ promo }: { promo: Promo | null }) {
     <Link href={promo.cta_href || "/shop"} className="block bg-ink text-cream text-center text-sm py-2 px-4 hover:bg-ink/90">
       <span className="font-medium">{promo.headline || promo.title || "Festive offer live now"}</span>
       {promo.coupon_code && <span className="ml-2 font-mono text-gold-light bg-white/10 rounded px-1.5 py-0.5 text-xs">CODE: {promo.coupon_code}</span>}
-      {left && <span className="ml-2 text-gold-light text-xs">⏳ {left}</span>}
+      {left && <span className="ml-2 text-gold-light text-xs"><Icon g="⏳" className="inline-block align-middle w-[1em] h-[1em]" /> {left}</span>}
     </Link>
   );
 }
@@ -52,7 +53,7 @@ export function PromoPopup({ promo }: { promo: Promo | null }) {
           {promo.coupon_code && <p className="mt-2 text-sm">Use code <span className="font-mono font-semibold bg-gold/15 text-gold-dark rounded px-2 py-0.5">{promo.coupon_code}</span> at checkout</p>}
           <div className="flex gap-2 mt-4">
             <button onClick={() => setOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-ink/5 text-ink text-sm">Not now</button>
-            <Link href={promo.cta_href || "/shop"} onClick={() => setOpen(false)} className="flex-1 btn-primary px-4 py-2.5 text-sm font-medium text-center">Shop the offer →</Link>
+            <Link href={promo.cta_href || "/shop"} onClick={() => setOpen(false)} className="flex-1 btn-primary px-4 py-2.5 text-sm font-medium text-center">Shop the offer <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
           </div>
         </div>
       </div>

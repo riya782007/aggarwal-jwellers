@@ -18,5 +18,5 @@ export default function VariantAiPhoto(props: {
 }) {
   const label = (props.color || props.size || props.polish || "").trim();
   if (!label) return null;
-  return <GeminiPhotoButton category={props.category ?? label} label={`✨ ${label} photo on Flow`} />;
+  return <GeminiPhotoButton category={props.category ?? label} label={` ${label} photo on Flow`} />;
 }

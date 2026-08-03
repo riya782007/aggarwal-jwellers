@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 /**
  * FiltersPanel — collapses the whole storefront filter set behind one "Filters" button so the
  * product grid is visible immediately (no scrolling past dozens of colour/category chips).
@@ -40,7 +41,7 @@ export function FiltersPanel({
         {activeChips.map((c) => (
           <a key={c.label} href={c.href}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-emerald bg-emerald-mist text-emerald text-xs hover:bg-emerald-mist/70">
-            {c.label}<span className="text-emerald/60">✕</span>
+            {c.label}<span className="text-emerald/60"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></span>
           </a>
         ))}
         {activeCount > 0 && clearHref && (

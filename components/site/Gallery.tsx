@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useEffect, useRef } from "react";
 import { isRealImage } from "@/components/Placeholder";
 
@@ -144,7 +145,7 @@ function Lightbox({ images, start, name, onClose }: { images: { path: string }[]
   const zoomed = scale > 1;
   return (
     <div className="fixed inset-0 z-[100] bg-ink/92 backdrop-blur-sm grid place-items-center animate-fadeIn" onClick={onClose}>
-      <button onClick={onClose} aria-label="Close" className="absolute top-4 right-5 z-10 text-cream/80 hover:text-white text-3xl leading-none">✕</button>
+      <button onClick={onClose} aria-label="Close" className="absolute top-4 right-5 z-10 text-cream/80 hover:text-white text-3xl leading-none"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
       <div
         ref={boxRef}
         className="relative max-w-[94vw] max-h-[90vh] overflow-hidden touch-none"

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getStorefront, getFeaturedReviews, getShoppableReels, getActivePromotions } from "@/lib/supabase/queries";
@@ -87,7 +88,7 @@ export default async function Shop() {
             <p className="text-gold-dark tracking-[0.25em] uppercase text-xs">Loved by thousands</p>
             <h2 className="font-display text-4xl text-ink mt-1">Bestsellers</h2>
           </div>
-          <Link href="/shop/c/necklace" className="nav-link text-sm text-emerald">View all →</Link>
+          <Link href="/shop/c/necklace" className="nav-link text-sm text-emerald">View all <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
           {bestsellers.map((p, i) => (

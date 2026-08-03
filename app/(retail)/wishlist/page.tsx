@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { useWishlist } from "@/components/wishlist/WishlistContext";
 import { useCart } from "@/components/cart/CartContext";
@@ -18,7 +19,7 @@ export default function Wishlist() {
       <p className="text-muted mb-6">{items.length} saved {items.length === 1 ? "piece" : "pieces"}</p>
       {items.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-muted mb-5">Nothing saved yet. Tap the ♡ on any design to keep it here.</p>
+          <p className="text-muted mb-5">Nothing saved yet. Tap the <Icon g="♡" className="inline-block align-middle w-[1em] h-[1em]" />on any design to keep it here.</p>
           <Link href="/shop" className="btn-primary inline-block px-7 py-3 text-sm font-medium">Discover jewellery</Link>
         </div>
       ) : (
@@ -32,7 +33,7 @@ export default function Wishlist() {
                 <p className="font-semibold text-ink mt-1">{formatPaise(i.price)}</p>
                 <div className="flex gap-2 mt-2">
                   <button onClick={() => { add({ sku: i.sku, name: i.name, price: i.price, category: i.categorySlug }, 1); toast(`${i.name} added to bag`); }} className="btn-gold flex-1 text-xs py-2 font-medium">Add to bag</button>
-                  <button onClick={() => { remove(i.sku); toast("Removed from wishlist", "info"); }} className="px-2 text-muted hover:text-rose">✕</button>
+                  <button onClick={() => { remove(i.sku); toast("Removed from wishlist", "info"); }} className="px-2 text-muted hover:text-rose"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
                 </div>
               </div>
             </div>

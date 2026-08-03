@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -81,9 +82,9 @@ export function ProductEditor({
       if (res.description) setDescription(res.description);
       // Tell the owner which engine wrote it: "OpenAI" means the API key is live; "offline template"
       // means it fell back (key missing/invalid on the deployment) so he can fix the env variable.
-      const engine = res.fallbackUsed || res.provider === "deterministic" ? "offline template" : (res.provider === "openai" ? "OpenAI ✨" : res.provider ?? "AI");
+      const engine = res.fallbackUsed || res.provider === "deterministic" ? "offline template" : (res.provider === "openai" ? "OpenAI " : res.provider ?? "AI");
       // When the product photo was fed to the model, let the owner know the copy is based on the image.
-      toast(`Title & description written by ${engine}${res.usedImage ? " — from the product photo 📸" : ""}`);
+      toast(`Title & description written by ${engine}${res.usedImage ? " — from the product photo " : ""}`);
     } else toast(res.error ?? "Couldn't suggest a title", "error");
   }
 
@@ -102,7 +103,7 @@ export function ProductEditor({
     const res = await updateProductAction(fd);
     setSaving(false);
     if (res.ok) {
-      toast("Product saved ✓");
+      toast("Product saved");
       router.refresh();
     } else {
       toast(res.error ?? "Could not save", "error");
@@ -230,11 +231,11 @@ export function ProductEditor({
             <div className="flex items-center gap-2 mt-2">
               <button type="button" onClick={suggestTitle} disabled={suggesting}
                 className="text-xs px-3 py-1.5 rounded-full bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
-                {suggesting ? "Writing…" : "✨ Generate title & description"}
+                {suggesting ? "Writing…" : " Generate title & description"}
               </button>
               <button type="button" onClick={suggestOptions} disabled={suggesting}
                 className="text-xs px-3 py-1.5 rounded-full bg-ink/5 text-ink hover:bg-ink/10 disabled:opacity-50">
-                {suggesting ? "…" : "🎲 3-4 title options"}
+                {suggesting ? "…" : " 3-4 title options"}
               </button>
               <span className="text-[11px] text-muted">Looks at the product photo + these specs, the name &amp; category. Says which pieces the set includes; no SKU in the title.</span>
             </div>
@@ -291,10 +292,9 @@ export function ProductEditor({
         <button type="submit" disabled={saving} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-60">
           {saving ? "Saving…" : "Save changes"}
         </button>
-        <Link href={`/shop/${product.categorySlug}/${product.sku}`} target="_blank" className="text-sm text-emerald nav-link">
-          View live page ↗
+        <Link href={`/shop/${product.categorySlug}/${product.sku}`} target="_blank" className="text-sm text-emerald nav-link">View live page <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" />
         </Link>
-        <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink ml-auto">← Back to catalogue</Link>
+        <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink ml-auto"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Back to catalogue</Link>
       </div>
     </form>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/Icon";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
@@ -63,8 +64,8 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
       packingRupees: Number(packing) || 0, courierRupees: Number(courier) || 0, adjustmentRupees: Number(adjustment) || 0,
     });
     setBusy(false);
-    if (res.ok) { setMsg(`✓ Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to bill or hold.`); setLines([]); setName(""); setPhone(""); setCustType("retail"); setPacking(""); setCourier(""); setAdjustment(""); router.refresh(); }
-    else setMsg(`✕ ${res.error}`);
+    if (res.ok) { setMsg(`Estimate saved (${formatPaise(res.total ?? 0)}) — find it below to bill or hold.`); setLines([]); setName(""); setPhone(""); setCustType("retail"); setPacking(""); setCourier(""); setAdjustment(""); router.refresh(); }
+    else setMsg(`${res.error}`);
   }
 
   return (
@@ -83,7 +84,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
         </div>
         {customers.length > 0 && (
           <div className="relative">
-            <input className={input} placeholder="🔎 Find existing customer by name / phone…" value={custQ}
+            <input className={input} placeholder=" Find existing customer by name / phone…" value={custQ}
               onChange={(e) => { setCustQ(e.target.value); setCustOpen(true); }} onFocus={() => setCustOpen(true)} />
             {custOpen && custQ.trim() && (
               <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
@@ -130,7 +131,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
             <button onClick={() => setLines((p) => p.map((x) => (x.sku === l.sku ? { ...x, qty: x.qty + 1 } : x)))} className="px-2.5 py-1 hover:bg-cream">+</button>
           </div>
           <span className="w-20 text-right font-medium">{formatPaise(effUnit(l) * l.qty)}</span>
-          <button onClick={() => setLines((p) => p.filter((x) => x.sku !== l.sku))} className="text-muted hover:text-rose">✕</button>
+          <button onClick={() => setLines((p) => p.filter((x) => x.sku !== l.sku))} className="text-muted hover:text-rose"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
       ))}
       {lines.length > 0 && (

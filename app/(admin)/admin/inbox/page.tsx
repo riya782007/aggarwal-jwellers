@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
@@ -28,7 +29,7 @@ export default async function Inbox() {
               const meta = ACTIVITY_META[a.action] ?? { label: String(a.action).replace(/_/g, " "), tone: "ink", icon: "•" };
               return (
                 <li key={a.id} className="flex items-start gap-3 py-2.5">
-                  <span className={`mt-0.5 h-7 w-7 shrink-0 grid place-items-center rounded-full text-sm ${ACTIVITY_TONE[meta.tone] ?? ACTIVITY_TONE.ink}`}>{meta.icon}</span>
+                  <span className={`mt-0.5 h-7 w-7 shrink-0 grid place-items-center rounded-full text-sm ${ACTIVITY_TONE[meta.tone] ?? ACTIVITY_TONE.ink}`}><Icon g={meta.icon} className="w-3.5 h-3.5" /></span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink">
                       <span className="font-medium">{meta.label}</span>
@@ -37,7 +38,7 @@ export default async function Inbox() {
                     <p className="text-xs text-muted">{a.actor ?? "system"} · {ago(a.at)}</p>
                   </div>
                   {a.ref && /^[A-Za-z]{1,4}\d/.test(String(a.ref)) && a.action !== "product_deleted" && (
-                    <Link href={`/admin/catalogue/${a.ref}`} className="text-xs text-emerald nav-link whitespace-nowrap">Open →</Link>
+                    <Link href={`/admin/catalogue/${a.ref}`} className="text-xs text-emerald nav-link whitespace-nowrap">Open <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                   )}
                 </li>
               );
@@ -57,7 +58,7 @@ export default async function Inbox() {
                 <p className="text-sm text-ink">{n.subject}</p>
                 <p className="text-xs text-muted">to {n.contact?.name} · {n.channel} · {ago(n.sent_at)}</p>
               </div>
-              {n.deep_link && <Link href={n.deep_link} className="text-xs text-emerald nav-link">Open →</Link>}
+              {n.deep_link && <Link href={n.deep_link} className="text-xs text-emerald nav-link">Open <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>}
             </div>
           ))}
         </div>
