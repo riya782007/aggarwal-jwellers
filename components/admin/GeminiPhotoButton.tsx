@@ -54,7 +54,7 @@ export function GeminiPhotoButton({
     setBusy(false);
     toast(
       ok
-        ? "Prompt copied ✓ — in Google Flow: paste (Ctrl+V), attach your raw photo, press Enter. Then download & upload it here."
+        ? "Prompt copied ✓ — in Google Flow: paste (Ctrl+V), attach your raw photo, press Enter. It makes a set of shots — download the best and upload them here."
         : "Google Flow opened. Couldn't auto-copy — copy your prompt manually, attach the photo, press Enter.",
       ok ? "success" : "info",
     );

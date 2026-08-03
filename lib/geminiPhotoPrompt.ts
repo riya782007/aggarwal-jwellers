@@ -16,6 +16,16 @@ Your highest priority is preserving the jewellery EXACTLY as provided.
 Do NOT redesign, reinterpret, simplify, beautify, or modify any part of the jewellery.
 The final output must look like the exact same physical jewellery photographed on a professional model.
 ──────────────────────────────
+OUTPUT — GENERATE A SET OF IMAGES (NOT JUST ONE)
+Produce MULTIPLE distinct images of the SAME jewellery on the SAME model in one batch — a complete, cohesive e-commerce photo set. Generate at least 4 images:
+1. HERO — front-facing on-model shot with the entire piece clearly visible.
+2. CLOSE-UP — a tight macro detail crop that fills the frame with the jewellery so every stone, motif, and texture can be inspected.
+3. THREE-QUARTER — the model turned roughly 30–45°, with the jewellery still fully visible and facing the camera.
+4. EDITORIAL — a premium campaign-style pose where the jewellery remains the hero and stays completely visible.
+Across the whole set, keep the SAME model, lighting, background style, and colour accuracy so the images look like one catalogue shoot.
+Vary ONLY the angle, framing, and pose between images — NEVER the jewellery.
+Every single image must obey all the jewellery-preservation rules below. If you can output more than 4, add extra angles (e.g. back/clasp view, worn-in-context) following the same rules.
+──────────────────────────────
 JEWELLERY PRESERVATION RULES
 Every visible part of the jewellery must remain identical, including but not limited to:
 • Overall shape
@@ -203,7 +213,8 @@ Before producing the final image, verify:
 ✓ Nothing is hidden.
 ✓ Colours are identical.
 ✓ The complete product is visible.
-If any condition fails, regenerate until the jewellery is an exact representation of the uploaded product while presented professionally on the model.`;
+If any condition fails, regenerate until the jewellery is an exact representation of the uploaded product while presented professionally on the model.
+Run this check on EVERY image in the set — all of them must pass before you finish.`;
 
 // Product-type tail appended based on the product's category, per the client's spec.
 const NECKLACE = `Ensure the necklace sits naturally around the neck while remaining fully visible, with both earrings facing the camera and no hair obscuring them.`;
