@@ -12,6 +12,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
+import { GeminiPhotoButton } from "@/components/admin/GeminiPhotoButton";
 import {
   generateStudioImageAction, setGenerationStatusAction, publishGenerationAction, detectJewelleryAction,
   uploadBrandedImageAction, refineGenerationAction, setProductThumbnailAction,
@@ -305,9 +306,10 @@ export function PhotoStudio({ data, ready }: { data: Data; ready: boolean }) {
           {data.detected && <span className="text-[11px] text-muted">AI detected: <b className="text-ink capitalize">{[data.detected.category, data.detected.material, data.detected.style].filter(Boolean).join(" · ")}</b> <button onClick={redetect} className="ml-1 text-emerald nav-link">re-detect</button></span>}
         </div>
         <h1 className="font-display text-3xl text-ink">Product Photos</h1>
-        <p className="text-sm text-muted mb-3">Upload the raw design shot → generate a ready-to-publish professional model photo → add angles. The AI reproduces your design exactly.</p>
-        <div className={`rounded-xl px-4 py-2 mb-4 text-sm ${ready ? "bg-emerald-mist text-emerald-dark" : "bg-gold/15 text-gold-dark"}`}>
-          {ready ? "● AI photo generation connected — Gemini, with OpenAI fallback." : "○ Not connected — add GEMINI_API_KEY or OPENAI_API_KEY to generate. You can still upload raw photos."}
+        <p className="text-sm text-muted mb-3">Upload the raw design shot → make a professional model photo in <b>Google Flow</b> → upload it back → add angles. Flow reproduces your design exactly, at no API cost.</p>
+        <div className="rounded-xl px-4 py-3 mb-4 bg-gold/10 border border-gold/30 flex flex-wrap items-center gap-3">
+          <GeminiPhotoButton category={data.detected?.category ?? null} label="✨ Create photo on Google Flow" className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-ink text-white text-sm font-medium hover:bg-ink/90" />
+          <span className="text-xs text-gold-dark">Opens Google Flow with your prompt copied. Paste it, attach the raw photo, press Enter — then download &amp; upload the result below.</span>
         </div>
         {err && <div className="rounded-xl px-4 py-2 mb-4 text-sm bg-rose/10 text-rose">{err}</div>}
         {anyBusy && <div className="rounded-xl px-4 py-2 mb-4 text-sm bg-ink/5 text-ink flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-full bg-emerald animate-pulse" />{busy.size} generation{busy.size === 1 ? "" : "s"} running — you can keep queuing more.</div>}

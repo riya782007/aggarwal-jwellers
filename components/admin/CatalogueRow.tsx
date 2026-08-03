@@ -109,7 +109,7 @@ export function CatalogueRow({
                     <button className="px-3 py-1.5 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">{p.hasAi ? "Regenerate AI page" : "Generate AI page"}</button>
                   </form>
                 )}
-                {canAi && <GeneratePhotoButton sku={p.sku} />}
+                {canAi && <GeneratePhotoButton sku={p.sku} category={p.categoryName || p.name} />}
                 {canDelete && <DeleteProductButton sku={p.sku} className="px-3 py-1.5 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20" label="🗑 Delete" />}
               </div>
             </div>

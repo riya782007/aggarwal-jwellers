@@ -3,23 +3,23 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { uploadProductImageAction, deleteProductImageAction, setHeroImageAction } from "@/app/actions/media";
-import { generateOneAction } from "@/app/actions/images";
 import { compressImage } from "@/lib/image";
+import { GeminiPhotoButton } from "@/components/admin/GeminiPhotoButton";
 
 type Img = { id: string; path: string; kind: string | null; sort: number };
 type P = { id: string; sku: string; name: string; category: string; images: Img[] };
 
-const GEN_MSG: Record<string, string> = {
-  no_key: "Add GEMINI_API_KEY to generate",
-  no_source: "Upload a raw photo first",
-};
-
-export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
+/**
+ * Per-product media card. Photos are now made in Google Flow (not a paid API): upload the raw
+ * shot, click "Create photo on Google Flow" (opens Flow with the prompt copied), then bring the
+ * finished image back with "Upload finished photo". `geminiReady` is accepted but unused now.
+ */
+export function MediaCard({ p }: { p: P; geminiReady?: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState("");
-  const [kw, setKw] = useState(""); // owner's optional 1–2 keywords to guide the AI (jewellery details)
   const rawRef = useRef<HTMLInputElement>(null);
+  const modelRef = useRef<HTMLInputElement>(null);
   const angleRef = useRef<HTMLInputElement>(null);
 
   const hasRaw = p.images.some((i) => i.kind === "flatlay" || i.kind === "source" || i.kind === "angle");
@@ -39,18 +39,6 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
       setBusy("");
     }
   }
-  async function generate() {
-    setBusy("gen");
-    const res = await generateOneAction(p.sku, kw);
-    setBusy("");
-    if (res.ok) { toast(`Model photo generated for ${p.sku} ✓`); router.refresh(); }
-    else {
-      const friendly = GEN_MSG[res.reason ?? ""];
-      const detail = res.error ? ` — ${res.error}` : "";
-      toast(friendly ?? `Couldn't generate: ${res.reason}${detail}`, "error");
-      if (res.error) console.error("[generate]", res.reason, res.error);
-    }
-  }
   async function del(id: string) { const fd = new FormData(); fd.set("id", id); await deleteProductImageAction(fd); router.refresh(); }
   async function hero(id: string) { const fd = new FormData(); fd.set("id", id); fd.set("productId", p.id); await setHeroImageAction(fd); toast("Hero image set"); router.refresh(); }
 
@@ -58,7 +46,7 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
     <div className="bg-white rounded-2xl p-5 shadow-card">
       <div className="flex items-center justify-between mb-3">
         <div><p className="font-medium text-ink">{p.name}</p><p className="text-xs text-muted">{p.category} · {p.sku}</p></div>
-        {hasModel && <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-mist text-emerald-dark">AI photo ✓</span>}
+        {hasModel && <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-mist text-emerald-dark">Model photo ✓</span>}
       </div>
 
       {p.images.length > 0 ? (
@@ -67,7 +55,7 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
             <div key={i.id} className="relative shrink-0 w-24">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={i.path} alt={p.name} className="w-24 h-28 object-cover rounded-lg border border-sand" />
-              <span className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded-full ${i.kind === "model" ? "bg-emerald text-white" : "bg-ink/70 text-cream"}`}>{i.kind === "model" ? "AI" : i.kind === "angle" ? "angle" : "raw"}</span>
+              <span className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded-full ${i.kind === "model" ? "bg-emerald text-white" : "bg-ink/70 text-cream"}`}>{i.kind === "model" ? "model" : i.kind === "angle" ? "angle" : "raw"}</span>
               <div className="flex justify-between mt-1">
                 <button onClick={() => hero(i.id)} className="text-[10px] text-emerald hover:underline">hero</button>
                 <button onClick={() => del(i.id)} className="text-[10px] text-muted hover:text-rose">delete</button>
@@ -81,16 +69,15 @@ export function MediaCard({ p, geminiReady }: { p: P; geminiReady: boolean }) {
         <input ref={rawRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "flatlay")} />
         <button onClick={() => rawRef.current?.click()} disabled={busy === "flatlay"} className="px-3 py-1.5 rounded-full border border-sand text-ink text-xs font-medium hover:border-emerald transition-colors disabled:opacity-50">{busy === "flatlay" ? "Uploading…" : hasRaw ? "Replace raw photo" : "Upload raw photo"}</button>
 
-        <input value={kw} onChange={(e) => setKw(e.target.value)} placeholder="+ details (e.g. polki, peacock motif)" maxLength={120}
-          title="Optional: add 1–2 keywords to guide the AI on important jewellery details" aria-label="Extra keywords for AI"
-          className="rounded-full border border-sand px-3 py-1.5 text-xs outline-none focus:border-emerald w-52" />
-        <button onClick={generate} disabled={busy === "gen" || !hasRaw} title={!geminiReady ? "Add GEMINI_API_KEY to enable" : !hasRaw ? "Upload a raw photo first" : ""}
-          className="px-3 py-1.5 rounded-full bg-gold/15 text-gold-dark text-xs font-medium hover:bg-gold/25 transition-colors disabled:opacity-50">{busy === "gen" ? "Generating…" : "✨ Generate model photo"}</button>
+        <GeminiPhotoButton category={p.category || p.name} label="✨ Create photo on Google Flow" />
+
+        <input ref={modelRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "model")} />
+        <button onClick={() => modelRef.current?.click()} disabled={busy === "model"} className="px-3 py-1.5 rounded-full bg-emerald text-white text-xs font-medium hover:bg-emerald-dark transition-colors disabled:opacity-50">{busy === "model" ? "Uploading…" : "⬆ Upload finished photo"}</button>
 
         <input ref={angleRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0], "angle")} />
         <button onClick={() => angleRef.current?.click()} disabled={busy === "angle"} className="px-3 py-1.5 rounded-full border border-sand text-ink text-xs font-medium hover:border-emerald transition-colors disabled:opacity-50">{busy === "angle" ? "Uploading…" : "+ Add angle"}</button>
       </div>
-      {!geminiReady && <p className="text-[11px] text-gold-dark mt-2">Add GEMINI_API_KEY in settings to turn raw photos into professional model shots.</p>}
+      <p className="text-[11px] text-muted mt-2">Flow: paste the copied prompt, attach the raw photo, press Enter — then download the result and use <b>Upload finished photo</b>. Set it as <b>hero</b> to show it first.</p>
     </div>
   );
 }
