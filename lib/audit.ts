@@ -1,5 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getSession } from "@/lib/auth";
 
 /**
  * lib/audit.ts — the single place every owner-visible action is recorded.
@@ -19,8 +20,12 @@ export async function logActivity(entry: {
 }): Promise<void> {
   try {
     const sb = supabaseServer();
+    // Attribute the change to whoever is signed in (role-based auth → the role name, e.g.
+    // "Owner" or "Billing Staff"), so the Notifications feed shows who did what.
+    let actor = entry.actor ?? null;
+    if (!actor) { try { actor = getSession().roleName; } catch { /* no session (system job) */ } }
     await sb.from("audit_log").insert({
-      actor: entry.actor ?? "owner",
+      actor: actor ?? "owner",
       action: entry.action,
       ref: entry.ref ?? null,
       detail: entry.detail ?? null,

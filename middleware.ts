@@ -42,6 +42,10 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/approvals", "approvals.approve"],
   ["/admin/analytics", "analytics.view"],
   ["/admin/roles", "roles.manage"],
+  // Owner-only / fixed config — hidden from the menu and blocked by URL for non-owners.
+  ["/admin/employees", "roles.manage"],
+  ["/admin/pricing", "catalog.price_edit"],
+  ["/admin/colours", "catalog.edit"],
 ];
 
 // Idle timeout: re-stamp the admin session cookies with a fresh 1-hour life on every request.

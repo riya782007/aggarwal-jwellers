@@ -31,6 +31,8 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
   const canAi = can(session, "catalog.ai");
   const canDelete = can(session, "catalog.delete");
   const canPublish = can(session, "catalog.publish");
+  const canCreate = can(session, "catalog.create");
+  const canPrice = can(session, "catalog.price_edit");
 
   async function genContent(fd: FormData) { "use server"; await generateContentAction(String(fd.get("sku"))); }
   async function genAllContent() { "use server"; await generateAllContentAction(); }
@@ -48,7 +50,9 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
           <h1 className="font-display text-4xl text-ink">Catalogue</h1>
           <p className="text-sm text-muted">{total} products · AI-drafted pages, one-tap approve</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canCreate && <Link href="/admin/upload" className="px-4 py-2.5 text-sm font-medium rounded-full bg-ink text-white hover:bg-ink/90 transition-colors" title="Add a new product / inventory">＋ Add inventory</Link>}
+          {canPrice && <Link href="/admin/pricing" className="px-3 py-2.5 text-sm font-medium rounded-full border border-sand text-muted hover:border-emerald hover:text-ink transition-colors" title="Pricing formula — markup & retail/MRP multipliers (fixed setup)">％ Pricing</Link>}
           <Link href="/catalog" target="_blank" className="px-4 py-2.5 text-sm font-medium rounded-full bg-gold text-ink hover:opacity-90 transition-opacity">📤 Share Catalogue ↗</Link>
           {canAi && <>
             <form action={genAllContent}><button className="btn-primary px-4 py-2.5 text-sm font-medium">✨ Generate all AI pages</button></form>
