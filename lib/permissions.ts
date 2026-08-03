@@ -67,6 +67,7 @@ export const PERMISSION_GROUPS: PermGroup[] = [
   { key: "control", label: "Control (sensitive)", perms: [
     { key: "approvals.approve", label: "Approve via OTP" },
     { key: "roles.manage", label: "Manage roles & staff" },
+    { key: "employees.view", label: "View employees / team" },
     { key: "settings.manage", label: "Manage business settings" },
   ]},
 ];

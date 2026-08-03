@@ -43,7 +43,7 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/analytics", "analytics.view"],
   ["/admin/roles", "roles.manage"],
   // Owner-only / fixed config — hidden from the menu and blocked by URL for non-owners.
-  ["/admin/employees", "roles.manage"],
+  ["/admin/employees", "employees.view"],
   ["/admin/pricing", "catalog.price_edit"],
   ["/admin/colours", "catalog.edit"],
 ];

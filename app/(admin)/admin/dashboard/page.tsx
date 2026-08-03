@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors } from "@/lib/supabase/queries";
+import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors, getReorderCandidates } from "@/lib/supabase/queries";
 import { getLang } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { formatPaise } from "@/lib/pricing";
@@ -49,7 +49,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   // owner can see exactly which dates the figures cover — the earlier blank-box confusion.
   const fromDate = searchParams.from ?? from.slice(0, 10);
   const toDate = searchParams.to ?? to.slice(0, 10);
-  const [d, a, report, creditors] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors()]);
+  const [d, a, report, creditors, reorder] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors(), getReorderCandidates()]);
   const udhaarTotal = creditors.reduce((s, r) => s + r.outstanding, 0);
   const lang = getLang();
   const label = custom
@@ -176,6 +176,35 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           <Link href="/admin/inventory" className="block mt-4 text-sm text-emerald nav-link">View full inventory →</Link>
         </div>
       </div>
+
+      {/* AI reorder — deliberately low-key. A Sadar-Bazar wholesaler restocks on gut + supplier
+          rhythm, not an algorithm, so this is a quiet, collapsed peek, not a headline metric. */}
+      <details className="mt-6 bg-white rounded-2xl shadow-card overflow-hidden">
+        <summary className="cursor-pointer list-none px-5 py-3.5 text-sm text-muted hover:text-ink flex items-center gap-2">
+          <span className="text-gold-dark/70">✨</span>
+          <span>AI reorder suggestions</span>
+          <span className="ml-1 text-[11px] rounded-full bg-sand/70 text-ink/70 px-2 py-0.5">{reorder.length}</span>
+          <span className="ml-auto text-xs text-muted/60">tap to review</span>
+        </summary>
+        <div className="border-t border-sand px-5 py-3">
+          {reorder.length === 0 ? (
+            <p className="text-sm text-muted py-1">Nothing flagged right now.</p>
+          ) : (
+            <ul className="text-sm divide-y divide-sand/60">
+              {reorder.slice(0, 6).map((c) => (
+                <li key={c.sku} className="flex items-center justify-between py-2">
+                  <span className="truncate pr-2 text-ink">{c.name} <span className="text-muted text-xs">· {c.sku}</span></span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted text-xs">{c.qty} pcs</span>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${c.cls === "dead" ? "bg-red-100 text-red-700" : c.cls === "low" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-700"}`}>{c.cls}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link href="/admin/reorder" className="block mt-3 text-sm text-emerald nav-link">Open AI reorder planner →</Link>
+        </div>
+      </details>
     </main>
   );
 }

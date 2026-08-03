@@ -51,7 +51,7 @@ const GROUPS: { title: I18nKey; links: L[] }[] = [
     { href: "/admin/inbox", label: "notifications", icon: "✉" },
     { href: "/admin/ai-activity", label: "aiActivity", icon: "🤖" },
     { href: "/admin/approvals", label: "approvals", icon: "✓", perm: "roles.manage" },
-    { href: "/admin/employees", label: "employees", icon: "☺", perm: "roles.manage" },
+    { href: "/admin/employees", label: "employees", icon: "☺", perm: "employees.view" },
     { href: "/admin/roles", label: "roles", icon: "⚿", perm: "roles.manage" },
   ]},
 ];
