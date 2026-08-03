@@ -87,10 +87,10 @@ const BY_GLYPH: Record<string, string> = {
   "🏭": "store", "💵": "coins", "🕑": "clock", "🕒": "clock", "✎": "edit", "🎤": "mic", "💡": "zap", "🔒": "key", "🔓": "key",
   "⇆": "repeat", "💤": "clock", "🚨": "warn", "📋": "barcode", "🏠": "home", "🗓": "clock", "📅": "clock", "🔧": "wrench",
   "🔊": "volumeOn", "🔇": "volumeOff", "➤": "send", "➜": "arrowRight", "»": "chevronRight", "«": "chevronLeft", "●": "dotRed",
-  "✗": "close", "💵": "coins", "📱": "phone", "📲": "phone", "💎": "gem", "💍": "gem", "🎲": "shuffle",
+  "✗": "close", "📱": "phone", "📲": "phone", "💎": "gem", "💍": "gem", "🎲": "shuffle",
   "⚙️": "settings", "⚙": "settings", "😕": "frown", "🙁": "frown", "🙏": "heart", "📄": "invoice",
   "🥇": "award", "🏆": "award", "🟠": "dotAmber", "🧿": "shield", "🪔": "sparkles", "👗": "tag", "💄": "sparkles", "🖥": "store",
-  "◼": "square", "◾": "square", "■": "square", "↺": "refresh", "✎": "edit", "✦": "catalogue",
+  "◼": "square", "◾": "square", "■": "square", "↺": "refresh",
 };
 
 type IconProps = {
