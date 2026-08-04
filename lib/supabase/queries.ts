@@ -793,6 +793,7 @@ export type LabelItem = {
   option?: string;       // e.g. "Red / M" — set on variant rows
   parentSku?: string;    // the product SKU a variant belongs to
   variantCount?: number; // on product rows — how many printable variants it has
+  qty?: number;          // current stock — used to prefill the number of labels to print
 };
 export async function getLabelItems(): Promise<LabelItem[]> {
   const sb = supabaseServer();
@@ -804,13 +805,13 @@ export async function getLabelItems(): Promise<LabelItem[]> {
   // come purely from base_wholesale + the pricing formula (overrides simply treated as absent).
   const rich = await sb
     .from("products")
-    .select("sku,name,base_wholesale,wholesale_override,retail_override,mrp_override, variants(sku,color,size,polish,wholesale_override,retail_override,mrp_override)")
+    .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override, variants(sku,color,size,polish,qty,wholesale_override,retail_override,mrp_override)")
     .order("sku");
   let data = rich.data as any[] | null;
   if (rich.error || !data) {
     const basic = await sb
       .from("products")
-      .select("sku,name,base_wholesale, variants(sku,color,size)")
+      .select("sku,name,base_wholesale,qty, variants(sku,color,size,qty)")
       .order("sku");
     data = (basic.data as any[]) ?? [];
   }
@@ -821,7 +822,7 @@ export async function getLabelItems(): Promise<LabelItem[]> {
     out.push({
       sku: p.sku, name: p.name,
       price: pp.retailPrice, wholesale: pp.wholesaleRate, mrp: pp.mrp,
-      kind: "product", variantCount: vs.length,
+      kind: "product", variantCount: vs.length, qty: p.qty ?? 0,
     });
     for (const v of vs) {
       const opt = [v.color, v.size, v.polish].filter(Boolean).join(" / ");
@@ -829,7 +830,7 @@ export async function getLabelItems(): Promise<LabelItem[]> {
       out.push({
         sku: v.sku, name: `${p.name}${opt ? ` — ${opt}` : ""}`,
         price: vp.retailPrice, wholesale: vp.wholesaleRate, mrp: vp.mrp,
-        kind: "variant", option: opt || undefined, parentSku: p.sku,
+        kind: "variant", option: opt || undefined, parentSku: p.sku, qty: v.qty ?? 0,
       });
     }
   }

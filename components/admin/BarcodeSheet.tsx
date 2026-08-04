@@ -13,6 +13,7 @@ type P = {
   option?: string;
   parentSku?: string;
   variantCount?: number;
+  qty?: number; // current stock — used to prefill how many labels to print
 };
 
 type Row = {
@@ -74,7 +75,10 @@ export function BarcodeSheet({ products }: { products: P[] }) {
 
   // Special price is a FIXED constant (23) across all products — the owner's coded scheme.
   const SPECIAL_FIXED = "23";
-  const toRow = (p: P): Row => ({ sku: p.sku, name: p.name, qty: 1, price: rup(p.price), special: SPECIAL_FIXED, wholesale: rup(p.wholesale) });
+  // Default the number of labels to the item's CURRENT STOCK (editable per row afterwards), so the
+  // owner doesn't re-enter counts they already typed when adding inventory. Falls back to 1 if a
+  // product carries no stock figure. Min 1 so an out-of-stock item still prints one tag if added.
+  const toRow = (p: P): Row => ({ sku: p.sku, name: p.name, qty: Math.max(1, Math.floor(p.qty ?? 1)), price: rup(p.price), special: SPECIAL_FIXED, wholesale: rup(p.wholesale) });
   const add = (p: P) => { setRows((prev) => (prev.find((x) => x.sku === p.sku) ? prev : [...prev, toRow(p)])); setQ(""); };
   /** Variant SKUs are what the POS scans — a design with colours should print one per variant. */
   const addAllVariants = (parentSku: string) => {
