@@ -25,48 +25,72 @@
  * TWILIO_WHATSAPP_FROM — e.g. whatsapp:+14155238886 (sandbox) or your number
  */
 
-const PROVIDER = () => (process.env.WHATSAPP_PROVIDER ??"meta").toLowerCase();
+const PROVIDER = () => (process.env.WHATSAPP_PROVIDER ?? "meta").toLowerCase();
 
 export function whatsappConfigured(): boolean {
- if (PROVIDER() ==="twilio") {
- return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
- }
- return !!(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN);
+  if (PROVIDER() === "twilio") {
+    return !!(
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_WHATSAPP_FROM
+    );
+  }
+  return !!(
+    process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN
+  );
 }
 
 /** Normalise a phone to E.164 digits (assume India +91 if a bare 10-digit number). */
 export function toE164(phone?: string | null): string | null {
- if (!phone) return null;
- let d = String(phone).replace(/[^\d]/g,"");
- if (d.length === 10) d ="91"+ d;
- if (d.length === 12 && d.startsWith("91")) return d;
- if (d.length >= 11 && d.length <= 15) return d;
- return null;
+  if (!phone) return null;
+  let d = String(phone).replace(/[^\d]/g, "");
+  if (d.length === 10) d = "91" + d;
+  if (d.length === 12 && d.startsWith("91")) return d;
+  if (d.length >= 11 && d.length <= 15) return d;
+  return null;
 }
 
 /** Send a plain text WhatsApp message. Best-effort; returns true if the API accepted it. */
-export async function sendWhatsAppText(to: string | null | undefined, body: string): Promise<boolean> {
- const num = toE164(to);
- if (!num || !whatsappConfigured()) return false;
- try {
- if (PROVIDER() ==="twilio") return await sendTwilio(num, body);
- return await sendMetaText(num, body);
- } catch (e) {
- console.error("[whatsapp] send failed:", e);
- return false;
- }
+export async function sendWhatsAppText(
+  to: string | null | undefined,
+  body: string,
+): Promise<boolean> {
+  const num = toE164(to);
+  if (!num || !whatsappConfigured()) return false;
+  try {
+    if (PROVIDER() === "twilio") return await sendTwilio(num, body);
+    return await sendMetaText(num, body);
+  } catch (e) {
+    console.error("[whatsapp] send failed:", e);
+    return false;
+  }
 }
 
 async function sendMetaText(to: string, body: string): Promise<boolean> {
- const id = process.env.WHATSAPP_PHONE_NUMBER_ID!;
- const token = process.env.WHATSAPP_ACCESS_TOKEN!;
- const res = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
- method:"POST",
- headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`},
- body: JSON.stringify({ messaging_product:"whatsapp", to, type:"text", text: { preview_url: false, body } }),
- });
- if (!res.ok) { console.error("[whatsapp/meta]", res.status, (await res.text()).slice(0, 300)); return false; }
- return true;
+  const id = process.env.WHATSAPP_PHONE_NUMBER_ID!;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN!;
+  const res = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { preview_url: false, body },
+    }),
+  });
+  if (!res.ok) {
+    console.error(
+      "[whatsapp/meta]",
+      res.status,
+      (await res.text()).slice(0, 300),
+    );
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -74,53 +98,90 @@ async function sendMetaText(to: string, body: string): Promise<boolean> {
  * window, which is what you need for transactional order alerts. Body params are positional
  * ({{1}}, {{2}},...). Falls back to a plain text send if no template name is configured.
  */
-export async function sendMetaTemplate(to: string, params: string[]): Promise<boolean> {
- const name = process.env.WHATSAPP_ORDER_TEMPLATE;
- if (!name) return sendMetaText(to, params.join(" · "));
- const id = process.env.WHATSAPP_PHONE_NUMBER_ID!;
- const token = process.env.WHATSAPP_ACCESS_TOKEN!;
- const lang = process.env.WHATSAPP_TEMPLATE_LANG ||"en";
- const res = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
- method:"POST",
- headers: {"Content-Type":"application/json", Authorization:`Bearer ${token}`},
- body: JSON.stringify({
- messaging_product:"whatsapp",
- to,
- type:"template",
- template: {
- name,
- language: { code: lang },
- components: [{ type:"body", parameters: params.map((t) => ({ type:"text", text: t })) }],
- },
- }),
- });
- if (!res.ok) { console.error("[whatsapp/meta-template]", res.status, (await res.text()).slice(0, 300)); return false; }
- return true;
+export async function sendMetaTemplate(
+  to: string,
+  params: string[],
+): Promise<boolean> {
+  const name = process.env.WHATSAPP_ORDER_TEMPLATE;
+  if (!name) return sendMetaText(to, params.join(" · "));
+  const id = process.env.WHATSAPP_PHONE_NUMBER_ID!;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN!;
+  const lang = process.env.WHATSAPP_TEMPLATE_LANG || "en";
+  const res = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name,
+        language: { code: lang },
+        components: [
+          {
+            type: "body",
+            parameters: params.map((t) => ({ type: "text", text: t })),
+          },
+        ],
+      },
+    }),
+  });
+  if (!res.ok) {
+    console.error(
+      "[whatsapp/meta-template]",
+      res.status,
+      (await res.text()).slice(0, 300),
+    );
+    return false;
+  }
+  return true;
 }
 
 async function sendTwilio(to: string, body: string): Promise<boolean> {
- const sid = process.env.TWILIO_ACCOUNT_SID!;
- const token = process.env.TWILIO_AUTH_TOKEN!;
- const from = process.env.TWILIO_WHATSAPP_FROM!;
- const auth = Buffer.from(`${sid}:${token}`).toString("base64");
- const form = new URLSearchParams({ To:`whatsapp:+${to}`, From: from, Body: body });
- const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
- method:"POST",
- headers: {"Content-Type":"application/x-www-form-urlencoded", Authorization:`Basic ${auth}`},
- body: form.toString(),
- });
- if (!res.ok) { console.error("[whatsapp/twilio]", res.status, (await res.text()).slice(0, 300)); return false; }
- return true;
+  const sid = process.env.TWILIO_ACCOUNT_SID!;
+  const token = process.env.TWILIO_AUTH_TOKEN!;
+  const from = process.env.TWILIO_WHATSAPP_FROM!;
+  const auth = Buffer.from(`${sid}:${token}`).toString("base64");
+  const form = new URLSearchParams({
+    To: `whatsapp:+${to}`,
+    From: from,
+    Body: body,
+  });
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${auth}`,
+      },
+      body: form.toString(),
+    },
+  );
+  if (!res.ok) {
+    console.error(
+      "[whatsapp/twilio]",
+      res.status,
+      (await res.text()).slice(0, 300),
+    );
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
 // High-level helpers used by the order flow.
 // ---------------------------------------------------------------------------
 
-const STORE = () => process.env.NEXT_PUBLIC_STORE_NAME ||"Aggarwal Jewellers";
+const STORE = () => process.env.NEXT_PUBLIC_STORE_NAME || "Aggarwal Jewellers";
 
 function rupees(paise: number): string {
- return"₹"+ (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return (
+    "₹" + (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })
+  );
 }
 
 /**
@@ -128,38 +189,48 @@ function rupees(paise: number): string {
  * Call WITHOUT awaiting the result if you don't want to block the response.
  */
 export async function notifyOrderPlaced(args: {
- orderId: string;
- customerName?: string | null;
- customerPhone?: string | null;
- totalPaise: number;
- payment: string; //"cod"|"online"|...
- itemCount: number;
+  orderId: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  totalPaise: number;
+  payment: string; //"cod"|"online"|...
+  itemCount: number;
 }): Promise<void> {
- if (!whatsappConfigured()) return;
- const shortId = String(args.orderId).slice(0, 8).toUpperCase();
- const paid = args.payment ==="online"?"Paid online":"Cash on Delivery";
+  if (!whatsappConfigured()) return;
+  const shortId = String(args.orderId).slice(0, 8).toUpperCase();
+  const paid = args.payment === "online" ? "Paid online" : "Cash on Delivery";
 
- // Customer confirmation (template if configured, else text inside 24h window).
- const cust = toE164(args.customerPhone);
- if (cust) {
- const params = [args.customerName ||"there", shortId, rupees(args.totalPaise), paid];
- if (PROVIDER() ==="twilio") {
- await sendTwilio(
- cust,
-`Hi ${params[0]}! Your ${STORE()} order #${shortId} is confirmed — ${args.itemCount} item(s), ${rupees(args.totalPaise)} (${paid}). We'll WhatsApp you the tracking soon.`,
-).catch(() => {});
- } else {
- await sendMetaTemplate(cust, params).catch(() => {});
- }
- }
+  // Customer confirmation (template if configured, else text inside 24h window).
+  const cust = toE164(args.customerPhone);
+  if (cust) {
+    const params = [
+      args.customerName || "there",
+      shortId,
+      rupees(args.totalPaise),
+      paid,
+    ];
+    if (PROVIDER() === "twilio") {
+      await sendTwilio(
+        cust,
+        `Hi ${params[0]}! Your ${STORE()} order #${shortId} is confirmed — ${args.itemCount} item(s), ${rupees(args.totalPaise)} (${paid}). We'll WhatsApp you the tracking soon.`,
+      ).catch(() => {});
+    } else {
+      await sendMetaTemplate(cust, params).catch(() => {});
+    }
+  }
 
- // New-order alerts (plain text). The client wants these going to STAFF (questionnaire
- // Q12) — set STAFF_WHATSAPP_NUMBER (comma-separate several); OWNER_WHATSAPP_NUMBER still
- // works and both can be set at once. Duplicates are collapsed.
- const alertMsg =`New ${STORE()} order #${shortId}\n${args.customerName ||"Customer"} (${args.customerPhone ||"no phone"})\n${args.itemCount} item(s) · ${rupees(args.totalPaise)} · ${paid}`;
- const recipients = new Set(
- [process.env.OWNER_WHATSAPP_NUMBER,...(process.env.STAFF_WHATSAPP_NUMBER ??"").split(",")]
-.map((n) => toE164(n)).filter(Boolean) as string[],
-);
- for (const to of recipients) await sendWhatsAppText(to, alertMsg).catch(() => {});
+  // New-order alerts (plain text). The client wants these going to STAFF (questionnaire
+  // Q12) — set STAFF_WHATSAPP_NUMBER (comma-separate several); OWNER_WHATSAPP_NUMBER still
+  // works and both can be set at once. Duplicates are collapsed.
+  const alertMsg = `New ${STORE()} order #${shortId}\n${args.customerName || "Customer"} (${args.customerPhone || "no phone"})\n${args.itemCount} item(s) · ${rupees(args.totalPaise)} · ${paid}`;
+  const recipients = new Set(
+    [
+      process.env.OWNER_WHATSAPP_NUMBER,
+      ...(process.env.STAFF_WHATSAPP_NUMBER ?? "").split(","),
+    ]
+      .map((n) => toE164(n))
+      .filter(Boolean) as string[],
+  );
+  for (const to of recipients)
+    await sendWhatsAppText(to, alertMsg).catch(() => {});
 }
