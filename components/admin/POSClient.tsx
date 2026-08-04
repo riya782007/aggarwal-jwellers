@@ -60,6 +60,8 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [allowBackorder, setAllowBackorder] = useState(false);
+  // When on, the printed bill merges a product's colour variants into one line (qty summed).
+  const [mergeVariants, setMergeVariants] = useState(false);
 
   const pct = (v: string) => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 100 ? n : 0; };
   const gDisc = pct(globalDisc);
@@ -173,6 +175,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       allowOversell: allowBackorder, tier: custType, salesEmployeeId: salesEmp || undefined,
       backorder: allowBackorder && lines.some((l) => l.qty > l.stock),
       packingRupees: Number(packing) || 0, courierRupees: Number(courier) || 0, adjustmentRupees: Number(adjustment) || 0,
+      mergeVariants,
     });
     setBusy(false);
     if (!res.ok) { setErr(res.error ?? "Failed"); return; }
@@ -429,6 +432,10 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           </div>
 
           {err && <p className="text-sm text-rose">{err}</p>}
+          <label className="mt-3 flex items-start gap-2 rounded-xl border border-sand bg-cream/40 px-3 py-2 text-xs text-ink cursor-pointer">
+            <input type="checkbox" checked={mergeVariants} onChange={(e) => setMergeVariants(e.target.checked)} className="mt-0.5" />
+            <span>Merge colours on the bill <span className="text-muted">— print one line per product with quantities added up (e.g. 3 blue + 4 yellow + 5 pink → “Necklace ×12”). Stock still moves per colour.</span></span>
+          </label>
           <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-4 text-base font-semibold disabled:opacity-50">
             {busy ? "Completing…" : (billType === "gst" ? "Generate tax invoice" : "Generate cash memo")} <span className="text-[10px] opacity-70">Ctrl+↵</span>
           </button>

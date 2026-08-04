@@ -84,6 +84,7 @@ export async function posSaleAction(input: {
   // When supplied this is the source of truth — it drives the per-method ledger AND back-fills
   // the legacy pay_cash / pay_bank / payment_method fields so existing reports keep working.
   payments?: { methodId: string; amount: number }[]; // amount in rupees
+  mergeVariants?: boolean; // print the bill with a product's colour variants merged into one line
 }): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
   if (!(await requirePerm("billing.sell"))) return { ok: false, error: "Your role can't ring up POS sales." };
   if (!input.items?.length) return { ok: false, error: "Add at least one item" };
@@ -235,6 +236,7 @@ export async function posSaleAction(input: {
     payment_mode: payMode,
     pay_cash: payCash,
     pay_bank: payBank,
+    merge_variants: !!input.mergeVariants,
   };
   {
     const { error: updErr } = await sb.from("orders").update(fullPatch).eq("id", orderId);
