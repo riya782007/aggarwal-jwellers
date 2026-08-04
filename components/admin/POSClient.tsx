@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { posSaleAction } from "@/app/actions/orders";
+import { resolveSellableSku } from "@/app/actions/billing";
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
 
@@ -130,12 +131,17 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
     return raw;
   }
-  function submitSearch() {
+  async function submitSearch() {
     const code = skuFromScan(q.trim());
     if (!code) return;
     const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
     const p = exact ?? matches[0];
-    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
+    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); setQ(""); searchRef.current?.focus(); return; }
+    // Not in the loaded catalogue list — look the exact SKU up on the server (covers colour
+    // variants and freshly-added items) so a real sku is never wrongly reported as missing.
+    setScanMsg({ text: "Looking up…", ok: true });
+    const found = await resolveSellableSku(code);
+    if (found) { addLine(found); setScanMsg({ text: `${found.name} · ${found.qty} in stock${found.qty <= 0 ? " (OUT)" : ""}`, ok: found.qty > 0 }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }

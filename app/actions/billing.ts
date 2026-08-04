@@ -6,6 +6,52 @@ import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
 
+/**
+ * Resolve a single SKU (product OR variant) to a billable line, straight from the DB.
+ * The POS holds an in-memory catalogue list for fast search, but that list can lag or miss an
+ * item (e.g. a colour variant, a just-added product). When the counter enters a SKU the list
+ * doesn't have, POS calls this so a REAL sku is never wrongly shown as "product not found".
+ * Read-only; matches SKU case-insensitively and exactly.
+ */
+export async function resolveSellableSku(
+  skuRaw: string,
+): Promise<{ sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string } | null> {
+  try {
+    const sku = (skuRaw || "").trim();
+    if (!sku) return null;
+    const sb = supabaseServer();
+    const formula = await getPricingFormula();
+
+    // 1) exact PRODUCT sku
+    const { data: prod } = await sb
+      .from("products")
+      .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
+      .ilike("sku", sku).limit(1).maybeSingle();
+    if (prod) {
+      const p: any = prod;
+      const ps = resolvePrices(p.base_wholesale, formula, overridesOf(p));
+      return { sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: p.qty ?? 0, category: "" };
+    }
+
+    // 2) exact VARIANT sku → bill the variant, priced off its parent product + its own overrides
+    const { data: variant } = await sb
+      .from("variants")
+      .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(sku,name,base_wholesale,wholesale_override,retail_override,mrp_override)")
+      .ilike("sku", sku).limit(1).maybeSingle();
+    if (variant) {
+      const v: any = variant;
+      const p = v.product;
+      if (!p) return null;
+      const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
+      return { sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: v.qty ?? 0, category: "" };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Recompute an estimate's total from its current line items. */
 async function recomputeEstimateTotal(sb: ReturnType<typeof supabaseServer>, estimateId: string) {
   const { data } = await sb.from("estimate_items").select("line_total").eq("estimate_id", estimateId);
