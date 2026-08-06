@@ -2,6 +2,7 @@
 import { Icon } from "@/components/ui/Icon";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { createProductFullAction, createCategoryJsonAction, createSubcategoryJsonAction, createStyleJsonAction, type CreateProductPayload } from "@/app/actions/catalog";
 import { getProductVariantsAction, addVariantImageAction } from "@/app/actions/variants";
@@ -57,6 +58,7 @@ export function AddInventoryClient({
   colorCodes?: ColorCodeMap;
 }) {
   const { toast } = useToast();
+  const router = useRouter();
   const [cats, setCats] = useState<Cat[]>(categories);
   const [catId, setCatId] = useState("");
   const [newCat, setNewCat] = useState(""); const [showNewCat, setShowNewCat] = useState(false);
@@ -251,6 +253,10 @@ export function AddInventoryClient({
       }
 
       toast(`${res.sku} ${mode === "publish" ? "created & published" : "saved as draft"}`);
+      // Invalidate the client Router Cache so the Catalogue (and every list) shows this new product
+      // the instant the owner navigates there — no manual refresh. (Server already revalidated;
+      // this clears the browser's cached copy of the pages too.)
+      router.refresh();
       // Save & continue → clear for the next product. Save draft → keep nothing lingering either.
       setName(""); setBasePrice(""); setInitialStock(""); setSku(""); setType("simple"); setSubId(""); setStyleId("");
       setPicks({ color: [], size: [], polish: [] }); setRows([]); setQ("");
