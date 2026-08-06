@@ -6,6 +6,7 @@
  * Money stays in integer paise; the pricing formula re-derives retail/MRP/wholesale.
  */
 import { revalidatePath } from "next/cache";
+import { cascadeVariantSkuRename } from "@/lib/variantSku";
 import { supabaseServer } from "@/lib/supabase/server";
 import { computePrices, isValidPriceSet } from "@/lib/pricing";
 import { getPricingFormula } from "@/lib/supabase/queries";
@@ -141,6 +142,8 @@ export async function updateProductAction(formData: FormData): Promise<UpdateRes
     if (dup) return { ok: false, error: `SKU ${newSku} already exists — choose a different one.` };
     const { error: skuErr } = await sb.from("products").update({ sku: newSku }).eq("id", existing.id);
     if (skuErr) return { ok: false, error: skuErr.message };
+    // Keep variant SKUs in sync — rewrite "{oldSku}-XX" variants to "{newSku}-XX".
+    await cascadeVariantSkuRename(sb, existing.id, sku, newSku);
     finalSku = newSku;
   }
 

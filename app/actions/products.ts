@@ -6,6 +6,7 @@
  * Money is integer paise. All writes are permission-gated and audit-logged.
  */
 import { revalidatePath } from "next/cache";
+import { cascadeVariantSkuRename } from "@/lib/variantSku";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { logActivity } from "@/lib/audit";
@@ -46,7 +47,12 @@ export async function saveProductGeneralAction(formData: FormData): Promise<void
   const newSku = String(formData.get("internal_sku") ?? "").trim().toUpperCase().replace(/\s+/g, "-");
   if (newSku) {
     const { data: clash } = await sb.from("products").select("id").eq("sku", newSku).neq("id", id).maybeSingle();
-    if (!clash) await sb.from("products").update({ sku: newSku }).eq("id", id);
+    if (!clash) {
+      const { data: cur } = await sb.from("products").select("sku").eq("id", id).maybeSingle();
+      const oldSku = (cur as any)?.sku as string | undefined;
+      await sb.from("products").update({ sku: newSku }).eq("id", id);
+      if (oldSku) await cascadeVariantSkuRename(sb, id, oldSku, newSku); // keep variant SKUs on the new base
+    }
   }
 
   await sb.from("product_details").upsert({

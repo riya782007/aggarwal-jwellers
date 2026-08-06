@@ -8,6 +8,7 @@
  * gate is wired so per-staff roles can scope DIVA later.
  */
 import { aiChat, anyAiConfigured } from "@/lib/ai/providers";
+import { cascadeVariantSkuRename } from "@/lib/variantSku";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   getChannelReport, getInventoryClassified, getProductsPage, getDashboardData, getStorefront,
@@ -601,6 +602,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         if (!p) return { ok: false, message: `No product with SKU ${sku}.` };
         const { error } = await sb.from("products").update({ sku: newSku }).eq("id", (p as any).id);
         if (error) return { ok: false, message: error.message };
+        await cascadeVariantSkuRename(sb, (p as any).id, sku, newSku); // keep variant SKUs on the new base
         revalidatePath("/admin/catalogue"); revalidatePath("/shop");
         return { ok: true, message: `Renamed ${sku} → ${newSku} for ${(p as any).name}.` };
       }
