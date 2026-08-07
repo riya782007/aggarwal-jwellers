@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
  *   • on a light interval while the tab is visible — but it SKIPS while you're typing in a field,
  *     so it never interrupts billing, price edits, or any data entry.
  */
-export function AutoRefresh({ intervalMs = 10000 }: { intervalMs?: number }) {
+export function AutoRefresh({ intervalMs = 4000 }: { intervalMs?: number }) {
   const router = useRouter();
   const cooling = useRef(false);
 
@@ -36,7 +36,7 @@ export function AutoRefresh({ intervalMs = 10000 }: { intervalMs?: number }) {
 
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
-    const id = window.setInterval(() => { if (!isTyping()) softRefresh(); }, Math.max(4000, intervalMs));
+    const id = window.setInterval(() => { if (!isTyping()) softRefresh(); }, Math.max(2000, intervalMs));
 
     return () => {
       window.removeEventListener("focus", onVisible);
