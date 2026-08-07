@@ -3,6 +3,7 @@ import { AdminNav } from "@/components/AdminNav";
 import { Diva } from "@/components/admin/Diva";
 import { PrivacyShield } from "@/components/admin/PrivacyShield";
 import { IdleLogout } from "@/components/admin/IdleLogout";
+import { AutoRefresh } from "@/components/admin/AutoRefresh";
 import { getSession, getLang } from "@/lib/auth";
 import { countNewWebsiteOrders } from "@/lib/supabase/queries";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -29,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           PrivacyShield wraps the content so the "Hide figures" toggle + Ctrl+Shift+H work on EVERY page. */}
       <PrivacyShield className="flex-1 min-w-0 pt-14 lg:pt-0" lang={lang}>{children}</PrivacyShield>
       <IdleLogout />
+      <AutoRefresh />
       <Diva roleName={s.roleName} />
     </div>
   );
