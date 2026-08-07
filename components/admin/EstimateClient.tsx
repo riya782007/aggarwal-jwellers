@@ -1,9 +1,9 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
-import { createEstimateAction } from "@/app/actions/billing";
+import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing";
 import { QtyField } from "@/components/admin/QtyField";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
@@ -26,6 +26,8 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const [custOpen, setCustOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const matches = useMemo(() => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 6) : []), [q, products]);
   const custMatches = useMemo(() => {
@@ -46,6 +48,28 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const total = lines.reduce((s, l) => s + effUnit(l) * l.qty, 0) + chargesTotal;
 
   const add = (p: P) => { setLines((prev) => (prev.find((l) => l.sku === p.sku) ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)) : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }])); setQ(""); };
+
+  /** Same scan+search box as the POS: a QR sticker encodes the product-page URL (…/p/AJ1004-RED),
+   *  so extract the SKU so one sticker both opens the page AND adds to the estimate. */
+  function skuFromScan(raw: string): string {
+    const m = raw.match(/\/p\/([A-Za-z0-9%._-]+)/);
+    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+    return raw;
+  }
+  /** Enter/scan: add the exact SKU match, else the first search result, else look the SKU up on the
+   *  server (covers colour variants and freshly-added items) — so a real code always adds. */
+  async function submitSearch() {
+    const code = skuFromScan(q.trim());
+    if (!code) return;
+    const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
+    const p = exact ?? matches[0];
+    if (p) { add(p); setScanMsg({ text: `Added ${p.name}`, ok: true }); searchRef.current?.focus(); return; }
+    setScanMsg({ text: "Looking up…", ok: true });
+    const found = await resolveSellableSku(code);
+    if (found) { add({ sku: found.sku, name: found.name, price: found.price, wholesale: found.wholesale }); setScanMsg({ text: `Added ${found.name}`, ok: true }); }
+    else setScanMsg({ text: `No product “${code}”`, ok: false });
+    setQ(""); searchRef.current?.focus();
+  }
   const setOverride = (sku: string, v: string) => setLines((p) => p.map((l) => (l.sku === sku ? { ...l, override: v } : l)));
   function pickCustomer(c: Cust) { setName(c.name); setPhone(c.phone); setCustType(c.type === "wholesale" ? "wholesale" : "retail"); setCustQ(""); setCustOpen(false); }
   function walkIn(type: "retail" | "wholesale") { setName(type === "wholesale" ? "Cash (W)" : "Cash (R)"); setPhone(""); setCustType(type); }
@@ -109,12 +133,15 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
       {/* Products */}
       <div className="relative mb-3">
-        <input className={input} placeholder="Search product to add…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input ref={searchRef} className={input} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }} />
         {matches.length > 0 && (
           <div className="absolute z-10 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
             {matches.map((p) => <button key={p.sku} onClick={() => add(p)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-mist flex justify-between"><span>{p.name} <span className="text-muted">· {p.sku}</span></span><span>{formatPaise(baseUnit(p))}</span></button>)}
           </div>
         )}
+        {scanMsg && <p className={`text-[11px] mt-1 ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
       </div>
       {lines.map((l) => (
         <div key={l.sku} className="flex items-center gap-2 border-b border-sand/60 py-2 text-sm">
