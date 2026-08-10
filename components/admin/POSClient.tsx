@@ -203,7 +203,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       <div className="bg-white rounded-2xl shadow-card p-3 flex flex-wrap items-center gap-3">
         {/* Bill type */}
         <div className="inline-flex rounded-lg border border-sand overflow-hidden text-sm shrink-0">
-          {([["gst", "GST Invoice"], ["cash", "Cash Memo"]] as const).map(([v, label]) => (
+          {([["gst", "GST Invoice"], ["cash", "Final Estimate"]] as const).map(([v, label]) => (
             <button key={v} onClick={() => setBillType(v)} className={`px-3 py-2 transition-colors ${billType === v ? "bg-ink text-white" : "text-muted hover:bg-cream"}`}>{label}</button>
           ))}
         </div>
@@ -437,7 +437,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
             <span>Merge colours on the bill <span className="text-muted">— print one line per product with quantities added up (e.g. 3 blue + 4 yellow + 5 pink → “Necklace ×12”). Stock still moves per colour.</span></span>
           </label>
           <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-4 text-base font-semibold disabled:opacity-50">
-            {busy ? "Completing…" : (billType === "gst" ? "Generate tax invoice" : "Generate cash memo")} <span className="text-[10px] opacity-70">Ctrl+↵</span>
+            {busy ? "Completing…" : (billType === "gst" ? "Generate tax invoice" : "Generate final estimate")} <span className="text-[10px] opacity-70">Ctrl+↵</span>
           </button>
         </div>
       </div>

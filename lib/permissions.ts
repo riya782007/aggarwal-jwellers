@@ -29,7 +29,7 @@ export const PERMISSION_GROUPS: PermGroup[] = [
   { key: "billing", label: "Billing & POS", perms: [
     { key: "billing.sell", label: "Ring up POS sales" },
     { key: "billing.gst", label: "Issue GST invoices" },
-    { key: "billing.cash", label: "Issue cash memos" },
+    { key: "billing.cash", label: "Issue final estimates (non-GST bill)" },
     { key: "billing.refund", label: "Process returns / refunds" },
     { key: "billing.gst_only", label: "GST-officer view (GST bills only)", desc: "restricts Sales & invoices to GST tax invoices — for compliance inspections" },
   ]},

@@ -22,7 +22,7 @@ const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
   { key: "all", label: "All", match: () => true },
   { key: "open", label: "Held", match: (s) => s === "open" },
   { key: "converted", label: "GST billed", match: (s) => s === "converted" },
-  { key: "cash_billed", label: "Cash billed", match: (s) => s === "cash_billed" },
+  { key: "cash_billed", label: "Final estimate", match: (s) => s === "cash_billed" },
   { key: "denied", label: "Denied", match: (s) => s === "denied" || s === "expired" },
 ];
 
@@ -34,7 +34,7 @@ const STATUS_STYLE: Record<string, string> = {
   expired: "bg-cream text-muted",
 };
 const STATUS_LABEL: Record<string, string> = {
-  open: "Held", converted: "GST billed", cash_billed: "Cash billed", denied: "Denied", expired: "Expired",
+  open: "Held", converted: "GST billed", cash_billed: "Final estimate", denied: "Denied", expired: "Expired",
 };
 
 export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string } }) {
@@ -92,7 +92,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Estimates &amp; Quotations</h1>
-      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Each estimate can be held, billed with GST, billed as a cash memo, or denied. Dealer rate requests from the trade portal appear at the bottom.</p>
+      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Each estimate can be held, billed with GST, billed as a final estimate (non-GST bill), or denied. Dealer rate requests from the trade portal appear at the bottom.</p>
       <EstimateClient products={list} customers={custList} />
 
       {/* tabs + search */}
@@ -138,11 +138,11 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
                     <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</Link>
                     {e.status === "open" && <>
                       <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" /><button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Cash <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                       <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</button></form>
                     </>}
                     {(e.status === "converted" || e.status === "cash_billed") && e.order_id &&
-                      <Link href={`/admin/invoice/${e.order_id}`} className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">{e.status === "cash_billed" ? "View cash memo →" : "View invoice →"}</Link>}
+                      <Link href={`/admin/invoice/${e.order_id}`} className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">{e.status === "cash_billed" ? "View final estimate →" : "View invoice →"}</Link>}
                     {(e.status === "denied" || e.status === "expired") &&
                       <form action={reopenEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-gold/15 text-gold-dark text-xs hover:bg-gold/25">Re-open</button></form>}
                   </div>

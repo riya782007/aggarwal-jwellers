@@ -57,8 +57,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const refundDue = Math.max(0, paid - orderGrandPaise({ total, bill_type: order.bill_type, gst_mode: gstMode, return_amount: returnAmount }));
   const payStatus = paid <= 0 ? "Unpaid" : balanceDue <= 0 ? "Paid" : "Partial";
 
-  const docTitle = isCash ? "CASH MEMO" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
-  const invNo = order.invoice_no || ((isCash ? "CM-" : "INV-") + String(order.id).slice(0, 8).toUpperCase());
+  const docTitle = isCash ? "FINAL ESTIMATE" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
+  const invNo = order.invoice_no || ((isCash ? "FE-" : "INV-") + String(order.id).slice(0, 8).toUpperCase());
   const date = new Date(order.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const qtyTotal = items.reduce((s: number, it: any) => s + it.qty, 0);
   const session = getSession();
@@ -338,11 +338,11 @@ export default async function Invoice({ params }: { params: { id: string } }) {
             {can(session, "billing.gst") && (
               <div className="bg-white rounded-2xl p-5 shadow-card">
                 <h2 className="font-medium text-ink mb-1">Bill type</h2>
-                <p className="text-xs text-muted mb-3">Currently a <b>{isCash ? "Cash Memo" : "GST Tax Invoice"}</b>. Customer changed their mind? Switch it.</p>
+                <p className="text-xs text-muted mb-3">Currently a <b>{isCash ? "Final Estimate" : "GST Tax Invoice"}</b>. Customer changed their mind? Switch it.</p>
                 <form action={setBillTypeAction}>
                   <input type="hidden" name="order_id" value={order.id} />
                   <input type="hidden" name="bill_type" value={isCash ? "gst" : "cash"} />
-                  <button className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">{isCash ? "Convert to GST Tax Invoice →" : "Convert to Cash Memo →"}</button>
+                  <button className="px-4 py-2 rounded-full bg-ink/5 text-ink text-sm hover:bg-ink/10">{isCash ? "Convert to GST Tax Invoice →" : "Convert to Final Estimate →"}</button>
                 </form>
                 {isCash && !order.buyer_gstin && <p className="text-[11px] text-gold-dark mt-2">Tip: add the buyer's GSTIN for a complete B2B tax invoice.</p>}
               </div>

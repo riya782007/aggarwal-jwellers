@@ -121,7 +121,7 @@ export async function divaPlan(command: string, contextJson?: string): Promise<D
     `Use mutate tools only when they clearly ask to change something. SKUs look like AJ1234 — pass them uppercased. ` +
     `"hide"/"take off the store"=hide_product; "show"/"put back"=show_product; "delete/remove a product"=delete_product. ` +
     `Match a product by SKU (BD####) OR by any detail hint (name, colour, category, keywords) — when no SKU is given, pass the hint as "query" to the *_by_name / *_of / set_stock / product_photos / last_purchase tools. ` +
-    `Tool hints: "stock N kar do"/"set stock to N"=set_stock (exact total); "N add/kam"=add_stock/remove_stock; variants=add_variant/list_variants; product photos=product_photos (or generate_photo to create one); recent bills/invoices=recent_sales; convert a cash memo to GST=convert_invoice; last purchase cost=last_purchase; categories=list_categories; create page/product=create_product. ` +
+    `Tool hints: "stock N kar do"/"set stock to N"=set_stock (exact total); "N add/kam"=add_stock/remove_stock; variants=add_variant/list_variants; product photos=product_photos (or generate_photo to create one); recent bills/invoices=recent_sales; convert a final estimate to GST=convert_invoice; last purchase cost=last_purchase; categories=list_categories; create page/product=create_product. ` +
     `VOICE-NOTE PRODUCT FACTORY: the owner may dictate MANY products in ONE message ("gold jhumka 50 piece cost 80, oxidised kada 30 piece 120, ..."). Emit ONE create_product step per product: {name (title-case the spoken name), category, price (the cost/rate number in rupees), qty (the piece count)}. Infer category from the type word: jhumka/jhumki/bali/earring=Earrings; kada/bracelet/bangle=Bracelets; ring/anguthi=Rings; necklace/haar/set/choker/mala=Necklaces; payal/anklet=Anklets; tikka/mangtika=Maang Tikka; nath/nosepin=Nose Pins. If they also ask for photos, append generate_ad_images {"scope":"missing"}; if they say publish/live karo, append publish_products {"scope":"photos"}. `+
     `CLARITY: if you are unsure which product they mean, or multiple could match, or a required value (quantity, price, name, category) is missing, DO NOT guess — return EMPTY steps and ask ONE short clarifying question in "reply". Once it is clear, act. ` +
     `Examples:\n` +
@@ -690,7 +690,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
       }
       case "convert_invoice": {
         const invoice = String(args.invoice ?? "").trim();
-        if (!invoice) return { ok: true, message: "Open billing and pick the cash memo you want to upgrade to GST.", navigate: PAGE_MAP["billing"] };
+        if (!invoice) return { ok: true, message: "Open billing and pick the final estimate you want to upgrade to GST.", navigate: PAGE_MAP["billing"] };
         const sb = supabaseServer();
         const { data: o } = await sb.from("orders").select("id,invoice_no,bill_type,customer_phone").eq("invoice_no", invoice).maybeSingle();
         if (!o) return { ok: false, message: `I couldn't find invoice ${invoice}.` };
@@ -705,7 +705,7 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         const { error } = await sb.from("orders").update({ bill_type: "gst" }).eq("id", (o as any).id);
         if (error) return { ok: false, message: error.message };
         revalidatePath("/admin/sales"); revalidatePath(`/admin/invoice/${(o as any).id}`);
-        return { ok: true, message: `Converted cash memo ${invoice} into a GST invoice.${warn}` };
+        return { ok: true, message: `Converted final estimate ${invoice} into a GST invoice.${warn}` };
       }
 
       // ---- Accounting & business health (AI employee upgrade) -----------------

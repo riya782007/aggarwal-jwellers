@@ -253,8 +253,8 @@ export function interpret(commandRaw: string, ctx: DivaContext = {}): NluPlan {
 
   // ---- 1) Invoice conversion: "cash memo se GST invoice me convert karo" -------
   if (hasAny(lower, ["convert", "badal"]) && /gst/.test(lower) && /(cash memo|cash|memo|bill)/.test(lower)) {
-    return mk(base, [step("convert_invoice", { to: "gst", invoice: extractInvoiceNo(command) }, "Convert cash memo → GST invoice")],
-      ack(lang, "I'll convert that cash memo into a GST invoice.", "Theek hai, is cash memo ko GST invoice me badal deti hun."), 0.8, remember({}));
+    return mk(base, [step("convert_invoice", { to: "gst", invoice: extractInvoiceNo(command) }, "Convert final estimate → GST invoice")],
+      ack(lang, "I'll convert that final estimate into a GST invoice.", "Theek hai, is final estimate ko GST invoice me badal deti hun."), 0.8, remember({}));
   }
 
   // ---- 2) Create invoice / estimate -------------------------------------------
