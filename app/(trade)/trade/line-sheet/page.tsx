@@ -1,19 +1,16 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getStorefront } from "@/lib/supabase/queries";
-import { getWholesaleSession } from "@/lib/wholesale";
 import { resolvePrices, overridesOf, formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { BUSINESS } from "@/lib/business";
 
 export const metadata = { title: "Line Sheet · Aggarwal Jewellers Trade", robots: { index: false } };
 
-/** Printable wholesale line sheet — dealers only (trade session required). */
+/** Printable wholesale line sheet — public: it's just the printable form of the already-public
+ *  trade catalogue (browsing + rates are open; login is only asked at checkout). */
 export default async function LineSheet() {
-  const session = await getWholesaleSession();
-  if (!session) redirect("/trade/login");
   const { products, formula } = await getStorefront();
   const rows = (products as any[])
     .filter((p) => !p.retail_only)

@@ -59,7 +59,7 @@ export function Footer({ categories }: { categories: { name: string; slug: strin
           <span>© 2026 Aggarwal Jewellers · Aggarwal Jewellers. All rights reserved.</span>
           <span className="flex gap-2 items-center text-cream/40">
             Visa · Mastercard · UPI · Paytm · COD
-            <Link href="/trade/login" className="ml-3 text-cream/30 hover:text-cream/60 transition-colors">Dealer Login</Link>
+            <Link href="/trade" className="ml-3 text-cream/30 hover:text-cream/60 transition-colors">Wholesale / Bulk Orders</Link>
           </span>
         </div>
       </div>
