@@ -103,6 +103,7 @@ export function AddInventoryClient({
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<{ sku: string } | null>(null); // last saved product → offer to print its labels
   const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "w-full rounded-xl border border-sand px-3.5 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors";
@@ -285,6 +286,7 @@ export function AddInventoryClient({
       }
 
       toast(`${res.sku} ${mode === "publish" ? "created & published" : "saved as draft"}`);
+      if (res.sku) setCreated({ sku: res.sku }); // surface a one-click "Print labels" for this SKU
       // Invalidate the client Router Cache so the Catalogue (and every list) shows this new product
       // the instant the owner navigates there — no manual refresh. (Server already revalidated;
       // this clears the browser's cached copy of the pages too.)
@@ -335,6 +337,18 @@ export function AddInventoryClient({
 
   return (
     <div className="w-full max-w-[1200px] mx-auto space-y-5">
+      {/* After a save — jump straight to printing this product's barcode stickers (opens Labels with
+          the SKU and its variants pre-queued, counts pre-filled from stock). No more hunting for it. */}
+      {created && (
+        <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-emerald-dark">Saved <b className="font-mono">{created.sku}</b>. Print its barcode stickers now?</p>
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/barcodes?sku=${encodeURIComponent(created.sku)}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print labels</Link>
+            <button type="button" onClick={() => setCreated(null)} className="px-4 py-2 text-sm rounded-full border border-sand text-muted hover:text-ink">Dismiss</button>
+          </div>
+        </div>
+      )}
+
       {/* ============ BASIC INFORMATION ============ */}
       <section className="bg-white rounded-2xl p-6 shadow-card">
         <h2 className="text-base font-semibold text-ink mb-4">Basic information</h2>

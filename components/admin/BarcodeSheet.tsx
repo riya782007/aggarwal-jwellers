@@ -1,6 +1,6 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Barcode } from "@/components/admin/Barcode";
 import { QrCode } from "@/components/admin/QrCode";
 import { QtyField } from "@/components/admin/QtyField";
@@ -43,7 +43,7 @@ const rup = (paise?: number) => {
   return Number.isInteger(v) ? String(v) : v.toFixed(2);
 };
 
-export function BarcodeSheet({ products }: { products: P[] }) {
+export function BarcodeSheet({ products, initialSku }: { products: P[]; initialSku?: string }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [paper, setPaper] = useState("thermal2");
@@ -91,6 +91,18 @@ export function BarcodeSheet({ products }: { products: P[] }) {
   };
   const patch = (sku: string, p: Partial<Row>) => setRows((prev) => prev.map((x) => (x.sku === sku ? { ...x, ...p } : x)));
   const rm = (sku: string) => setRows((prev) => prev.filter((x) => x.sku !== sku));
+
+  // Deep-link from Add Inventory (?sku=…): pre-queue the freshly-added product — all its variants
+  // if it's configurable, else the product itself — so the owner lands here ready to print.
+  useEffect(() => {
+    if (!initialSku) return;
+    const code = initialSku.trim().toLowerCase();
+    const parent = products.find((x) => x.sku.toLowerCase() === code && x.kind !== "variant");
+    if (parent && (parent.variantCount ?? 0) > 0) { addAllVariants(parent.sku); return; }
+    const item = parent ?? products.find((x) => x.sku.toLowerCase() === code);
+    if (item) setRows((prev) => (prev.find((x) => x.sku === item.sku) ? prev : [...prev, toRow(item)]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSku]);
 
   const labels = rows.flatMap((r) => Array.from({ length: Math.max(1, r.qty) }, () => r));
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
