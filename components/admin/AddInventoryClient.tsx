@@ -44,6 +44,15 @@ function Toggle({ on, onClick, title }: { on: boolean; onClick: () => void; titl
   );
 }
 
+/** Union two lists by id (the fresh server row wins) so newly-created rows appear without dropping
+ *  anything the user just added inline. Preserves order: existing first, then any new arrivals. */
+function mergeById<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  const m = new Map<string, T>();
+  for (const x of current) m.set(x.id, x);
+  for (const x of incoming) m.set(x.id, x);
+  return [...m.values()];
+}
+
 export function AddInventoryClient({
   categories,
   subcategories = [],
@@ -116,6 +125,13 @@ export function AddInventoryClient({
   const anyPicked = (["color", "size", "polish"] as Attr[]).some((a) => picks[a].length > 0);
 
   const catName = cats.find((c) => c.id === catId)?.name;
+
+  // Keep the category / subcategory / style dropdowns live: when they're created elsewhere (e.g. the
+  // Categories page) AutoRefresh re-renders this page with fresh lists — merge new rows in by id so
+  // they appear immediately, without having to save a product first to remount the form.
+  useEffect(() => { setCats((cur) => mergeById(cur, categories)); }, [categories.map((c) => c.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSubs((cur) => mergeById(cur, subcategories)); }, [subcategories.map((s) => s.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setStyleList((cur) => mergeById(cur, styles)); }, [styles.map((s) => s.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Warn the instant a typed SKU clashes with an existing product/variant code (debounced).
   useEffect(() => {
