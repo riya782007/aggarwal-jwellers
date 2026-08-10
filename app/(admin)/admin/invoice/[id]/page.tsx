@@ -127,7 +127,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                 {!isCash && <th className={`${th} text-center`}>HSN</th>}
                 <th className={`${th} text-right`}>Qty</th>
                 <th className={`${th} text-right`}>Rate</th>
-                <th className={`${th} text-right`}>Disc</th>
+                {!isCash && <th className={`${th} text-right`}>Disc</th>}
                 <th className={`${th} text-right`}>{isCash ? "Amount" : "Taxable Value"}</th>
               </tr>
             </thead>
@@ -145,15 +145,20 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                     <td className={`${td} text-ink`}>{it.product?.name}{it.variant?.color ? ` – ${it.variant.color}` : ""} <span className="font-mono font-semibold text-ink bg-cream border border-sand rounded px-1.5 py-0.5 text-[11px] whitespace-nowrap">{it.variant?.sku ?? it.product?.sku}</span></td>
                     {!isCash && <td className={`${td} text-center text-muted`}>{HSN_JEWELLERY}</td>}
                     <td className={`${td} text-right`}>{it.qty}{it.product?.unit && it.product.unit !== "pc" ? <span className="text-[10px] text-muted"> {it.product.unit}</span> : null}</td>
-                    <td className={`${td} text-right ${discPct > 0 ? "text-muted line-through" : ""}`}>{formatPaise(origUnit)}</td>
-                    <td className={`${td} text-right ${discPct > 0 ? "text-emerald-dark" : "text-muted"}`}>{discPct > 0 ? `${discPct}%` : "—"}</td>
+                    {isCash ? (
+                      <td className={`${td} text-right`}>{formatPaise(unit)}</td>
+                    ) : (<>
+                      <td className={`${td} text-right ${discPct > 0 ? "text-muted line-through" : ""}`}>{formatPaise(origUnit)}</td>
+                      <td className={`${td} text-right ${discPct > 0 ? "text-emerald-dark" : "text-muted"}`}>{discPct > 0 ? `${discPct}%` : "—"}</td>
+                    </>)}
                     <td className={`${td} text-right`}>{formatPaise(lineTaxable)}</td>
                   </tr>
                 );
               })}
               <tr className="bg-cream/50 font-medium">
                 <td className={td}></td><td className={`${td} text-ink`}>Total</td>{!isCash && <td className={td}></td>}
-                <td className={`${td} text-right`}>{qtyTotal}</td><td className={td}></td><td className={td}></td>
+                <td className={`${td} text-right`}>{qtyTotal}</td>
+                <td className={td}></td>{!isCash && <td className={td}></td>}
                 <td className={`${td} text-right`}>{formatPaise(itemsTaxable)}</td>
               </tr>
             </tbody>
@@ -257,7 +262,15 @@ export default async function Invoice({ params }: { params: { id: string } }) {
           </div>
           )}
 
-          <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {docTitle.toLowerCase()} and does not require a physical signature.</p>
+          {/* Cash memo footer — matches the shop's counter bill: thank-you + fixed no-return terms. */}
+          {isCash && (
+            <div className="text-center mt-6 pt-3 border-t-2 border-ink/70">
+              <p className="font-bold tracking-widest text-ink text-sm">THANK YOU &middot; VISIT AGAIN</p>
+              <p className="text-xs font-semibold text-ink/80 mt-1 uppercase tracking-wide">No Return &middot; No Exchange &middot; No Guarantee</p>
+            </div>
+          )}
+
+          {!isCash && <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {docTitle.toLowerCase()} and does not require a physical signature.</p>}
         </div>
 
         {/* Admin controls (never printed) */}
