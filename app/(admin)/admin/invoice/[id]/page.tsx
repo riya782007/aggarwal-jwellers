@@ -87,27 +87,19 @@ export default async function Invoice({ params }: { params: { id: string } }) {
             <span className={`absolute right-0 top-0 text-[11px] px-2 py-0.5 rounded-full ${PAY_STYLE[payStatus]}`}>{payStatus}</span>
           </div>
 
-          {/* Seller + meta */}
-          <div className="grid sm:grid-cols-2 gap-4 border border-sand rounded-lg overflow-hidden">
+          {/* Seller + meta. A CASH MEMO shows NO business identity at all (owner's request) — just the
+              bill meta + products. The seller block renders only on GST invoices, where it's mandatory. */}
+          <div className={`grid ${isCash ? "" : "sm:grid-cols-2"} gap-4 border border-sand rounded-lg overflow-hidden`}>
+            {!isCash && (
             <div className="p-4 border-b sm:border-b-0 sm:border-r border-sand">
               <p className="font-display text-2xl text-ink leading-none">{BUSINESS.brand}</p>
-              {/* A cash memo is a non-GST retail bill — it carries only the trade name + contact,
-                  NOT GSTIN / PAN / TIN / legal entity. Full seller identity shows on GST invoices only. */}
-              {isCash ? (
-                <>
-                  <p className="text-xs text-muted mt-1">{BUSINESS.address}</p>
-                  <p className="text-xs text-muted mt-1">{BUSINESS.phone}{BUSINESS.email ? <> · {BUSINESS.email}</> : null}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-muted mt-0.5">{BUSINESS.legalName}</p>
-                  <p className="text-xs text-muted mt-1">{BUSINESS.address}</p>
-                  <p className="text-xs text-ink mt-1"><b>GSTIN:</b> {BUSINESS.gstin}</p>
-                  <p className="text-xs text-muted"><b>PAN:</b> {BUSINESS.pan}{BUSINESS.tin ? <> · <b>TIN:</b> {BUSINESS.tin}</> : null} · State: {BUSINESS.stateName} ({BUSINESS.stateCode})</p>
-                  <p className="text-xs text-muted">{BUSINESS.phone} · {BUSINESS.email}</p>
-                </>
-              )}
+              <p className="text-xs text-muted mt-0.5">{BUSINESS.legalName}</p>
+              <p className="text-xs text-muted mt-1">{BUSINESS.address}</p>
+              <p className="text-xs text-ink mt-1"><b>GSTIN:</b> {BUSINESS.gstin}</p>
+              <p className="text-xs text-muted"><b>PAN:</b> {BUSINESS.pan}{BUSINESS.tin ? <> · <b>TIN:</b> {BUSINESS.tin}</> : null} · State: {BUSINESS.stateName} ({BUSINESS.stateCode})</p>
+              <p className="text-xs text-muted">{BUSINESS.phone} · {BUSINESS.email}</p>
             </div>
+            )}
             <div className="p-4 text-xs space-y-1">
               <div className="flex justify-between"><span className="text-muted">Invoice No.</span><span className="font-medium text-ink">{invNo}</span></div>
               <div className="flex justify-between"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
@@ -248,7 +240,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* Terms + signature */}
+          {/* Terms + signature — business identity, so HIDDEN on a cash memo. GST invoices keep it. */}
+          {!isCash && (
           <div className="grid sm:grid-cols-2 gap-4 mt-6 pt-4 border-t border-sand">
             <div className="text-[11px] text-muted">
               <p className="font-medium text-ink/70 mb-1">Terms &amp; conditions</p>
@@ -257,11 +250,12 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               </ol>
             </div>
             <div className="text-right text-xs flex flex-col justify-end">
-              <p className="text-muted">For <b className="text-ink">{isCash ? BUSINESS.brand : BUSINESS.legalName}</b></p>
+              <p className="text-muted">For <b className="text-ink">{BUSINESS.legalName}</b></p>
               <div className="h-12" />
               <p className="text-ink border-t border-sand pt-1 inline-block ml-auto">Authorised Signatory</p>
             </div>
           </div>
+          )}
 
           <p className="text-center text-[10px] text-muted mt-4">This is a computer-generated {docTitle.toLowerCase()} and does not require a physical signature.</p>
         </div>
