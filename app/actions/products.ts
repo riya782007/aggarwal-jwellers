@@ -43,11 +43,15 @@ export async function saveProductGeneralAction(formData: FormData): Promise<void
   if (categoryId) patch.category_id = categoryId;
   await sb.from("products").update(patch).eq("id", id);
 
-  // Unique-SKU guard: only rename when the new code is free.
+  // Unique-SKU guard: a code must be free across BOTH products and variants (billing resolves a
+  // scanned code as product-first then variant, so a code belongs to exactly one item). Only rename
+  // when the new code is free of any other product or any other product's variant. The form already
+  // blocks a taken code before submit (SkuField), so this is the server-side backstop.
   const newSku = String(formData.get("internal_sku") ?? "").trim().toUpperCase().replace(/\s+/g, "-");
   if (newSku) {
-    const { data: clash } = await sb.from("products").select("id").eq("sku", newSku).neq("id", id).maybeSingle();
-    if (!clash) {
+    const { data: prodClash } = await sb.from("products").select("id").ilike("sku", newSku).neq("id", id).maybeSingle();
+    const { data: varClash } = await sb.from("variants").select("id").ilike("sku", newSku).neq("product_id", id).maybeSingle();
+    if (!prodClash && !varClash) {
       const { data: cur } = await sb.from("products").select("sku").eq("id", id).maybeSingle();
       const oldSku = (cur as any)?.sku as string | undefined;
       await sb.from("products").update({ sku: newSku }).eq("id", id);

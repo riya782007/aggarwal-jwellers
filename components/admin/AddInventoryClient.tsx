@@ -1,10 +1,10 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
-import { createProductFullAction, createCategoryJsonAction, createSubcategoryJsonAction, createStyleJsonAction, type CreateProductPayload } from "@/app/actions/catalog";
+import { createProductFullAction, createCategoryJsonAction, createSubcategoryJsonAction, createStyleJsonAction, checkSkuAvailable, type CreateProductPayload } from "@/app/actions/catalog";
 import { getProductVariantsAction, addVariantImageAction } from "@/app/actions/variants";
 import { compressImage } from "@/lib/image";
 
@@ -80,6 +80,7 @@ export function AddInventoryClient({
   const [basePrice, setBasePrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
   const [sku, setSku] = useState("");
+  const [skuTaken, setSkuTaken] = useState(false);
   const [type, setType] = useState<"simple" | "configurable">("simple");
   const [aiContent, setAiContent] = useState(true);
 
@@ -115,6 +116,16 @@ export function AddInventoryClient({
   const anyPicked = (["color", "size", "polish"] as Attr[]).some((a) => picks[a].length > 0);
 
   const catName = cats.find((c) => c.id === catId)?.name;
+
+  // Warn the instant a typed SKU clashes with an existing product/variant code (debounced).
+  useEffect(() => {
+    const code = sku.trim();
+    if (!code) { setSkuTaken(false); return; }
+    const t = setTimeout(async () => {
+      try { const r = await checkSkuAvailable(code); setSkuTaken(!r.available); } catch { setSkuTaken(false); }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [sku]);
 
   /** SKU/barcode preview — mirrors the server autoSku so what you see prints later. */
   const previewSku = (r: Row): string => {
@@ -190,6 +201,11 @@ export function AddInventoryClient({
   async function save(mode: "draft" | "publish") {
     const err = validate();
     if (err) { toast(err, "error"); return; }
+    // Final uniqueness gate for a manually-typed parent SKU — a code can belong to exactly one item.
+    if (sku.trim()) {
+      const chk = await checkSkuAvailable(sku.trim());
+      if (!chk.available) { setSkuTaken(true); toast(`SKU ${sku.trim().toUpperCase()} is already taken — please enter a different one.`, "error"); return; }
+    }
     setBusy(true);
     try {
       const real = rows.filter((r) => r.color.trim() || r.size.trim() || r.polish.trim());
@@ -379,7 +395,8 @@ export function AddInventoryClient({
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
           <div>
             <label className="text-xs font-medium text-muted">SKU (optional)</label>
-            <input className={`${input} mt-1 font-mono`} placeholder="Auto-generate if left blank" value={sku} onChange={(e) => setSku(e.target.value)} />
+            <input className={`${input} mt-1 font-mono ${skuTaken ? "!border-rose" : ""}`} placeholder="Auto-generate if left blank" value={sku} onChange={(e) => setSku(e.target.value.toUpperCase())} />
+            {skuTaken && <p className="text-[11px] text-rose mt-0.5">This SKU is already taken — please enter a different one.</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-muted">Product type <span className="text-rose">*</span></label>

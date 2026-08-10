@@ -85,6 +85,13 @@ export async function addVariantAction(formData: FormData): Promise<void> {
   if (!p) return;
   const dbColorCode = color ? codes[color.toLowerCase()] ?? null : null;
   if (!vsku) vsku = autoSku(productSku, { color, size, polish }, dbColorCode);
+  // A code must stay unique across products + variants. Skip the write if it's already in use so
+  // we never create a clashing/duplicate SKU (the DB unique index is the final backstop).
+  const [{ data: pClash }, { data: vClash }] = await Promise.all([
+    sb.from("products").select("id").ilike("sku", vsku).maybeSingle(),
+    sb.from("variants").select("id").ilike("sku", vsku).maybeSingle(),
+  ]);
+  if (pClash || vClash) return;
   await sb.from("variants").insert({
     product_id: (p as any).id, color: color || null, size: size || null, polish: polish || null, sku: vsku, qty,
     retail_override: toPaise(formData.get("retail")), wholesale_override: toPaise(formData.get("wholesale")), mrp_override: toPaise(formData.get("mrp")),
@@ -107,11 +114,19 @@ export async function updateVariantAction(formData: FormData): Promise<void> {
   const sb = supabaseServer();
   const codes = color ? await getColorCodeMap() : ({} as Record<string, string>);
   const dbColorCode = color ? codes[color.toLowerCase()] ?? null : null;
-  await sb.from("variants").update({
-    color: color || null, size: size || null, polish: polish || null,
-    sku: sku || autoSku(productSku, { color, size, polish }, dbColorCode), qty,
+  const finalSku = sku || autoSku(productSku, { color, size, polish }, dbColorCode);
+  // Keep the code unique across products + other variants; skip the rename on a clash so we never
+  // point two items at the same SKU (the client warns before submit; this is the server backstop).
+  const [{ data: pClash }, { data: vClash }] = await Promise.all([
+    sb.from("products").select("id").ilike("sku", finalSku).maybeSingle(),
+    sb.from("variants").select("id").ilike("sku", finalSku).neq("id", id).maybeSingle(),
+  ]);
+  const patch: Record<string, any> = {
+    color: color || null, size: size || null, polish: polish || null, qty,
     retail_override: toPaise(formData.get("retail")), wholesale_override: toPaise(formData.get("wholesale")), mrp_override: toPaise(formData.get("mrp")),
-  }).eq("id", id);
+  };
+  if (!pClash && !vClash) patch.sku = finalSku; // only change the SKU when the new code is free
+  await sb.from("variants").update(patch).eq("id", id);
   await rememberOptions(sb, { color, size, polish });
   reval(productSku);
 }

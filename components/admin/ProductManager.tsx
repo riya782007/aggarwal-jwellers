@@ -14,6 +14,7 @@ import {
   saveProductGeneralAction, saveProductInventoryAction, saveProductPricingAction,
   saveProductChannelAction, saveVariantVisibilityAction,
 } from "@/app/actions/products";
+import { SkuField } from "@/components/admin/SkuField";
 
 const TABS = [
   ["general", "General", "📋"], ["pricing", "Pricing", "₹"], ["inventory", "Inventory", ""],
@@ -93,7 +94,7 @@ export function ProductManager({ data, initialTab }: { data: any; initialTab?: s
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2"><label className={label}>Product name</label><input name="name" defaultValue={p.name} className={field} required /></div>
             <div><label className={label}>Product code</label><input name="product_code" defaultValue={det.product_code ?? ""} className={field} /></div>
-            <div><label className={label}>Internal SKU (unique, scannable)</label><input name="internal_sku" defaultValue={det.internal_sku ?? p.sku} className={`${field} uppercase`} /></div>
+            <div><label className={label}>Internal SKU (unique, scannable)</label><SkuField name="internal_sku" defaultValue={det.internal_sku ?? p.sku} productId={p.id} className={`${field} uppercase`} /></div>
             <div><label className={label}>Category</label>
               <select name="category_id" defaultValue={p.category?.id ?? ""} className={field}>
                 {data.categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}

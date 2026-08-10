@@ -911,8 +911,11 @@ export async function createProductFullAction(
   const manual = payload.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
   const sku = manual || `AJ${skuNum}`;
   if (manual) {
-    const { data: dup } = await sb.from("products").select("id").eq("sku", manual).maybeSingle();
-    if (dup) return { ok: false, error: `SKU ${manual} already exists.` };
+    // Unique across BOTH products and variants (a scanned code resolves to exactly one item).
+    const { data: dup } = await sb.from("products").select("id").ilike("sku", manual).maybeSingle();
+    if (dup) return { ok: false, error: `SKU ${manual} is already taken — please enter a different one.` };
+    const { data: dupV } = await sb.from("variants").select("id").ilike("sku", manual).maybeSingle();
+    if (dupV) return { ok: false, error: `SKU ${manual} is already used by a variant — please enter a different one.` };
   }
 
   // ---- duplicate variant SKU guard ----
@@ -933,8 +936,12 @@ export async function createProductFullAction(
     skuSet.add(v.skuFinal);
   }
   if (skuSet.size) {
-    const { data: taken } = await sb.from("variants").select("sku").in("sku", [...skuSet]).limit(1);
-    if ((taken as any[])?.[0]?.sku) return { ok: false, error: `Variant SKU ${(taken as any)[0].sku} already exists.` };
+    const codes = [...skuSet];
+    const { data: taken } = await sb.from("variants").select("sku").in("sku", codes).limit(1);
+    if ((taken as any[])?.[0]?.sku) return { ok: false, error: `Variant SKU ${(taken as any)[0].sku} is already taken — please enter a different one.` };
+    // Also make sure no variant code collides with an existing PRODUCT sku (cross-table).
+    const { data: takenP } = await sb.from("products").select("sku").in("sku", codes).limit(1);
+    if ((takenP as any[])?.[0]?.sku) return { ok: false, error: `Variant SKU ${(takenP as any)[0].sku} clashes with an existing product SKU — please enter a different one.` };
   }
 
   const toPaise = (rs?: number | null) => (rs != null && Number.isFinite(Number(rs)) && Number(rs) > 0 ? Math.round(Number(rs) * 100) : null);
@@ -1014,4 +1021,37 @@ export async function createProductFullAction(
   await logActivity({ action: "product_created", ref: sku, detail: `${name} (${payload.type}, ${variants.length} variants)` });
   revalidatePath("/admin/inventory"); revalidatePath("/admin/catalogue"); revalidatePath("/shop"); revalidatePath("/trade");
   return { ok: true, productId, sku };
+}
+
+/**
+ * Live SKU-availability check for the create/edit forms so the owner is warned the INSTANT a code
+ * clashes ("please enter a different SKU — this one's taken") instead of finding out on save.
+ * A SKU must be unique across BOTH products and variants: billing resolves a scanned code as a
+ * product first and only then as a variant, so one code can belong to exactly one item. The check
+ * is case-insensitive (all SKUs are stored upper-cased) and excludes the product being edited —
+ * and its own variants, which cascade-rename with the parent — so re-saving your own code is fine.
+ */
+export async function checkSkuAvailable(
+  skuRaw: string,
+  excludeProductId?: string,
+): Promise<{ available: boolean; takenBy?: "product" | "variant" }> {
+  // Read-only lookup; fail OPEN if the role can't edit the catalogue (the save actions still enforce).
+  if (!(await requirePerm("catalog.edit")) && !(await requirePerm("catalog.create")) && !(await requirePerm("catalog.inventory_edit"))) {
+    return { available: true };
+  }
+  const sku = (skuRaw || "").trim().toUpperCase().replace(/\s+/g, "-");
+  if (!sku) return { available: true };
+  const sb = supabaseServer();
+
+  let pq = sb.from("products").select("id").ilike("sku", sku).limit(1);
+  if (excludeProductId) pq = pq.neq("id", excludeProductId);
+  const { data: prod } = await pq.maybeSingle();
+  if (prod) return { available: false, takenBy: "product" };
+
+  let vq = sb.from("variants").select("id").ilike("sku", sku).limit(1);
+  if (excludeProductId) vq = vq.neq("product_id", excludeProductId);
+  const { data: variant } = await vq.maybeSingle();
+  if (variant) return { available: false, takenBy: "variant" };
+
+  return { available: true };
 }
