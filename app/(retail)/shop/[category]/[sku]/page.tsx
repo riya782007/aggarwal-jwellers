@@ -3,7 +3,7 @@ import { waHref as waBiz } from "@/lib/business";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductBySku, getPricingFormula, getProductReviews, getRecommendations, isStorefrontImage } from "@/lib/supabase/queries";
+import { getProductBySku, getPricingFormula, getProductReviews, getRecommendations, storefrontImages } from "@/lib/supabase/queries";
 import { resolveProductContent } from "@/lib/content";
 import { liveOffer } from "@/lib/offers";
 import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
@@ -52,7 +52,7 @@ export default async function ProductPage({ params }: Params) {
   // Gallery shows AI-generated product photos + every variant photo, all zoomable. The raw upload
   // (kind 'source'/'flatlay') is kept for the Fix-a-detail editor but never shown to customers.
   const galleryImages = [
-    ...((p.images ?? []) as any[]).filter((i: any) => isStorefrontImage(i.kind)),
+    ...storefrontImages((p.images ?? []) as any[]),
     ...((p.variants ?? []) as any[]).flatMap((v: any) => (((v.image_paths ?? []) as string[]) || []).map((path) => ({ path, kind: v.color }))),
   ];
   // Owner-chosen storefront cover leads the gallery (so the hero matches the card thumbnail).

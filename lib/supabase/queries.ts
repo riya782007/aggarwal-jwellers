@@ -26,6 +26,19 @@ const STOREFRONT_HIDDEN_IMAGE_KINDS = new Set(["source", "flatlay"]);
 export function isStorefrontImage(kind?: string | null): boolean {
   return !STOREFRONT_HIDDEN_IMAGE_KINDS.has((kind ?? "").toLowerCase());
 }
+/**
+ * Pick the images to SHOW for one product. Prefer AI/studio shots (kind 'model','angle','hero', …).
+ * If the product has none yet, FALL BACK to the owner's uploaded photos (many shops upload a
+ * finished image that gets stored as kind 'source'/'flatlay') so the product is never hidden just
+ * because it wasn't run through the in-app studio. Studio-processed products are unaffected: once a
+ * 'model' shot exists it wins and the raw reference stays hidden. Sorted by `sort` (cover first).
+ */
+export function storefrontImages<T extends { path?: string | null; kind?: string | null; sort?: number | null }>(images: T[]): T[] {
+  const http = (images ?? []).filter((i) => typeof i.path === "string" && (i.path as string).startsWith("http"));
+  const preferred = http.filter((i) => isStorefrontImage(i.kind));
+  const chosen = preferred.length ? preferred : http; // uploaded photos surface only when no AI shot exists
+  return chosen.slice().sort((a, b) => ((a.sort ?? 0) as number) - ((b.sort ?? 0) as number));
+}
 export type DbProduct = {
   id: string; category_id: string; sku: string; name: string;
   type: "simple" | "configurable"; base_wholesale: number; qty: number;
@@ -253,7 +266,7 @@ export async function getCatalogProducts(opts: { category?: string; subcategory?
     const ov = overridesOf(p);
     const o = _liveOffer(p.base_wholesale, formula, ov);
     const set = _resolvePrices(p.base_wholesale, formula, ov);
-    const imgs = (p.images ?? []).filter((i: any) => typeof i.path === "string" && i.path.startsWith("http") && isStorefrontImage(i.kind)).sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
+    const imgs = storefrontImages(p.images ?? []);
     const seo = (p.generated_content as any)?.seo ?? {};
     // Labels come through the join as product_labels[{ label_id, labels: { name } }]; flatten to names.
     const labelNames = ((p.product_labels ?? []) as any[])
@@ -1371,10 +1384,11 @@ export async function getStorefront(
   // Primary thumbnail per product: first product_image (sorted, so AI "model" shot wins),
   // else the first real variant photo — so cards show the same image as the product page.
   const imgByProduct = new Map<string, string>();
+  const rawByProduct = new Map<string, string>(); // uploaded 'source'/'flatlay' fallback — used only when a product has no AI/studio shot
   for (const r of (pimgs as any[]) ?? []) {
     if (!r.path || !String(r.path).startsWith("http")) continue;
-    if (!isStorefrontImage(r.kind)) continue; // hide the raw upload — only AI-generated images on the shop
-    if (!imgByProduct.has(r.product_id)) imgByProduct.set(r.product_id, r.path);
+    if (isStorefrontImage(r.kind)) { if (!imgByProduct.has(r.product_id)) imgByProduct.set(r.product_id, r.path); }
+    else if (!rawByProduct.has(r.product_id)) rawByProduct.set(r.product_id, r.path);
   }
   for (const v of (vimgs as any[]) ?? []) {
     if (imgByProduct.has(v.product_id)) continue;
@@ -1389,7 +1403,7 @@ export async function getStorefront(
     const isNew = p.created_at ? now - new Date(p.created_at).getTime() < 1000 * 60 * 60 * 24 * 21 : false;
     // Owner-chosen storefront cover (any product/variant image) wins over the automatic pick.
     const cover = (typeof p.thumbnail_path === "string" && p.thumbnail_path.startsWith("http")) ? p.thumbnail_path : null;
-    return { ...p, image: cover ?? imgByProduct.get(p.id) ?? null, rating: Math.round(rating * 10) / 10, reviews, isNew };
+    return { ...p, image: cover ?? imgByProduct.get(p.id) ?? rawByProduct.get(p.id) ?? null, rating: Math.round(rating * 10) / 10, reviews, isNew };
   });
   if (!opts.includeWholesaleOnly) products = products.filter((p: any) => !p.wholesale_only);
   // Wholesale storefront hides retail-only items (admin/POS pass excludeRetailOnly=false → see all).
