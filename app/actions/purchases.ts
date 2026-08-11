@@ -61,6 +61,9 @@ export async function recordPurchaseAction(input: {
   /** Legacy single-method fields — still accepted so older callers keep working. */
   paymentMode?: "cash" | "upi" | "bank" | "credit"; amountPaidRupees?: number;
 }): Promise<{ ok: boolean; total?: number; error?: string; duplicateBillNo?: boolean }> {
+  // Permission gate (was missing): recording a purchase adds stock + books money, so it must require
+  // the same right as creating suppliers / editing purchases. A view-only role can no longer post one.
+  if (!(await requirePerm("purchases.create"))) return { ok: false, error: "Your role can't record purchases." };
   if (!input.supplierId) return { ok: false, error: "Choose a supplier" };
   const items = (input.items ?? []).filter((l) => l.qty > 0 && l.unitCostRupees > 0);
   if (!items.length) return { ok: false, error: "Add at least one line with qty and cost" };

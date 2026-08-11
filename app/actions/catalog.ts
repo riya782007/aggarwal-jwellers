@@ -588,6 +588,7 @@ export async function deleteProductAction(formData: FormData): Promise<{ ok: boo
 }
 
 export async function createCategoryJsonAction(name: string): Promise<{ id: string; name: string } | null> {
+  if (!(await requirePerm("catalog.edit"))) return null; // gate (was missing) — matches sub/style create
   const nm = name.trim(); if (!nm) return null;
   const sb = supabaseServer();
   const { data } = await sb.from("categories").insert({ name: nm, slug: slugify(nm) }).select("id,name").single();

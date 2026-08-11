@@ -21,6 +21,17 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const { order } = data;
   // #4/#35: list bill lines in A–Z SKU order so picking/checking is predictable.
   const items = [...data.items].sort((a: any, b: any) => String(a.variant?.sku ?? a.product?.sku ?? "").localeCompare(String(b.variant?.sku ?? b.product?.sku ?? "")));
+  // "Merge colours on the bill" (order.merge_variants): collapse a product's colour variants into ONE
+  // line — e.g. a necklace sold as 3 blue + 4 yellow + 5 pink prints as a single "Necklace ×12". We
+  // group by the parent product, SUM qty + amount, drop the colour, and show the blended unit rate.
+  const displayItems: any[] = order.merge_variants
+    ? Object.values(items.reduce((acc: Record<string, any>, it: any) => {
+        const key = String(it.product?.sku ?? it.product_id ?? it.product?.name ?? it.id);
+        const cur = acc[key] ?? { product: it.product, variant: null, qty: 0, line_total: 0, unit_price: 0, unit_mrp: 0 };
+        cur.qty += it.qty; cur.line_total += it.line_total;
+        acc[key] = cur; return acc;
+      }, {} as Record<string, any>)).map((g: any) => ({ ...g, unit_price: g.qty > 0 ? Math.round(g.line_total / g.qty) : g.line_total }))
+    : items;
 
   const isCash = order.bill_type === "cash";
   const isProforma = order.doc_type === "proforma";
@@ -69,9 +80,10 @@ export default async function Invoice({ params }: { params: { id: string } }) {
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
-      {/* #1 (Meeting 2): print invoices on A5 — better paper use for many-SKU orders. Scoped
-          to this route via a page-level @page so the barcode sheet (A4) is unaffected. */}
-      <style dangerouslySetInnerHTML={{ __html: "@media print{@page{size:A5;margin:6mm}.print-area{font-size:11px}.print-area .font-display{font-size:1.25rem}}" }} />
+      {/* Print bills on A4 (the owner's sheet) at a readable size — legible without glasses. The
+          items table repeats its header on every page and never splits a row, so a long bill flows
+          cleanly across sheets. Scoped to this route so the barcode sheet is unaffected. */}
+      <style dangerouslySetInnerHTML={{ __html: "@media print{@page{size:A4;margin:12mm}.print-area{font-size:13px}.print-area .font-display{font-size:1.7rem}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}}" }} />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
           <Link href="/admin/billing" className="text-sm text-emerald nav-link"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />New sale</Link>
@@ -132,7 +144,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((it: any, i: number) => {
+              {displayItems.map((it: any, i: number) => {
                 const lineTaxable = (isCash || gstExclusive) ? it.line_total : Math.round(it.line_total / (1 + GST_RATE / 100));
                 const unit = (isCash || gstExclusive) ? it.unit_price : Math.round(it.unit_price / (1 + GST_RATE / 100));
                 // Original (pre-discount) rate for the Rate column; Amount stays the discounted net.

@@ -41,6 +41,21 @@ const ROUTE_PERM: [string, string | string[]][] = [
   ["/admin/reels", "reels.manage"],
   ["/admin/approvals", "approvals.approve"],
   ["/admin/analytics", "analytics.view"],
+  // Security audit (previously UNGATED → any signed-in staff could open these). Owner's "*" wildcard
+  // still passes all of them; staff now need the matching permission. Adjust a mapping if a role
+  // legitimately needs a page it's now blocked from.
+  ["/admin/cashbook", "analytics.view"],       // cash/bank book — financial
+  ["/admin/creditors", "billing.sell"],        // Udhaar / receivables
+  ["/admin/stock-movements", "inventory.view"],
+  ["/admin/backorders", "inventory.view"],
+  ["/admin/orders", "billing.sell"],           // website order fulfilment
+  ["/admin/quotes", "estimates.create"],       // dealer rate requests
+  ["/admin/submissions", "catalog.create"],
+  ["/admin/promotions", "marketing.manage"],
+  ["/admin/notify", "marketing.manage"],
+  ["/admin/vouchers", "marketing.manage"],
+  ["/admin/ai-activity", "analytics.view"],
+  ["/admin/inbox", "reviews.respond"],
   ["/admin/roles", "roles.manage"],
   // Owner-only / fixed config — hidden from the menu and blocked by URL for non-owners.
   ["/admin/employees", "employees.view"],

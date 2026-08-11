@@ -5,7 +5,9 @@ export function IconSearch({ className = "w-5 h-5" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} {...base}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>;
 }
 export function IconHeart({ className = "w-5 h-5" }: { className?: string }) {
-  return <svg viewBox="0 0 24 24" className={className} {...base}><path d="M12 20s-7-4.35-9.5-8.5C1 8.5 2.5 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.5 0 5 3.5 3.5 6.5C19 15.65 12 20 12 20z" /></svg>;
+  // Symmetric heart (Feather-style): both lobes and the bottom tip are centred on x=12, so it no
+  // longer renders lopsided. Same 24×24 viewBox + stroke style, and it fills cleanly when active.
+  return <svg viewBox="0 0 24 24" className={className} {...base}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>;
 }
 export function IconUser({ className = "w-5 h-5" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} {...base}><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5" /></svg>;

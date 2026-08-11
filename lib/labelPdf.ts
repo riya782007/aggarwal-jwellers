@@ -93,7 +93,7 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       }
       if (lab.priceLine) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(9); // price code bumped one size up (was 8) — it's the last line, so layout is unaffected
         doc.text(lab.priceLine, tx, y);
       }
     }

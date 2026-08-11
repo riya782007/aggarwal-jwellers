@@ -915,7 +915,7 @@ export async function getProductEstimateReservations(productId: string): Promise
 
 // Pillar 5 — the single Stock Movement History register: every in/out across all products,
 // each row carrying ref_id so its purchase/sale bill opens straight from here.
-export async function getStockMovements(opts: { page?: number; pageSize?: number; kind?: string; q?: string; from?: string; to?: string }) {
+export async function getStockMovements(opts: { page?: number; pageSize?: number; kind?: string; q?: string; from?: string; to?: string; supplier?: string }) {
   const sb = supabaseServer();
   const pageSize = opts.pageSize ?? 30;
   const page = Math.max(1, opts.page ?? 1);
@@ -925,6 +925,16 @@ export async function getStockMovements(opts: { page?: number; pageSize?: number
   if (opts.q?.trim()) { const s = escLike(opts.q); if (s) query = query.ilike("sku", `%${s}%`); }
   if (opts.from) query = query.gte("created_at", opts.from);
   if (opts.to) query = query.lte("created_at", opts.to);
+  // Supplier filter: purchase movements reference a purchase (ref_id → purchases.id), and each
+  // purchase has a supplier. So restrict to the movements whose purchase belongs to this supplier —
+  // exactly "show me the stock we took in from XYZ" (e.g. yesterday's 100 pcs). Non-purchase rows
+  // (sales/opening) reference other docs, so they naturally drop out of this filter.
+  if (opts.supplier) {
+    const { data: sp } = await sb.from("purchases").select("id").eq("supplier_id", opts.supplier);
+    const ids = ((sp as any[]) ?? []).map((p) => p.id);
+    if (ids.length === 0) return { rows: [], total: 0, page, pageSize };
+    query = query.in("ref_id", ids);
+  }
   const fromIdx = (page - 1) * pageSize;
   const { data, count } = await query.order("created_at", { ascending: false }).range(fromIdx, fromIdx + pageSize - 1);
   const rows = (data as any[]) ?? [];

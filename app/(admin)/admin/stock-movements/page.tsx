@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getStockMovements, getOpenEstimateReservations } from "@/lib/supabase/queries";
+import { getStockMovements, getOpenEstimateReservations, getSuppliers } from "@/lib/supabase/queries";
 import { Pager } from "@/components/admin/Pager";
 import { StockMovementsTable } from "@/components/admin/StockMovementsTable";
 
@@ -22,18 +22,20 @@ const KINDS = [
 ];
 // Row rendering, document links and click-to-open ledger now live in <StockMovementsTable/>.
 
-export default async function StockMovements({ searchParams }: { searchParams: { page?: string; kind?: string; q?: string; from?: string; to?: string } }) {
+export default async function StockMovements({ searchParams }: { searchParams: { page?: string; kind?: string; q?: string; from?: string; to?: string; supplier?: string } }) {
   const page = parseInt(searchParams.page ?? "1", 10) || 1;
   const kind = searchParams.kind ?? "all";
   const q = searchParams.q ?? "";
   const from = searchParams.from ?? "";
   const to = searchParams.to ?? "";
-  const [{ rows, total }, reservations] = await Promise.all([
-    getStockMovements({ page, pageSize: PAGE_SIZE, kind, q, from: from || undefined, to: to ? to + "T23:59:59" : undefined }),
+  const supplier = searchParams.supplier ?? "";
+  const [{ rows, total }, reservations, suppliers] = await Promise.all([
+    getStockMovements({ page, pageSize: PAGE_SIZE, kind, q, supplier: supplier || undefined, from: from || undefined, to: to ? to + "T23:59:59" : undefined }),
     // #6: soft holds are a separate concept from the stock_adjustments ledger — show them on
     // every page (not only page 1) whenever the user is on the All or Estimate tab, so the
     // open-estimate reservations don't disappear as soon as you scroll.
     (kind === "all" || kind === "estimate") ? getOpenEstimateReservations() : Promise.resolve([] as any[]),
+    getSuppliers().catch(() => [] as any[]),
   ]);
   const reservedTotal = (reservations as any[]).reduce((s, e) => s + e.qty, 0);
   const sel = "h-11 rounded-xl border border-sand bg-white px-3 text-sm outline-none focus:border-emerald";
@@ -46,10 +48,14 @@ export default async function StockMovements({ searchParams }: { searchParams: {
       <form action="/admin/stock-movements" className="flex flex-wrap gap-2 mb-4 items-center">
         <input name="q" defaultValue={q} placeholder="Search a SKU…" className="h-11 rounded-xl border border-sand bg-white px-4 text-[15px] outline-none focus:border-emerald flex-1 min-w-[200px]" />
         <select name="kind" defaultValue={kind} className={sel}>{KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
+        <select name="supplier" defaultValue={supplier} className={sel} title="Show only stock taken in from this supplier">
+          <option value="">All suppliers</option>
+          {(suppliers as any[]).map((s) => <option key={s.id} value={s.id}>{s.name}{s.city ? ` · ${s.city}` : ""}</option>)}
+        </select>
         <label className="text-xs text-muted flex items-center gap-1">From <input type="date" name="from" defaultValue={from} className={sel} /></label>
         <label className="text-xs text-muted flex items-center gap-1">To <input type="date" name="to" defaultValue={to} className={sel} /></label>
         <button className="h-11 px-5 rounded-xl bg-ink text-white text-sm">Filter</button>
-        {(q || kind !== "all" || from || to) && <Link href="/admin/stock-movements" className="h-11 grid place-items-center px-3 text-sm text-muted hover:text-ink">Clear</Link>}
+        {(q || kind !== "all" || supplier || from || to) && <Link href="/admin/stock-movements" className="h-11 grid place-items-center px-3 text-sm text-muted hover:text-ink">Clear</Link>}
       </form>
 
       {reservations.length > 0 && (
@@ -75,7 +81,7 @@ export default async function StockMovements({ searchParams }: { searchParams: {
 
       <p className="text-xs text-muted mb-2">Tip: click any row to open the full <b>Product Stock Ledger</b> for that SKU.</p>
       <StockMovementsTable rows={rows as any} />
-      <Pager basePath="/admin/stock-movements" params={{ q, kind, from, to }} page={page} pageSize={PAGE_SIZE} total={total} />
+      <Pager basePath="/admin/stock-movements" params={{ q, kind, supplier, from, to }} page={page} pageSize={PAGE_SIZE} total={total} />
     </main>
   );
 }

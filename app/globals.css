@@ -131,7 +131,7 @@ body {
 
   .barcode-label .bc-name { font-size: 6pt; line-height: 1.1; }
   .barcode-label .bc-sku { font-size: 6pt; margin-top: 0.5mm; }
-  .barcode-label .bc-price { font-size: 7pt; }
+  .barcode-label .bc-price { font-size: 8pt; }
   .barcode-label svg { height: 12mm !important; }
 
   /* Thermal label roll (Vishal's stock): 2 stickers side by side, each 2in × 1in, so the
@@ -152,12 +152,12 @@ body {
   .print-area.thermal2up .barcode-label svg { height: 11mm !important; }
   .print-area.thermal2up .bc-name { font-size: 6.5pt; }
   .print-area.thermal2up .bc-sku { font-size: 6.5pt; }
-  .print-area.thermal2up .bc-price { font-size: 7pt; }
+  .print-area.thermal2up .bc-price { font-size: 8pt; }
 }
 /* on-screen label sizing */
 .barcode-label .bc-name { font-size: 10px; }
 .barcode-label .bc-sku { font-size: 10px; margin-top: 2px; }
-.barcode-label .bc-price { font-size: 11px; }
+.barcode-label .bc-price { font-size: 12px; }
 
 /* Chic slim scrollbar — used on the console sidebar's scroll area.
    Thin track, translucent gold thumb that only shows subtly against the dark ink bg. */
