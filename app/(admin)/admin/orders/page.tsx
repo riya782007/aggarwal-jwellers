@@ -46,7 +46,7 @@ export default async function WebsiteOrders({ searchParams }: { searchParams: { 
       <div className="mb-3"><TableSearch targetId="orders-list" placeholder="Search orders — customer, phone, order no…" /></div>
 
       <div id="orders-list" className="space-y-3">
-        {rows.length === 0 && <div className="bg-white rounded-2xl p-8 shadow-card text-center text-muted">Nothing here right now. <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></div>}
+        {rows.length === 0 && <div className="bg-white rounded-2xl p-8 shadow-card text-center text-muted">Nothing here right now.</div>}
         {rows.map((o: any) => {
           const grand = orderGrandPaise(o);
           const dead = isDeadOrder(o.status);

@@ -1560,7 +1560,7 @@ export async function getEstimates(opts: { sort?: string } = {}) {
   const [field, dir] = (opts.sort ?? "").split("_");
   const col = ESTIMATES_SORT[field] ?? "created_at";
   const asc = col === "created_at" ? dir === "asc" : dir !== "desc";
-  let q = sb.from("estimates").select("id,customer_name,customer_phone,total,status,gst,order_id,notes,created_at").order(col, { ascending: asc, nullsFirst: false });
+  let q = sb.from("estimates").select("id,customer_name,customer_phone,total,status,order_id,created_at").order(col, { ascending: asc, nullsFirst: false });
   if (col !== "created_at") q = q.order("created_at", { ascending: false });
   const { data } = await q.limit(200);
   return (data as any[]) ?? [];
