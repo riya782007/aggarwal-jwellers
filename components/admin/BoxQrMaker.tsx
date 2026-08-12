@@ -24,8 +24,9 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [printBox, setPrintBox] = useState<Box | null>(null);
 
-  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://aggarwaljewellers.com").replace(/\/$/, "");
-  const qrValue = (code: string) => `${SITE}/g/${encodeURIComponent(code)}`;
+  // PRIVACY: encode ONLY the box code — no web link — so a phone scan reveals nothing. The billing
+  // scanner reads the raw GRP-… code, which the POS resolves to the box. (POS also accepts old /g/ URLs.)
+  const qrValue = (code: string) => code;
   const input = "w-full rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   const matches = useMemo(

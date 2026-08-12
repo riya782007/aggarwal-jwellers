@@ -52,10 +52,11 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
   const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
   // Q27 defaults: name + the combined price code A·7{wholesale}7·{retail}·51 = "name and 2 prices".
   const [opts, setOpts] = useState({ sku: true, name: true, price: true, special: false, wholesale: true, currency: false });
-  // Q27: the sticker QR opens the LIVE product page (short /p/<sku> link → small symbol).
-  // POS scanning still works — the counter search extracts the SKU from a scanned URL.
-  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://aggarwaljewellers.com").replace(/\/$/, "");
-  const qrValue = (sku: string) => `${SITE}/p/${encodeURIComponent(sku)}`;
+  // PRIVACY: the QR encodes ONLY the internal item code — NOT a web link. A customer or reseller who
+  // scans a tag with a phone sees a meaningless code and is NOT taken to the storefront (no product,
+  // no price, nothing). The shop's billing scanner reads that code straight into the POS search.
+  // Old stickers that encoded a /p/<sku> URL still scan — the POS extracts the SKU from them too.
+  const qrValue = (sku: string) => sku;
 
   const matches = useMemo(
     () => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 10) : []),
@@ -211,7 +212,7 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
           <div>
             <p className="text-xs font-medium text-muted mb-1">Label Type</p>
             <select value={labelType} onChange={(e) => setLabelType(e.target.value as "qr" | "code128")} className="w-full rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald">
-              <option value="qr">QR code — opens the product page; scans at POS too</option>
+              <option value="qr">QR code — internal code only, no web link (scans at POS)</option>
               <option value="code128">Barcode (Code-128) — legacy 1D scanner</option>
             </select>
           </div>
