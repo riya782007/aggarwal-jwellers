@@ -881,6 +881,9 @@ export type CreateProductPayload = {
   variants?: FullVariantInput[];
   mode: "draft" | "publish";
   rawImageBase64?: string; rawImageMime?: string;
+  // Optional parent-level price overrides (₹). Used by bulk entry so each product can carry its own
+  // retail / MRP; the single form leaves them undefined and prices flow from base_wholesale + formula.
+  retailOverrideRupees?: number | null; mrpOverrideRupees?: number | null;
 };
 
 /** Create a complete product (parent + variants + independent retail/wholesale publish settings +
@@ -954,6 +957,7 @@ export async function createProductFullAction(
   const { data: prod, error } = await sb.from("products").insert({
     category_id: payload.categoryId, subcategory_id: payload.subcategoryId || null, style_id: payload.styleId || null, sku, name, type: payload.type,
     base_wholesale: Math.round(base * 100), qty: productQty, status,
+    retail_override: toPaise(payload.retailOverrideRupees), mrp_override: toPaise(payload.mrpOverrideRupees),
     retail_only: payload.retailPublish && !payload.wholesalePublish,
     wholesale_only: payload.wholesalePublish && !payload.retailPublish,
     last_movement_at: new Date().toISOString(),
@@ -1022,6 +1026,51 @@ export async function createProductFullAction(
   await logActivity({ action: "product_created", ref: sku, detail: `${name} (${payload.type}, ${variants.length} variants)` });
   revalidatePath("/admin/inventory"); revalidatePath("/admin/catalogue"); revalidatePath("/shop"); revalidatePath("/trade");
   return { ok: true, productId, sku };
+}
+
+// ---- Bulk add: many INDIVIDUAL products in one submit, sharing common fields ----
+export type BulkCommon = { categoryId: string; subcategoryId?: string; styleId?: string; retailPublish: boolean; wholesalePublish: boolean; mode: "draft" | "publish"; aiContent?: boolean };
+export type BulkRow = { name: string; manualSku?: string; wholesaleRupees: number; retailRupees?: number | null; mrpRupees?: number | null; qty: number; rawImageBase64?: string; rawImageMime?: string };
+export type BulkResult = { row: number; ok: boolean; name: string; sku?: string; productId?: string; error?: string };
+
+/**
+ * Create N INDIVIDUAL products from one batch: the common category/sub-category/collection + channels
+ * apply to every row, and each row's own name/SKU/prices/qty/photo make it a distinct product. This is
+ * purely a faster data-entry path — it calls the SAME createProductFullAction as the single form once
+ * per row, so there is ZERO separate product logic or schema. 5 rows ⇒ 5 products (never 1 × qty 5).
+ */
+export async function bulkCreateProductsAction(input: { common: BulkCommon; rows: BulkRow[] }): Promise<{ ok: boolean; created: number; results: BulkResult[]; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) return { ok: false, created: 0, results: [], error: "Your role can't add products." };
+  const rows = input.rows ?? [];
+  if (!rows.length) return { ok: false, created: 0, results: [], error: "Add at least one product row." };
+  if (!input.common?.categoryId) return { ok: false, created: 0, results: [], error: "Pick a common category first." };
+  const results: BulkResult[] = [];
+  let created = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const payload: CreateProductPayload = {
+      name: (r.name ?? "").trim(),
+      categoryId: input.common.categoryId,
+      subcategoryId: input.common.subcategoryId,
+      styleId: input.common.styleId,
+      basePriceRupees: Number(r.wholesaleRupees),
+      initialStock: Math.max(0, Math.floor(Number(r.qty) || 0)),
+      manualSku: r.manualSku?.trim() || undefined,
+      type: "simple",
+      aiContent: !!input.common.aiContent,
+      retailPublish: input.common.retailPublish,
+      wholesalePublish: input.common.wholesalePublish,
+      mode: input.common.mode,
+      rawImageBase64: r.rawImageBase64,
+      rawImageMime: r.rawImageMime,
+      retailOverrideRupees: r.retailRupees != null && Number(r.retailRupees) > 0 ? Number(r.retailRupees) : null,
+      mrpOverrideRupees: r.mrpRupees != null && Number(r.mrpRupees) > 0 ? Number(r.mrpRupees) : null,
+    };
+    const res = await createProductFullAction(payload);
+    results.push({ row: i, ok: res.ok, name: payload.name, sku: res.sku, productId: res.productId, error: res.error });
+    if (res.ok) created++;
+  }
+  return { ok: created > 0, created, results };
 }
 
 /**
