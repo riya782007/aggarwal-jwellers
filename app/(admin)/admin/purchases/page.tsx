@@ -1,6 +1,6 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
-import { getSuppliers, getProductsForPurchase, getRecentPurchases, getLastPurchaseCosts } from "@/lib/supabase/queries";
+import { getSuppliers, getProductsForPurchase, getRecentPurchases, getLastPurchaseCosts, getCategoryTree } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PurchaseClient } from "@/components/admin/PurchaseClient";
 import { createSupplierAction } from "@/app/actions/purchases";
@@ -10,13 +10,16 @@ import { TableSearch } from "@/components/admin/TableSearch";
 export const metadata = { title: "Owner Console · Purchases" };
 
 export default async function Purchases() {
-  const [suppliers, products, purchases, lastCosts] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases(), getLastPurchaseCosts()]);
+  const [suppliers, products, purchases, lastCosts, tree] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases(), getLastPurchaseCosts(), getCategoryTree().catch(() => [] as any[])]);
+  // Category + subcategory master, so a purchase line can create a brand-new product on the spot.
+  const categories = (tree as any[]).map((c) => ({ id: c.id, name: c.name }));
+  const subcategories = (tree as any[]).flatMap((c) => ((c.subcategories ?? []) as any[]).map((s) => ({ id: s.id, name: s.name, categoryId: c.id })));
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Purchases</h1>
-      <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically.</p>
+      <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically. New designs can be created right on a line — start selling on the counter at once.</p>
 
-      <PurchaseClient suppliers={suppliers} products={products} lastCosts={lastCosts} />
+      <PurchaseClient suppliers={suppliers} products={products} lastCosts={lastCosts} categories={categories} subcategories={subcategories} />
 
       {/* 0049 — paste the whole paper bill in one go */}
       <BulkPurchasePaste suppliers={suppliers as any} />

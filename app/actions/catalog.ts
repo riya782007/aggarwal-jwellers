@@ -1056,3 +1056,64 @@ export async function checkSkuAvailable(
 
   return { available: true };
 }
+
+/**
+ * Create a MINIMAL product on the fly from the Purchase screen so the owner can start selling it on
+ * the counter immediately — no trip to Catalogue. Everything is optional except name + category +
+ * wholesale price. It lands as a DRAFT (NOT published to the storefront — the site isn't the
+ * priority) with 0 stock; the purchase then adds the quantity. SKU is auto (AJ####) when blank.
+ */
+export async function createProductForPurchaseAction(p: {
+  name: string; categoryId: string; subcategoryId?: string; sku?: string;
+  wholesaleRupees: number; retailRupees?: number; imageBase64?: string; imageMime?: string;
+}): Promise<{ ok: boolean; productId?: string; sku?: string; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) return { ok: false, error: "Your role can't add products (needs catalogue-create)." };
+  const sb = supabaseServer();
+  const name = (p.name ?? "").trim();
+  if (!name) return { ok: false, error: "Product name is required." };
+  if (!p.categoryId) return { ok: false, error: "Pick a category for the new product." };
+  const wp = Number(p.wholesaleRupees);
+  if (!(wp > 0)) return { ok: false, error: "Wholesale price must be greater than 0." };
+
+  // SKU: manual (validated unique across products + variants) or auto AJ####.
+  const manual = p.sku?.trim().toUpperCase().replace(/\s+/g, "-");
+  let sku: string;
+  if (manual) {
+    const { data: dupP } = await sb.from("products").select("id").ilike("sku", manual).maybeSingle();
+    const { data: dupV } = await sb.from("variants").select("id").ilike("sku", manual).maybeSingle();
+    if (dupP || dupV) return { ok: false, error: `SKU ${manual} is already taken — pick a different one.` };
+    sku = manual;
+  } else {
+    sku = `AJ${await nextSku(sb)}`;
+  }
+
+  const retail = p.retailRupees != null && Number(p.retailRupees) > 0 ? Math.round(Number(p.retailRupees) * 100) : null;
+  const { data: prod, error } = await sb.from("products").insert({
+    category_id: p.categoryId, subcategory_id: p.subcategoryId || null, sku, name, type: "simple",
+    base_wholesale: Math.round(wp * 100), retail_override: retail, qty: 0, status: "draft",
+    last_movement_at: new Date().toISOString(),
+  }).select("id").single();
+  if (error || !prod) return { ok: false, error: error?.message ?? "Could not create the product." };
+  const productId = (prod as any).id as string;
+
+  // Optional photo (stored as 'source' — shows on POS/catalogue; the storefront still wants a
+  // finished/AI shot, but the counter can sell it right away).
+  if (p.imageBase64) {
+    try {
+      await sb.storage.createBucket(STUDIO_BUCKET, { public: true }).then(() => {}, () => {});
+      const mime = p.imageMime ?? "image/jpeg";
+      const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+      const path = `${sku}/source-${Date.now()}.${ext}`;
+      const up = await sb.storage.from(STUDIO_BUCKET).upload(path, Buffer.from(p.imageBase64, "base64"), { contentType: mime, upsert: true });
+      if (!up.error) {
+        const { data: pub } = sb.storage.from(STUDIO_BUCKET).getPublicUrl(path);
+        await sb.from("product_images").insert({ product_id: productId, path: pub.publicUrl, kind: "source", sort: 0 });
+        await sb.from("products").update({ thumbnail_path: pub.publicUrl }).eq("id", productId);
+      }
+    } catch { /* photo is optional — never block product creation */ }
+  }
+  await sb.from("product_details").upsert({ product_id: productId, lifecycle: "draft", updated_at: new Date().toISOString() }, { onConflict: "product_id" }).then(() => {}, () => {});
+  await logActivity({ action: "product_created", ref: sku, detail: `${name} created from a purchase bill (draft · counter-ready)` });
+  revalidatePath("/admin/catalogue"); revalidatePath("/admin/inventory"); revalidatePath("/admin/purchases");
+  return { ok: true, productId, sku };
+}
