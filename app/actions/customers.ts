@@ -51,7 +51,12 @@ export async function upsertCustomerAction(formData: FormData): Promise<void> {
 export async function deleteCustomerAction(formData: FormData) {
   if (!(await requirePerm("customers.manage"))) return;
   const id = String(formData.get("id"));
-  await supabaseServer().from("customers").delete().eq("id", id);
+  if (!id) return;
+  // Customer FKs (orders / party_payments / quote_requests) are all ON DELETE SET NULL, so the delete
+  // succeeds and those rows simply detach — and every bill keeps its own name/phone snapshot, so no
+  // sales history is lost. We still surface any unexpected error rather than failing silently.
+  const { error } = await supabaseServer().from("customers").delete().eq("id", id);
   revalidatePath("/admin/customers");
-  redirect("/admin/customers");
+  if (error) redirect(`/admin/customers?err=${encodeURIComponent(error.message)}`);
+  redirect("/admin/customers?msg=Customer+deleted");
 }

@@ -34,7 +34,14 @@ export default async function SalesRecords({ searchParams }: { searchParams: { p
   // Show sales WITH and WITHOUT tax together. `total` is the taxable value (pre-GST); a GST bill's
   // grand total adds 3% GST rounded to the nearest ₹1 (matches the invoice); a cash memo has no tax.
   const withoutTax = (r: any) => r.total ?? 0;
-  const withTax = (r: any) => (r.bill_type === "cash" ? (r.total ?? 0) : Math.round(((r.total ?? 0) + Math.round((r.total ?? 0) * 0.03)) / 100) * 100);
+  // Grand total shown must MATCH the invoice. Cash memo = no tax. GST bill: `total` is pre-tax and 3%
+  // is added ON TOP — UNLESS the bill is pinned GST-inclusive (`gst_mode==='inclusive'`), in which case
+  // `total` already contains the GST and we must NOT add it again (that was double-counting the tax).
+  const withTax = (r: any) => {
+    const t = r.total ?? 0;
+    if (r.bill_type === "cash" || r.gst_mode === "inclusive") return t;
+    return Math.round((t + Math.round(t * 0.03)) / 100) * 100;
+  };
   const pageSumNoTax = rows.reduce((s: number, r: any) => s + withoutTax(r), 0);
   const pageSumWithTax = rows.reduce((s: number, r: any) => s + withTax(r), 0);
   const sel = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";

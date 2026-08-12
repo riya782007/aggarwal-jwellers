@@ -10,7 +10,7 @@ import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 
 export const metadata = { title: "Owner Console · Purchase" };
 
-export default async function PurchaseDetail({ params }: { params: { id: string } }) {
+export default async function PurchaseDetail({ params, searchParams }: { params: { id: string }; searchParams: { saved?: string; err?: string } }) {
   const data = await getPurchaseById(params.id);
   if (!data) notFound();
   const { purchase: p, items, deletionPending, suppliers } = data;
@@ -22,6 +22,8 @@ export default async function PurchaseDetail({ params }: { params: { id: string 
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen max-w-3xl">
       <Link href="/admin/purchases" className="text-sm text-muted hover:text-ink"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />Purchases</Link>
       <h1 className="font-display text-4xl text-ink mt-1">Purchase · {ref}</h1>
+      {searchParams?.err && <div className="mt-2 rounded-xl border border-rose/30 bg-rose/10 px-4 py-2.5 text-sm text-rose">Couldn’t save: {searchParams.err}</div>}
+      {searchParams?.saved && !searchParams?.err && <div className="mt-2 rounded-xl border border-emerald/30 bg-emerald-mist px-4 py-2.5 text-sm text-emerald-dark">Saved.</div>}
       <p className="text-sm text-muted mb-5">{p.supplier?.name}{p.supplier?.city ? ` · ${p.supplier.city}` : ""} · {new Date(p.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
 
       {/* Items */}

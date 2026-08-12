@@ -613,7 +613,7 @@ export async function getOrdersPage(opts: { page?: number; pageSize?: number; q?
   const sb = supabaseServer();
   const pageSize = opts.pageSize ?? 25;
   const page = Math.max(1, opts.page ?? 1);
-  let query = sb.from("orders").select("id,total,amount_paid,invoice_no,channel,status,payment_mode,bill_type,customer_name,customer_phone,source_tag,created_at", { count: "exact" });
+  let query = sb.from("orders").select("id,total,amount_paid,invoice_no,channel,status,payment_mode,bill_type,gst_mode,customer_name,customer_phone,source_tag,created_at", { count: "exact" });
   // A cancelled / voided / refunded bill is NOT a sale — keep dead orders out of the sales register
   // (and out of its page totals). They were already reversed in stock and the day-book on cancel.
   query = query.not("status", "in", "(cancelled,void,refunded)");

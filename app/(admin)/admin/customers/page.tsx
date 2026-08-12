@@ -11,7 +11,7 @@ export const metadata = { title: "Owner Console · Customers" };
 const PAGE_SIZE = 20;
 const TYPE_STYLE: Record<string, string> = { wholesale: "bg-gold/15 text-gold-dark", retail: "bg-emerald-mist text-emerald-dark" };
 
-export default async function Customers({ searchParams }: { searchParams: { q?: string; type?: string; page?: string } }) {
+export default async function Customers({ searchParams }: { searchParams: { q?: string; type?: string; page?: string; err?: string; msg?: string } }) {
   const q = searchParams.q ?? "";
   const type = searchParams.type ?? "all";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -46,6 +46,8 @@ export default async function Customers({ searchParams }: { searchParams: { q?: 
         <Link href="/admin/promotions#customer-rewards" className="text-sm text-emerald nav-link whitespace-nowrap"><Icon g="🎯" className="inline-block align-middle w-[1em] h-[1em]" />Reward & target customers <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
       </div>
       <p className="text-sm text-muted mb-4">Your customer directory — retail &amp; wholesale, with GST details and dues. Click a customer for full history.</p>
+      {searchParams.err && <div className="mb-4 rounded-xl border border-rose/30 bg-rose/10 px-4 py-3 text-sm text-rose flex items-start justify-between gap-3"><span>{searchParams.err}</span><Link href="/admin/customers" className="text-xs text-rose/80 hover:text-rose shrink-0">Dismiss</Link></div>}
+      {searchParams.msg && !searchParams.err && <div className="mb-4 rounded-xl border border-emerald/30 bg-emerald-mist px-4 py-3 text-sm text-emerald-dark flex items-start justify-between gap-3"><span>{searchParams.msg}</span><Link href="/admin/customers" className="text-xs text-emerald-dark/70 hover:text-emerald-dark shrink-0">Dismiss</Link></div>}
 
       {/* Add */}
       {canManage && (

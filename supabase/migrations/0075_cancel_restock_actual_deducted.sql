@@ -1,0 +1,15 @@
+-- 0075 — Cancel must restock only what a sale actually removed.
+-- Bug (adapted from a sibling project): an oversold/backorder bill deducts only down to 0
+-- (greatest(0, qty - billed)), but cancel_order restocked the FULL billed qty → phantom stock
+-- (e.g. stock 2, sold 5, cancel → stock 5). Fix: record the ACTUAL deducted qty per line at sale
+-- time and restock exactly that on cancel. Normal (in-stock) sales are unchanged (deducted = qty).
+--
+-- NOTE: the full function bodies for place_order() and cancel_order() are applied live via the
+-- Supabase migration of the same name. This file documents the change; see the live definitions.
+-- Key deltas:
+--   • order_items gains `deducted_qty int`.
+--   • place_order stamps deducted_qty = least(billed_qty, greatest(0, available_before)) and logs the
+--     stock_adjustments 'sale' delta as -deducted_qty (truthful movement).
+--   • cancel_order restocks greatest(0, coalesce(deducted_qty, qty) - returned_qty) per line.
+alter table public.order_items add column if not exists deducted_qty int;
+-- (place_order + cancel_order bodies replaced live — see migration history in the DB.)

@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 
@@ -23,8 +24,10 @@ export async function updatePurchaseAction(formData: FormData): Promise<void> {
   if (!id) return;
   const row: any = { bill_no: billNo || null };
   if (supplierId) row.supplier_id = supplierId;
-  await supabaseServer().from("purchases").update(row).eq("id", id);
+  const { error } = await supabaseServer().from("purchases").update(row).eq("id", id);
   revalidatePath(`/admin/purchase/${id}`); revalidatePath("/admin/purchases");
+  // Surface the result instead of failing silently (was a "save does nothing" trap).
+  redirect(`/admin/purchase/${id}?${error ? "err=" + encodeURIComponent(error.message) : "saved=1"}`);
 }
 
 /**

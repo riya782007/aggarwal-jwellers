@@ -274,6 +274,9 @@ export default async function ProductPage({ params, searchParams }: { params: { 
               <form action={updateVariantAction} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="id" value={v.id} />
                 <input type="hidden" name="product_sku" value={p.sku} />
+                {/* qty the screen loaded with — the action only rewrites stock if the user actually changed
+                    this field, so a sale during editing can't be silently overwritten (lost-update guard). */}
+                <input type="hidden" name="qty_loaded" value={v.qty ?? 0} />
                 <label className="text-[11px] text-muted">Colour<input name="color" list="opt-color" defaultValue={v.color ?? ""} placeholder="Colour" className={`${vInput} w-28 block mt-0.5`} /></label>
                 <label className="text-[11px] text-muted">Size<input name="size" list="opt-size" defaultValue={v.size ?? ""} placeholder="Size" className={`${vInput} w-24 block mt-0.5`} /></label>
                 <label className="text-[11px] text-muted">Polish<input name="polish" list="opt-polish" defaultValue={v.polish ?? ""} placeholder="Polish" className={`${vInput} w-28 block mt-0.5`} /></label>

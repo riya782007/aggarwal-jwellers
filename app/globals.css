@@ -110,6 +110,10 @@ body {
   .no-print { display: none !important; }
   body { background: #fff !important; border-top: none !important; }
   .print-area { box-shadow: none !important; }
+  /* Multi-page docs (estimate/invoice): repeat the table header on every sheet and never split a row,
+     so long bills flow cleanly across pages (direct-print matches Save-as-PDF). */
+  .print-area thead { display: table-header-group; }
+  .print-area tbody tr { break-inside: avoid; }
 
   /* Barcode labels: exactly 64 per A4 (8 columns × 8 rows) */
   @page { size: A4; margin: 6mm; }

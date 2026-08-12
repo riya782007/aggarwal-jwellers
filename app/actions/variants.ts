@@ -67,6 +67,15 @@ function reval(productSku: string) {
   revalidatePath("/shop");
 }
 
+/** #5 — keep the parent product's qty == sum(its variants). Every variant add/edit/delete must call
+ *  this, so the "total stock" shown on the catalogue, storefront and POS is always the truth and can
+ *  never drift from the colour rows. */
+async function syncParentQty(sb: ReturnType<typeof supabaseServer>, productId: string) {
+  const { data } = await sb.from("variants").select("qty").eq("product_id", productId);
+  const sum = ((data as any[]) ?? []).reduce((s, v) => s + (Number(v.qty) || 0), 0);
+  await sb.from("products").update({ qty: sum, last_movement_at: new Date().toISOString() }).eq("id", productId);
+}
+
 export async function addVariantAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.edit"))) return;
   const productSku = String(formData.get("product_sku") ?? "").trim();
@@ -98,6 +107,7 @@ export async function addVariantAction(formData: FormData): Promise<void> {
   });
   await rememberOptions(sb, { color, size, polish });
   if ((p as any).type !== "configurable") await sb.from("products").update({ type: "configurable" }).eq("id", (p as any).id);
+  await syncParentQty(sb, (p as any).id); // #5 keep product.qty == sum(variants)
   reval(productSku);
 }
 
@@ -122,12 +132,21 @@ export async function updateVariantAction(formData: FormData): Promise<void> {
     sb.from("variants").select("id").ilike("sku", finalSku).neq("id", id).maybeSingle(),
   ]);
   const patch: Record<string, any> = {
-    color: color || null, size: size || null, polish: polish || null, qty,
+    color: color || null, size: size || null, polish: polish || null,
     retail_override: toPaise(formData.get("retail")), wholesale_override: toPaise(formData.get("wholesale")), mrp_override: toPaise(formData.get("mrp")),
   };
   if (!pClash && !vClash) patch.sku = finalSku; // only change the SKU when the new code is free
+  // #4 lost-update guard: this form sets an ABSOLUTE qty. If the user didn't actually change the qty
+  // field (it still equals the value the screen loaded with), DON'T write it back — otherwise a sale
+  // that happened while the editor was open would be silently erased. Only write qty when the user
+  // deliberately changed it. (Routine stock changes go through the delta-based Stock adjust panel.)
+  const qtyLoadedRaw = formData.get("qty_loaded");
+  const qtyLoaded = qtyLoadedRaw == null ? null : Math.max(0, Math.floor(Number(qtyLoadedRaw) || 0));
+  if (qtyLoaded == null || qty !== qtyLoaded) patch.qty = qty;
   await sb.from("variants").update(patch).eq("id", id);
   await rememberOptions(sb, { color, size, polish });
+  const { data: vp } = await sb.from("variants").select("product_id").eq("id", id).maybeSingle();
+  if ((vp as any)?.product_id) await syncParentQty(sb, (vp as any).product_id); // #5
   reval(productSku);
 }
 
@@ -135,7 +154,10 @@ export async function deleteVariantAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("catalog.edit"))) return;
   const id = String(formData.get("id") ?? "");
   const productSku = String(formData.get("product_sku") ?? "");
-  await supabaseServer().from("variants").delete().eq("id", id);
+  const sb = supabaseServer();
+  const { data: vp } = await sb.from("variants").select("product_id").eq("id", id).maybeSingle();
+  await sb.from("variants").delete().eq("id", id);
+  if ((vp as any)?.product_id) await syncParentQty(sb, (vp as any).product_id); // #5 keep product.qty == sum(variants)
   reval(productSku);
 }
 
