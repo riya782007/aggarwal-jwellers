@@ -47,6 +47,7 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
   const [rows, setRows] = useState<Row[]>([newRow(), newRow(), newRow()]);
   const [busy, setBusy] = useState(false);
   const [savedSummary, setSavedSummary] = useState<{ created: number; failed: number } | null>(null);
+  const [labelSkus, setLabelSkus] = useState<string[]>([]); // created SKUs → one-click print in the Label module
 
   const subsForCat = subcategories.filter((s) => s.categoryId === catId);
   const stylesForCat = styles.filter((s) => s.categoryId === catId);
@@ -120,6 +121,10 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
       const untouched = rows.filter((r) => rowError(r) === "empty");
       setRows(survivors.length || untouched.length ? [...survivors, ...untouched] : [newRow()]);
       setSavedSummary({ created: res.created, failed: res.results.length - res.created });
+      // Auto-queue every created product for the Label module (same as single-add), so the owner can
+      // print all the new stickers in one click without hunting for each SKU.
+      const createdSkus = res.results.filter((rr) => rr.ok && rr.sku).map((rr) => rr.sku as string);
+      setLabelSkus(createdSkus);
       toast(`${res.created} product${res.created === 1 ? "" : "s"} added${res.results.length - res.created ? ` · ${res.results.length - res.created} failed` : ""}`, res.created ? "success" : "error");
       router.refresh();
     } catch (e) {
@@ -129,6 +134,17 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
 
   return (
     <div className="space-y-5">
+      {/* After a save — one click to print stickers for every product just added. */}
+      {labelSkus.length > 0 && (
+        <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-emerald-dark">Added {labelSkus.length} product{labelSkus.length === 1 ? "" : "s"}. Print their barcode stickers now?</p>
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/barcodes?skus=${encodeURIComponent(labelSkus.join(","))}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print labels</Link>
+            <button type="button" onClick={() => setLabelSkus([])} className="px-4 py-2 text-sm rounded-full border border-sand text-muted hover:text-ink">Dismiss</button>
+          </div>
+        </div>
+      )}
+
       {/* Common fields */}
       <section className="bg-white rounded-2xl border border-emerald/30 p-5 shadow-card">
         <div className="flex items-center gap-2 mb-1"><Icon g="📦" className="w-4 h-4 text-emerald-dark" /><h2 className="text-base font-semibold text-ink">Common product information</h2></div>
