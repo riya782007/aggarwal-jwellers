@@ -305,10 +305,16 @@ export type Employee = { id: string; name: string; phone: string | null; title: 
 /** Roster of employees. `activeOnly` for the POS salesperson picker. */
 export async function getEmployees(opts: { activeOnly?: boolean } = {}): Promise<Employee[]> {
   const sb = supabaseServer();
+  // Rich select. PostgREST is all-or-nothing: if its schema cache is briefly stale after a
+  // migration (or an optional column like title/active drifts), the WHOLE query errors and the
+  // "Sold by" picker silently blanks. So fall back to a minimal always-valid select so salesperson
+  // names ALWAYS load — degraded (no active filter) beats an empty roster.
   let q = sb.from("employees").select("id,name,phone,title,active").order("active", { ascending: false }).order("name");
   if (opts.activeOnly) q = q.eq("active", true);
-  const { data } = await q;
-  return (((data as any[]) ?? []) as Employee[]);
+  const rich = await q;
+  if (!rich.error && rich.data) return (rich.data as any[]) as Employee[];
+  const basic = await sb.from("employees").select("id,name").order("name");
+  return (((basic.data as any[]) ?? []).map((e: any) => ({ id: e.id, name: e.name, phone: null, title: null, active: true })) as Employee[]);
 }
 
 /** Per-employee sales performance over an optional date range (paise). Every employee is returned
