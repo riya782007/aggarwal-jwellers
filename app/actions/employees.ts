@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 
@@ -53,4 +54,26 @@ export async function setEmployeeActiveAction(formData: FormData): Promise<void>
   if (!id) return;
   await supabaseServer().from("employees").update({ active }).eq("id", id);
   revalidatePath("/admin/employees");
+}
+
+/**
+ * Remove an employee — history-safe. orders.sales_employee_id is ON DELETE SET NULL, so hard-deleting
+ * someone who has bills would erase their attribution on every past bill. So: if they have ANY bills,
+ * we keep the row and mark it removed (deleted_at) — it drops off the roster and the POS "Sold by"
+ * picker, but past sales still show their name. Only a staffer with zero bills is truly hard-deleted.
+ */
+export async function deleteEmployeeAction(formData: FormData): Promise<void> {
+  if (!(await requirePerm("customers.manage"))) return;
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  const sb = supabaseServer();
+  const { count } = await sb.from("orders").select("id", { count: "exact", head: true }).eq("sales_employee_id", id);
+  if ((count ?? 0) > 0) {
+    await sb.from("employees").update({ deleted_at: new Date().toISOString(), active: false }).eq("id", id);
+    revalidatePath("/admin/employees");
+    redirect(`/admin/employees?msg=${encodeURIComponent(`Removed — kept on record for the ${count} past bill${count === 1 ? "" : "s"} they handled, so history stays intact.`)}`);
+  }
+  await sb.from("employees").delete().eq("id", id);
+  revalidatePath("/admin/employees");
+  redirect(`/admin/employees?msg=${encodeURIComponent("Employee deleted.")}`);
 }

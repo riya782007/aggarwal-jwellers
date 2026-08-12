@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { Icon } from "@/components/ui/Icon";
 import { TableSearch } from "@/components/admin/TableSearch";
 import Link from "next/link";
 import { getEmployees, getEmployeePerformance } from "@/lib/supabase/queries";
@@ -11,20 +12,25 @@ export const metadata = { title: "Owner Console · Employees" };
 const card = "bg-white rounded-2xl border border-sand p-5 shadow-card";
 const inp = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
-/** Resolve the ?period= filter to an ISO date range (or none = all time). */
-function rangeFor(period: string): { from?: string; to?: string; label: string } {
+/** Resolve the ?period= filter (+ optional custom from/to) to an ISO date range. */
+function rangeFor(period: string, from?: string, to?: string): { from?: string; to?: string; label: string } {
   const now = new Date();
   if (period === "all") return { label: "All time" };
+  if (period === "7d") return { from: new Date(now.getTime() - 7 * 86400000).toISOString(), label: "Last 7 days" };
   if (period === "30d") return { from: new Date(now.getTime() - 30 * 86400000).toISOString(), label: "Last 30 days" };
-  // default: this calendar month
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  return { from, label: now.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) };
+  if (period === "custom") {
+    const f = from ? new Date(from + "T00:00:00").toISOString() : undefined;
+    const t = to ? new Date(to + "T23:59:59").toISOString() : undefined;
+    return { from: f, to: t, label: `${from || "…"} → ${to || "…"}` };
+  }
+  const from0 = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  return { from: from0, label: now.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) };
 }
 
-export default async function EmployeesPage({ searchParams }: { searchParams: { period?: string } }) {
+export default async function EmployeesPage({ searchParams }: { searchParams: { period?: string; from?: string; to?: string; msg?: string } }) {
   const canManage = can(getSession(), "customers.manage");
   const period = searchParams.period ?? "month";
-  const range = rangeFor(period);
+  const range = rangeFor(period, searchParams.from, searchParams.to);
   const [roster, perf] = await Promise.all([getEmployees({}), getEmployeePerformance(range)]);
 
   const totalSales = perf.reduce((s, p) => s + p.sales, 0);
@@ -34,7 +40,14 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Employees</h1>
-      <p className="text-sm text-muted mb-5">Your team, and how much each has sold. Attribution is captured at billing — pick the salesperson on the POS customer panel — so you can reward performance.</p>
+      <p className="text-sm text-muted mb-5">Your team, and how much each has sold. Attribution is captured at billing — pick the salesperson on the POS customer panel — so you can reward performance. Click a name to see that person&apos;s bills over any date range.</p>
+
+      {searchParams.msg && (
+        <div className="mb-5 rounded-xl border border-emerald/30 bg-emerald-mist px-4 py-3 text-sm text-emerald-dark flex items-start justify-between gap-3">
+          <span>{searchParams.msg}</span>
+          <Link href="/admin/employees" className="text-xs text-emerald-dark/70 hover:text-emerald-dark shrink-0">Dismiss</Link>
+        </div>
+      )}
 
       {/* Add employee */}
       {canManage && (
@@ -47,13 +60,21 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
       )}
 
       {/* Period filter */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <span className="text-[11px] uppercase tracking-wide text-muted mr-1">Sales in</span>
+        <Link href="/admin/employees?period=7d" className={tab("7d", "Last 7 days")}>Last 7 days</Link>
         <Link href="/admin/employees?period=month" className={tab("month", "This month")}>This month</Link>
         <Link href="/admin/employees?period=30d" className={tab("30d", "Last 30 days")}>Last 30 days</Link>
         <Link href="/admin/employees?period=all" className={tab("all", "All time")}>All time</Link>
         <span className="ml-auto text-sm text-muted">Team total <b className="text-ink">{formatPaise(totalSales)}</b> · {range.label}</span>
       </div>
+      {/* Custom date range — applies to the whole table */}
+      <form action="/admin/employees" className="flex flex-wrap items-end gap-2 mb-4">
+        <input type="hidden" name="period" value="custom" />
+        <label className="text-[11px] text-muted">From<input type="date" name="from" defaultValue={searchParams.from ?? ""} className={`${inp} block mt-0.5`} /></label>
+        <label className="text-[11px] text-muted">To<input type="date" name="to" defaultValue={searchParams.to ?? ""} className={`${inp} block mt-0.5`} /></label>
+        <button className={`px-3.5 py-1.5 rounded-full text-sm ${period === "custom" ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-emerald"}`}>Custom range</button>
+      </form>
 
       {/* Performance table */}
       <div className="mb-3"><TableSearch targetId="emp-table" placeholder="Search staff by name…" /></div>
@@ -79,7 +100,8 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
                 <tr key={e.id} className={e.active ? "" : "opacity-60"}>
                   <td className="px-4 py-2.5 text-muted">{i + 1}</td>
                   <td className="px-4 py-2.5">
-                    <span className="font-medium text-ink">{e.name}</span>
+                    <Link href={`/admin/employees/${e.id}`} className="font-medium text-emerald nav-link">{e.name} <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
+                    {(e as any).deleted && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sand/60 text-muted">removed</span>}
                     {roster1?.title && <span className="ml-2 text-xs text-muted">{roster1.title}</span>}
                     {roster1?.phone && <span className="block text-[11px] text-muted">{roster1.phone}</span>}
                   </td>

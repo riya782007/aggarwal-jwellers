@@ -302,39 +302,84 @@ export async function getCustomersDb(opts: { q?: string; type?: string }) {
 // ---------- employees (salespeople) + sales attribution (0037) ----------
 export type Employee = { id: string; name: string; phone: string | null; title: string | null; active: boolean };
 
-/** Roster of employees. `activeOnly` for the POS salesperson picker. */
-export async function getEmployees(opts: { activeOnly?: boolean } = {}): Promise<Employee[]> {
+/** Roster of employees. `activeOnly` for the POS salesperson picker; deleted (removed) staff are
+ *  hidden unless `includeDeleted` (used to resolve names on historical sales). */
+export async function getEmployees(opts: { activeOnly?: boolean; includeDeleted?: boolean } = {}): Promise<Employee[]> {
   const sb = supabaseServer();
   // Rich select. PostgREST is all-or-nothing: if its schema cache is briefly stale after a
-  // migration (or an optional column like title/active drifts), the WHOLE query errors and the
-  // "Sold by" picker silently blanks. So fall back to a minimal always-valid select so salesperson
-  // names ALWAYS load — degraded (no active filter) beats an empty roster.
-  let q = sb.from("employees").select("id,name,phone,title,active").order("active", { ascending: false }).order("name");
+  // migration (or an optional column drifts), the WHOLE query errors and the "Sold by" picker
+  // silently blanks. So fall back to a minimal always-valid select so names ALWAYS load.
+  let q = sb.from("employees").select("id,name,phone,title,active,deleted_at").order("active", { ascending: false }).order("name");
   if (opts.activeOnly) q = q.eq("active", true);
+  if (!opts.includeDeleted) q = q.is("deleted_at", null);
   const rich = await q;
-  if (!rich.error && rich.data) return (rich.data as any[]) as Employee[];
+  if (!rich.error && rich.data) return (rich.data as any[]).map((e: any) => ({ id: e.id, name: e.name, phone: e.phone ?? null, title: e.title ?? null, active: e.active })) as Employee[];
   const basic = await sb.from("employees").select("id,name").order("name");
   return (((basic.data as any[]) ?? []).map((e: any) => ({ id: e.id, name: e.name, phone: null, title: null, active: true })) as Employee[]);
 }
 
-/** Per-employee sales performance over an optional date range (paise). Every employee is returned
- *  (even with 0 sales), highest sales first — the basis for performance-based rewards. */
-export async function getEmployeePerformance(range?: { from?: string; to?: string }): Promise<{ id: string; name: string; active: boolean; orders: number; sales: number; collected: number }[]> {
+/** Per-employee sales performance over an optional date range (paise). Excludes cancelled/dead bills.
+ *  Removed (deleted) staff appear ONLY if they have sales in the range, so their history isn't lost. */
+export async function getEmployeePerformance(range?: { from?: string; to?: string }): Promise<{ id: string; name: string; active: boolean; deleted: boolean; orders: number; sales: number; collected: number }[]> {
   const sb = supabaseServer();
-  const emps = await getEmployees({});
-  let q = sb.from("orders").select("sales_employee_id,total,amount_paid,created_at").not("sales_employee_id", "is", null);
+  const { data: empData } = await sb.from("employees").select("id,name,active,deleted_at");
+  const emps = ((empData as any[]) ?? []).map((e) => ({ id: e.id, name: e.name, active: e.active, deleted: !!e.deleted_at }));
+  let q = sb.from("orders").select("sales_employee_id,total,amount_paid,created_at,status").not("sales_employee_id", "is", null);
   if (range?.from) q = q.gte("created_at", range.from);
   if (range?.to) q = q.lte("created_at", range.to);
   const { data } = await q;
   const agg = new Map<string, { orders: number; sales: number; collected: number }>();
   for (const o of ((data as any[]) ?? [])) {
+    if (isDeadOrder(o.status)) continue; // cancelled/void/refunded don't count as sales
     const cur = agg.get(o.sales_employee_id) ?? { orders: 0, sales: 0, collected: 0 };
     cur.orders += 1; cur.sales += (o.total ?? 0); cur.collected += (o.amount_paid ?? 0);
     agg.set(o.sales_employee_id, cur);
   }
   return emps
-    .map((e) => ({ id: e.id, name: e.name, active: e.active, ...(agg.get(e.id) ?? { orders: 0, sales: 0, collected: 0 }) }))
+    .filter((e) => !e.deleted || (agg.get(e.id)?.orders ?? 0) > 0)
+    .map((e) => ({ id: e.id, name: e.name, active: e.active, deleted: e.deleted, ...(agg.get(e.id) ?? { orders: 0, sales: 0, collected: 0 }) }))
     .sort((a, b) => b.sales - a.sales);
+}
+
+/** One employee (incl. removed, so their detail/history page still loads). */
+export async function getEmployee(id: string): Promise<(Employee & { deleted: boolean }) | null> {
+  const sb = supabaseServer();
+  const { data } = await sb.from("employees").select("id,name,phone,title,active,deleted_at").eq("id", id).maybeSingle();
+  if (!data) return null;
+  const e: any = data;
+  return { id: e.id, name: e.name, phone: e.phone ?? null, title: e.title ?? null, active: e.active, deleted: !!e.deleted_at };
+}
+
+/** How many bills reference this employee (any status) — decides hard-delete vs. history-preserving soft-delete. */
+export async function getEmployeeOrderCount(id: string): Promise<number> {
+  const sb = supabaseServer();
+  const { count } = await sb.from("orders").select("id", { count: "exact", head: true }).eq("sales_employee_id", id);
+  return count ?? 0;
+}
+
+/** One employee's sales over a date range: summary + the actual bills. Excludes cancelled/dead bills. */
+export async function getEmployeeSalesDetail(id: string, range?: { from?: string; to?: string }): Promise<{
+  summary: { bills: number; sales: number; collected: number; items: number; avg: number };
+  rows: { id: string; invoiceNo: string | null; total: number; paid: number; createdAt: string; customer: string | null; billType: string | null }[];
+}> {
+  const sb = supabaseServer();
+  let q = sb.from("orders").select("id,invoice_no,total,amount_paid,created_at,customer_name,status,bill_type").eq("sales_employee_id", id).order("created_at", { ascending: false });
+  if (range?.from) q = q.gte("created_at", range.from);
+  if (range?.to) q = q.lte("created_at", range.to);
+  const { data } = await q;
+  const all = ((data as any[]) ?? []).filter((o) => !isDeadOrder(o.status));
+  const bills = all.length;
+  const sales = all.reduce((s, o) => s + (o.total ?? 0), 0);
+  const collected = all.reduce((s, o) => s + (o.amount_paid ?? 0), 0);
+  let items = 0;
+  const ids = all.map((o) => o.id);
+  if (ids.length) {
+    const { data: oi } = await sb.from("order_items").select("qty,order_id").in("order_id", ids);
+    items = ((oi as any[]) ?? []).reduce((s, r) => s + (r.qty ?? 0), 0);
+  }
+  const avg = bills ? Math.round(sales / bills) : 0;
+  const rows = all.map((o) => ({ id: o.id, invoiceNo: o.invoice_no, total: o.total, paid: o.amount_paid, createdAt: o.created_at, customer: o.customer_name, billType: o.bill_type }));
+  return { summary: { bills, sales, collected, items, avg }, rows };
 }
 
 /** Per-customer spend + order count + last-order date over an optional date range (paise), keyed by
@@ -1249,7 +1294,7 @@ export type StudioData = NonNullable<Awaited<ReturnType<typeof getStudioData>>>;
 
 // ---------- dashboard + inventory intelligence (Req 6, 7; aggarwal.pdf §8) ----------
 import { classify, type InventoryRule, DEFAULT_RULE } from "../inventory";
-import { orderDuePaise, orderGrandPaise, isCountableSale } from "../business";
+import { orderDuePaise, orderGrandPaise, isCountableSale, isDeadOrder } from "../business";
 import { computePrices, type PricingFormula as PF } from "../pricing";
 
 export type DashboardData = {
