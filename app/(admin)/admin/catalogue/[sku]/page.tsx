@@ -5,8 +5,9 @@ import Link from "next/link";
 import {
   getProductBySku, getCategories, getPricingFormula, getSubcategories, getStyles,
   getProductSalesStats, getStockHistory, getProductEstimateReservations, getVariantOptions, getLabels, getColorCodeMap,
-  getLastPurchaseCosts,
+  getLastPurchaseCosts, getBoxGroups,
 } from "@/lib/supabase/queries";
+import { ProductBoxQr } from "@/components/admin/ProductBoxQr";
 import { ProductEditor, type EditorProduct } from "@/components/admin/ProductEditor";
 import { ProductWorkspace, type WorkspaceTab, type TabKey } from "@/components/admin/ProductWorkspace";
 import { ProductStockAdjust } from "@/components/admin/ProductStockAdjust";
@@ -46,7 +47,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
   ]);
   if (!p) notFound();
 
-  const [subcategories, styles, stats, history, vopts, allLabels, colorCodes, estReservations] = await Promise.all([
+  const [subcategories, styles, stats, history, vopts, allLabels, colorCodes, estReservations, boxGroupsAll] = await Promise.all([
     getSubcategories({ categoryId: p.category?.id }),
     getStyles({ categoryId: p.category?.id }).catch(() => []),
     getProductSalesStats(p.sku).catch(() => null),
@@ -55,7 +56,10 @@ export default async function ProductPage({ params, searchParams }: { params: { 
     getLabels().catch(() => []),
     getColorCodeMap().catch(() => ({} as Record<string, string>)),
     getProductEstimateReservations(p.id).catch(() => []),
+    getBoxGroups().catch(() => [] as any[]),
   ]);
+  // Existing box QRs for THIS product (single-design boxes resolve to the product's own SKU).
+  const myBoxes = (boxGroupsAll as any[]).filter((b) => b.sku === p.sku);
   // Last price this piece was actually bought at (display-only, for the owner's margin reference).
   const lastCosts: { byProduct: Record<string, number>; byVariant: Record<string, number> } =
     await getLastPurchaseCosts().catch(() => ({ byProduct: {}, byVariant: {} }));
@@ -221,6 +225,8 @@ export default async function ProductPage({ params, searchParams }: { params: { 
         </div>
       )}
       <p className="text-xs text-muted">Every adjustment is logged with a reason and type, and appears in the <b>History</b> tab.</p>
+      {/* Packaging: attach/print a box QR for this existing design (single-design boxes only). */}
+      {variants.length === 0 && <ProductBoxQr sku={p.sku} name={p.name} groups={myBoxes} />}
     </div>
   );
 
