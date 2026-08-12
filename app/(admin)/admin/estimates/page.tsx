@@ -128,7 +128,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
             {rows.length === 0 && <tr><td colSpan={6} className="p-4 text-muted">No estimates here.</td></tr>}
             {rows.map((e: any) => (
               <tr key={e.id} className="border-t border-sand/60 align-middle">
-                <td className="p-3 text-muted whitespace-nowrap">{String(e.id).slice(0, 8).toUpperCase()}</td>
+                <td className="p-3 whitespace-nowrap"><Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link font-mono">{String(e.id).slice(0, 8).toUpperCase()}</Link></td>
                 <td className="p-3 text-ink">{e.customer_name || "—"}{e.customer_phone && <span className="block text-xs text-muted">{e.customer_phone}</span>}</td>
                 <td className="p-3 font-medium whitespace-nowrap">{formatPaise(e.total)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_STYLE[e.status] ?? "bg-cream text-muted"}`}>{STATUS_LABEL[e.status] ?? e.status}</span></td>
@@ -137,6 +137,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
                   <div className="flex flex-wrap gap-1.5 justify-end items-center">
                     <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</Link>
                     {e.status === "open" && <>
+                      <Link href={`/admin/estimate/${e.id}#edit-estimate`} className="px-2.5 py-1 rounded-full bg-emerald-mist text-emerald-dark text-xs font-medium hover:bg-emerald/20"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Edit</Link>
                       <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" /><button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                       <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                       <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</button></form>
