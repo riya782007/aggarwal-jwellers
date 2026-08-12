@@ -86,6 +86,13 @@ export function AddInventoryClient({
   const stylesForCat = styleList.filter((s) => s.categoryId === catId);
 
   const [name, setName] = useState("");
+  // Packaging: how many pieces sit in ONE packet. The packet is still a single stock unit — this only
+  // decorates the product NAME (e.g. "Mahika Necklace (Pack of 6)") so the counter reads it at a glance.
+  // "" = single piece (no suffix). Custom lets them type any count.
+  const [packSize, setPackSize] = useState("");
+  const [customPack, setCustomPack] = useState(false);
+  const packN = Math.floor(Number(packSize) || 0);
+  const packSuffix = packN > 1 ? ` (Pack of ${packN})` : "";
   const [basePrice, setBasePrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
   const [sku, setSku] = useState("");
@@ -227,7 +234,8 @@ export function AddInventoryClient({
     try {
       const real = rows.filter((r) => r.color.trim() || r.size.trim() || r.polish.trim());
       const payload: CreateProductPayload = {
-        name: name.trim(),
+        // Packaging count is baked into the display name — the packet stays one stock unit.
+        name: name.trim() + packSuffix,
         categoryId: catId,
         subcategoryId: subId || undefined,
         styleId: styleId || undefined,
@@ -292,7 +300,7 @@ export function AddInventoryClient({
       // this clears the browser's cached copy of the pages too.)
       router.refresh();
       // Save & continue → clear for the next product. Save draft → keep nothing lingering either.
-      setName(""); setBasePrice(""); setInitialStock(""); setSku(""); setType("simple"); setSubId(""); setStyleId("");
+      setName(""); setBasePrice(""); setInitialStock(""); setSku(""); setType("simple"); setSubId(""); setStyleId(""); setPackSize(""); setCustomPack(false);
       setPicks({ color: [], size: [], polish: [] }); setRows([]); setQ("");
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
@@ -356,6 +364,27 @@ export function AddInventoryClient({
           <div>
             <label className="text-xs font-medium text-muted">Product name <span className="text-rose">*</span></label>
             <input className={`${input} mt-1`} placeholder="e.g. Rajwada Kundan Bracelet" value={name} onChange={(e) => setName(e.target.value)} />
+            {/* Packaging — pieces per packet. The packet is ONE stock unit; this only tags the name so
+                the counter reads it at a glance (no need to type "(Pack of 6)" yourself). */}
+            <div className="mt-2">
+              <span className="text-[11px] font-medium text-muted inline-flex items-center gap-1"><Icon g="📦" className="w-3.5 h-3.5" />Packaging <span className="font-normal">· pieces per packet</span></span>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {[{ v: "", label: "Single" }, { v: "3", label: "3" }, { v: "6", label: "6" }, { v: "12", label: "12" }].map((o) => {
+                  const on = !customPack && packSize === o.v;
+                  return (
+                    <button key={o.label} type="button" onClick={() => { setCustomPack(false); setPackSize(o.v); }}
+                      className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${on ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}>{o.label}</button>
+                  );
+                })}
+                <button type="button" onClick={() => { setCustomPack(true); setPackSize(""); }}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${customPack ? "bg-emerald text-white border-emerald" : "border-sand text-muted hover:border-emerald"}`}>Custom</button>
+                {customPack && (
+                  <input type="number" min={2} step={1} autoFocus value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="e.g. 24"
+                    className="w-20 rounded-lg border border-sand px-2 py-1 text-xs outline-none focus:border-emerald" />
+                )}
+              </div>
+              {packN > 1 && <p className="text-[11px] text-emerald-dark mt-1">Saved as “{(name.trim() || "Product name")}{packSuffix}”</p>}
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-muted">Category <span className="text-rose">*</span></label>
