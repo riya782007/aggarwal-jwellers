@@ -158,18 +158,24 @@ export async function posSaleAction(input: {
   const grandRawPaise = billType === "gst" ? (total as number) + Math.round(((total as number) * GST_RATE) / 100) : (total as number);
   const grandTotalPaise = Math.round(grandRawPaise / 100) * 100;
 
-  // Upsert into the customer directory (by phone) and link the order to it.
+  // Add to the customer directory ONLY when a real MOBILE is entered — so walk-in cash bills
+  // (Cash (R) / Cash (W), no phone) never spawn a customer row. Named+mobile customers are matched
+  // by phone (so repeat visits reuse the same record, no duplicates) and filed under the bill's
+  // tier (retail / wholesale). Without a phone the order still carries its "Cash (R)/(W)" label.
   let customerId: string | null = null;
   const ph = input.customer?.phone?.trim();
   const nm = input.customer?.name?.trim();
-  if (ph || nm) {
-    const { data: existing } = ph ? await sb.from("customers").select("id").eq("phone", ph).maybeSingle() : { data: null };
+  if (ph) {
+    const { data: existing } = await sb.from("customers").select("id").eq("phone", ph).maybeSingle();
     if (existing) {
       customerId = (existing as any).id;
-      if (input.buyerGstin?.trim()) await sb.from("customers").update({ gstin: input.buyerGstin.trim() }).eq("id", customerId);
-    } else if (nm || ph) {
+      const cpatch: Record<string, any> = {};
+      if (nm) cpatch.name = nm;
+      if (input.buyerGstin?.trim()) cpatch.gstin = input.buyerGstin.trim();
+      if (Object.keys(cpatch).length) await sb.from("customers").update(cpatch).eq("id", customerId);
+    } else {
       const { data: created } = await sb.from("customers")
-        .insert({ name: nm || ph || "Walk-in", phone: ph || null, gstin: input.buyerGstin?.trim() || null, address: input.buyerAddress?.trim() || null, type: "retail" })
+        .insert({ name: nm || ph, phone: ph, gstin: input.buyerGstin?.trim() || null, address: input.buyerAddress?.trim() || null, type: input.tier === "wholesale" ? "wholesale" : "retail" })
         .select("id").maybeSingle();
       customerId = (created as any)?.id ?? null;
     }
