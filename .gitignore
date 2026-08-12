@@ -6,3 +6,9 @@ out
 *.log
 .DS_Store
 coverage
+
+# TypeScript incremental build cache — generated artifact, not source
+tsconfig.tsbuildinfo
+
+# Newvora agency onboarding forms — business docs, not part of this app
+Newvora-Form-*.md
