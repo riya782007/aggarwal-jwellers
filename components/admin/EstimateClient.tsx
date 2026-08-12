@@ -74,7 +74,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   function pickCustomer(c: Cust) { setName(c.name); setPhone(c.phone); setCustType(c.type === "wholesale" ? "wholesale" : "retail"); setCustQ(""); setCustOpen(false); }
   function walkIn(type: "retail" | "wholesale") { setName(type === "wholesale" ? "Cash (W)" : "Cash (R)"); setPhone(""); setCustType(type); }
 
-  const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
+  const input = "w-full rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   const router = useRouter();
 
@@ -93,46 +93,44 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-card mb-6">
-      <h2 className="font-medium text-ink mb-3">New estimate / quotation</h2>
+    <div className="bg-white rounded-2xl p-4 shadow-card mb-4">
+      <h2 className="font-medium text-ink mb-2">New estimate / quotation</h2>
 
-      {/* Customer first — drives the R/W price, same as billing. */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-xs text-muted">Customer</p>
-          <span title={custType === "wholesale" ? "Wholesale price" : "Retail price"} className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${custType === "wholesale" ? "bg-wine/10 text-wine" : "bg-emerald-mist text-emerald-dark"}`}>{TIER_LABEL[custType]}</span>
+      {/* Customer first — drives the R/W price, same as billing. Compact one-row header. */}
+      <div className="mb-2">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-xs text-muted">Customer</span>
+          <button onClick={() => walkIn("retail")} className={`text-xs px-3 py-1 rounded-full border ${name === "Cash (R)" ? "bg-emerald-mist border-emerald text-emerald-dark" : "border-sand text-muted hover:border-emerald"}`}>Cash (R)</button>
+          <button onClick={() => walkIn("wholesale")} className={`text-xs px-3 py-1 rounded-full border ${name === "Cash (W)" ? "bg-wine/10 border-wine text-wine" : "border-sand text-muted hover:border-emerald"}`}>Cash (W)</button>
+          <span title={custType === "wholesale" ? "Wholesale price" : "Retail price"} className={`ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full ${custType === "wholesale" ? "bg-wine/10 text-wine" : "bg-emerald-mist text-emerald-dark"}`}>{TIER_LABEL[custType]}</span>
         </div>
-        <div className="flex gap-2 mb-2">
-          <button onClick={() => walkIn("retail")} className="flex-1 rounded-xl border border-sand px-3 py-1.5 text-sm text-muted hover:border-emerald">Cash (R)</button>
-          <button onClick={() => walkIn("wholesale")} className="flex-1 rounded-xl border border-sand px-3 py-1.5 text-sm text-muted hover:border-emerald">Cash (W)</button>
-        </div>
-        {customers.length > 0 && (
-          <div className="relative">
-            <input className={input} placeholder=" Find existing customer by name / phone…" value={custQ}
-              onChange={(e) => { setCustQ(e.target.value); setCustOpen(true); }} onFocus={() => setCustOpen(true)} />
-            {custOpen && custQ.trim() && (
-              <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
-                {custMatches.map((c) => (
-                  <button key={c.id} onClick={() => pickCustomer(c)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-mist flex justify-between">
-                    <span>{c.name} <span className="text-muted">· {c.phone || "no phone"}</span></span>
-                    <span className={`text-xs ${c.type === "wholesale" ? "text-wine" : "text-muted"}`}>{TIER_LABEL[c.type] ?? "R"}</span>
-                  </button>
-                ))}
-                {!custMatches.some((c) => (c.name ?? "").toLowerCase() === custQ.trim().toLowerCase()) && (
-                  <button onClick={() => { setName(custQ.trim()); setCustQ(""); setCustOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-emerald-dark hover:bg-gold/10 border-t border-sand">+ Add “{custQ.trim()}” as a new customer</button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="flex gap-2 mt-2">
-          <input className={input + " flex-1"} placeholder="Customer / firm name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className={input + " sm:w-44"} placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <div className="flex flex-wrap gap-2">
+          {customers.length > 0 && (
+            <div className="relative flex-1 min-w-[200px]">
+              <input className={input} placeholder="Find existing customer by name / phone…" value={custQ}
+                onChange={(e) => { setCustQ(e.target.value); setCustOpen(true); }} onFocus={() => setCustOpen(true)} />
+              {custOpen && custQ.trim() && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
+                  {custMatches.map((c) => (
+                    <button key={c.id} onClick={() => pickCustomer(c)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-mist flex justify-between">
+                      <span>{c.name} <span className="text-muted">· {c.phone || "no phone"}</span></span>
+                      <span className={`text-xs ${c.type === "wholesale" ? "text-wine" : "text-muted"}`}>{TIER_LABEL[c.type] ?? "R"}</span>
+                    </button>
+                  ))}
+                  {!custMatches.some((c) => (c.name ?? "").toLowerCase() === custQ.trim().toLowerCase()) && (
+                    <button onClick={() => { setName(custQ.trim()); setCustQ(""); setCustOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-emerald-dark hover:bg-gold/10 border-t border-sand">+ Add “{custQ.trim()}” as a new customer</button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <input className={input + " flex-1 min-w-[160px]"} placeholder="Customer / firm name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className={input + " w-full sm:w-40"} placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
       </div>
 
       {/* Products */}
-      <div className="relative mb-3">
+      <div className="relative mb-2">
         <input ref={searchRef} className={input} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }} />
