@@ -113,8 +113,9 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
           <style dangerouslySetInnerHTML={{ __html: "@media print{body{visibility:hidden}.box-print-area{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.box-print-area *{visibility:visible}}" }} />
           <div className="box-print-area hidden print:flex">
             <QrCode value={qrValue(printBox.code)} size={240} />
-            <p className="font-semibold text-ink text-lg">{printBox.label}</p>
-            <p className="text-ink">{printBox.name} <span className="font-mono">{printBox.sku}</span> · box of {printBox.packQty}</p>
+            <p className="font-semibold text-ink text-lg">{printBox.name} <span className="font-mono">{printBox.sku}</span></p>
+            {/* Piece count — printed big so staff read the box size at a glance. */}
+            <p className="font-bold text-ink" style={{ fontSize: "22px" }}>BOX OF {printBox.packQty} PIECES</p>
             <p className="font-mono text-sm">{printBox.code}</p>
           </div>
         </>
