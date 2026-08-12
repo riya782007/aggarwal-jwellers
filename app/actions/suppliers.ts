@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 
@@ -71,6 +72,16 @@ export async function upsertSupplierAction(formData: FormData): Promise<void> {
 export async function deleteSupplierAction(formData: FormData) {
   if (!(await requirePerm("suppliers.manage"))) return;
   const id = String(formData.get("id"));
-  await supabaseServer().from("suppliers").delete().eq("id", id);
+  if (!id) return;
+  const sb = supabaseServer();
+  // A supplier with purchase history CAN'T be hard-deleted — the purchases FK is NO ACTION, and those
+  // bills moved stock and posted to the ledger. Previously the DB rejected the delete and the error
+  // was swallowed, so the button did nothing. Now: block with a clear reason instead of silence.
+  const { count } = await sb.from("purchases").select("id", { count: "exact", head: true }).eq("supplier_id", id);
+  if ((count ?? 0) > 0) {
+    redirect(`/admin/suppliers?err=${encodeURIComponent(`Can't delete this supplier — it has ${count} purchase bill${count === 1 ? "" : "s"} linked (those bills moved stock and money). Cancel or reassign those purchases first.`)}`);
+  }
+  const { error } = await sb.from("suppliers").delete().eq("id", id);
   revalidatePath("/admin/suppliers");
+  if (error) redirect(`/admin/suppliers?err=${encodeURIComponent(error.message)}`);
 }

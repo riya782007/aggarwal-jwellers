@@ -10,7 +10,8 @@ const PAGE_SIZE = 25;
 
 const KIND_STYLE: Record<string, string> = { supplier: "bg-emerald-mist text-emerald-dark", vendor: "bg-gold/15 text-gold-dark" };
 
-export default async function Suppliers({ searchParams }: { searchParams: { q?: string; kind?: string; city?: string; page?: string } }) {
+export default async function Suppliers({ searchParams }: { searchParams: { q?: string; kind?: string; city?: string; page?: string; err?: string } }) {
+  const err = searchParams.err ?? "";
   const q = searchParams.q ?? "";
   const kind = searchParams.kind ?? "all";
   const city = searchParams.city ?? "all";
@@ -24,6 +25,13 @@ export default async function Suppliers({ searchParams }: { searchParams: { q?: 
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Suppliers &amp; Vendors</h1>
       <p className="text-sm text-muted mb-5">Your sourcing book — organised by location, searchable, with GST details for purchase bills.</p>
+
+      {err && (
+        <div className="mb-5 rounded-xl border border-rose/30 bg-rose/10 px-4 py-3 text-sm text-rose flex items-start justify-between gap-3">
+          <span>{err}</span>
+          <Link href="/admin/suppliers" className="text-xs text-rose/80 hover:text-rose shrink-0">Dismiss</Link>
+        </div>
+      )}
 
       {/* Add form */}
       <form action={upsertSupplierAction} className="bg-white rounded-2xl p-5 shadow-card mb-5 border border-sand">
