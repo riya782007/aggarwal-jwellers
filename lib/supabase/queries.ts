@@ -859,6 +859,20 @@ export async function getLabelItems(): Promise<LabelItem[]> {
   return out;
 }
 
+/** Box/group QRs for the label module — each with its target piece SKU, name and LIVE stock so the
+ *  owner can reprint and see how many pieces the box currently resolves to. */
+export async function getBoxGroups(): Promise<{ id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number }[]> {
+  const sb = supabaseServer();
+  const { data } = await sb.from("inventory_groups")
+    .select("id,code,label,pack_qty,status, product:products(sku,name,qty), variant:variants(sku,color,qty, product:products(name))")
+    .eq("status", "active").order("created_at", { ascending: false });
+  return ((data as any[]) ?? []).map((g) => {
+    const v = g.variant, p = g.product;
+    if (v) return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: v.sku, name: `${v.product?.name ?? ""}${v.color ? " · " + v.color : ""}`, stock: v.qty ?? 0 };
+    return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: p?.sku ?? "", name: p?.name ?? "", stock: p?.qty ?? 0 };
+  });
+}
+
 export async function getProductBySku(sku: string): Promise<
   | (DbProduct & { category: DbCategory; variants: DbVariant[]; images: DbImage[] })
   | null

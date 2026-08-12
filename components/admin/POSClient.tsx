@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { posSaleAction } from "@/app/actions/orders";
 import { resolveSellableSku } from "@/app/actions/billing";
+import { resolveBoxScanAction } from "@/app/actions/groups";
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
 
@@ -120,6 +121,8 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const addPayLine = () => setPayLines((p) => [...p, { methodId: methods[0]?.id ?? "", amount: "" }]);
   const setPayLine = (i: number, patch: Partial<PayLine>) => setPayLines((p) => p.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   function addLine(p: P) { setLines((prev) => { const ex = prev.find((l) => l.sku === p.sku); if (ex) return prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l); return [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }]; }); setQ(""); }
+  /** Add N units of a piece at once — used when a box/group QR expands to its pack. */
+  function addLineQty(p: P, n: number) { const add = Math.max(1, Math.floor(n)); setLines((prev) => { const ex = prev.find((l) => l.sku === p.sku); if (ex) return prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + add } : l); return [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }]; }); setQ(""); }
   function setQty(sku: string, qty: number) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, qty: Math.max(1, Math.floor(qty || 1)) } : l)); }
   function setOverride(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, override: val } : l)); }
   function setLineDisc(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, disc: val } : l)); }
@@ -133,7 +136,31 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
     return raw;
   }
+  /** A scanned string is a BOX/group QR if it's a `/g/<code>` URL or a raw `GRP-…` code. */
+  function groupCodeFromScan(raw: string): string | null {
+    const s = raw.trim();
+    const m = s.match(/\/g\/([A-Za-z0-9%._-]+)/);
+    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+    if (/^GRP-[A-Za-z0-9]+$/i.test(s)) return s.toUpperCase();
+    return null;
+  }
   async function submitSearch() {
+    // Box/group QR: one scan adds the whole pack — min(pack size, live stock), flagging any shortfall.
+    const groupCode = groupCodeFromScan(q.trim());
+    if (groupCode) {
+      setScanMsg({ text: "Box…", ok: true });
+      const r = await resolveBoxScanAction(groupCode);
+      if (r.ok && r.item && r.packQty) {
+        const addN = Math.max(0, Math.min(r.packQty, r.item.qty));
+        if (addN <= 0) setScanMsg({ text: `${r.item.name}: out of stock`, ok: false });
+        else {
+          addLineQty(r.item, addN);
+          const short = r.item.qty < r.packQty;
+          setScanMsg({ text: `Box · ${r.item.name} ×${addN}${short ? ` — only ${r.item.qty} of ${r.packQty} in stock` : ""}`, ok: !short });
+        }
+      } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      setQ(""); searchRef.current?.focus(); return;
+    }
     const code = skuFromScan(q.trim());
     if (!code) return;
     const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
