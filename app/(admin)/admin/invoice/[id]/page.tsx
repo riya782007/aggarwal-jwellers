@@ -99,10 +99,28 @@ export default async function Invoice({ params }: { params: { id: string } }) {
             <span className={`absolute right-0 top-0 text-[11px] px-2 py-0.5 rounded-full ${PAY_STYLE[payStatus]}`}>{payStatus}</span>
           </div>
 
-          {/* Seller + meta. A CASH MEMO shows NO business identity at all (owner's request) — just the
-              bill meta + products. The seller block renders only on GST invoices, where it's mandatory. */}
-          <div className={`grid ${isCash ? "" : "sm:grid-cols-2"} gap-4 border border-sand rounded-lg overflow-hidden`}>
-            {!isCash && (
+          {/* A CASH MEMO shows NO business identity (owner's request). To fit more product rows on the
+              page, its bill-meta and customer sit SIDE-BY-SIDE in one tight row (no font change) —
+              instead of two stacked full-width panels. The GST invoice keeps its full seller layout. */}
+          {isCash ? (
+            <div className="grid grid-cols-2 border border-sand rounded-lg overflow-hidden text-xs">
+              <div className="p-2.5 space-y-0.5 border-r border-sand">
+                <div className="flex justify-between gap-2"><span className="text-muted">Invoice No.</span><span className="font-medium text-ink">{invNo}</span></div>
+                <div className="flex justify-between gap-2"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
+                <div className="flex justify-between gap-2"><span className="text-muted">Payment mode</span><span className="text-ink">{String(order.payment_mode || "—").toUpperCase()}</span></div>
+                <div className="flex justify-between gap-2"><span className="text-muted">Channel</span><span className="text-ink capitalize">{order.channel}</span></div>
+              </div>
+              <div className="p-2.5">
+                <span className="text-[10px] uppercase tracking-wide text-muted">Customer</span>
+                <p className="text-ink font-medium leading-tight">{order.customer_name || "Walk-in customer"}</p>
+                {order.buyer_address && <p className="text-muted">{order.buyer_address}</p>}
+                {order.customer_phone && <p className="text-muted">Ph: {order.customer_phone}</p>}
+              </div>
+            </div>
+          ) : (
+          <>
+          {/* Seller + meta — GST invoice keeps the full mandatory seller identity. */}
+          <div className="grid sm:grid-cols-2 gap-4 border border-sand rounded-lg overflow-hidden">
             <div className="p-4 border-b sm:border-b-0 sm:border-r border-sand">
               <p className="font-display text-2xl text-ink leading-none">{BUSINESS.brand}</p>
               <p className="text-xs text-muted mt-0.5">{BUSINESS.legalName}</p>
@@ -111,24 +129,25 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               <p className="text-xs text-muted"><b>PAN:</b> {BUSINESS.pan}{BUSINESS.tin ? <> · <b>TIN:</b> {BUSINESS.tin}</> : null} · State: {BUSINESS.stateName} ({BUSINESS.stateCode})</p>
               <p className="text-xs text-muted">{BUSINESS.phone} · {BUSINESS.email}</p>
             </div>
-            )}
             <div className="p-4 text-xs space-y-1">
               <div className="flex justify-between"><span className="text-muted">Invoice No.</span><span className="font-medium text-ink">{invNo}</span></div>
               <div className="flex justify-between"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
               <div className="flex justify-between"><span className="text-muted">Payment mode</span><span className="text-ink">{String(order.payment_mode || "—").toUpperCase()}</span></div>
               <div className="flex justify-between"><span className="text-muted">Channel</span><span className="text-ink capitalize">{order.channel}</span></div>
-              {!isCash && <div className="flex justify-between"><span className="text-muted">Place of supply</span><span className="text-ink">{stateNameFromCode(buyerStateCode || BUSINESS.stateCode)} ({buyerStateCode || BUSINESS.stateCode})</span></div>}
+              <div className="flex justify-between"><span className="text-muted">Place of supply</span><span className="text-ink">{stateNameFromCode(buyerStateCode || BUSINESS.stateCode)} ({buyerStateCode || BUSINESS.stateCode})</span></div>
             </div>
           </div>
 
           {/* Buyer */}
           <div className="border border-t-0 border-sand rounded-b-lg p-4 -mt-px">
-            <p className="text-[10px] uppercase tracking-wide text-muted mb-1">{isCash ? "Customer" : "Bill to / Buyer"}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Bill to / Buyer</p>
             <p className="text-ink font-medium">{order.customer_name || "Walk-in customer"}</p>
             {order.buyer_address && <p className="text-muted text-xs">{order.buyer_address}</p>}
             {order.customer_phone && <p className="text-muted text-xs">Ph: {order.customer_phone}</p>}
-            {!isCash && order.buyer_gstin && <p className="text-xs text-ink mt-0.5"><b>GSTIN:</b> {order.buyer_gstin}</p>}
+            {order.buyer_gstin && <p className="text-xs text-ink mt-0.5"><b>GSTIN:</b> {order.buyer_gstin}</p>}
           </div>
+          </>
+          )}
 
           {/* Items */}
           <table className="w-full mt-4 border border-sand">
