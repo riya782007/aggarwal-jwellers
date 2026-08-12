@@ -142,7 +142,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
         {scanMsg && <p className={`text-[11px] mt-1 ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
       </div>
       {lines.map((l) => (
-        <div key={l.sku} className="flex items-center gap-2 border-b border-sand/60 py-2 text-sm">
+        <div key={l.sku} className="flex items-center gap-2 border-b border-sand/60 py-1.5 text-sm">
           <span className="flex-1 min-w-0 truncate">{l.name} <span className="text-muted">· {l.sku}</span></span>
           {/* Editable rate — placeholder is the tier price; type to override. */}
           <label className="inline-flex items-center gap-0.5 rounded-full border border-sand px-2 py-1" title="Edit rate">
@@ -160,13 +160,13 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
         </div>
       ))}
       {lines.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="grid grid-cols-3 gap-2 mt-2">
           <label className="text-[11px] text-muted">Packing ₹<input value={packing} onChange={(e) => setPacking(e.target.value)} inputMode="decimal" placeholder="0" className={`${input} mt-0.5`} /></label>
           <label className="text-[11px] text-muted">Courier ₹<input value={courier} onChange={(e) => setCourier(e.target.value)} inputMode="decimal" placeholder="0" className={`${input} mt-0.5`} /></label>
           <label className="text-[11px] text-muted">Adjust ± ₹<input value={adjustment} onChange={(e) => setAdjustment(e.target.value)} inputMode="decimal" placeholder="0" className={`${input} mt-0.5`} /></label>
         </div>
       )}
-      <div className="flex items-center justify-end gap-3 mt-4">
+      <div className="flex items-center justify-end gap-3 mt-3">
         <span className="text-lg font-semibold text-ink whitespace-nowrap">{formatPaise(total)}</span>
         <button onClick={save} disabled={busy || !lines.length} className="btn-primary px-5 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save estimate"}</button>
       </div>

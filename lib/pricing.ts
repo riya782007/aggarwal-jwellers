@@ -67,21 +67,32 @@ export function roundRetailCharmPaise(valuePaise: number): number {
 }
 
 /**
- * Round a price (paise) to the nearest whole rupee ending in 0 or 5 (a multiple of 5).
- * Used for BOTH the retail selling price and the printed MRP (client's rule: both end in 0/5).
+ * Round a price (paise) to the nearest whole rupee that's a multiple of 10 (client's rule: prices
+ * end in 0). Used for BOTH the retail selling price and the printed MRP.
  * If a floor is given (MRP only), the value is never below it — it's bumped up to the next
- * multiple of 5 at or above the floor (keeps MRP ≥ retail, so the strike-through always looks right).
+ * multiple of 10 at or above the floor (keeps MRP ≥ retail, so the strike-through always looks right).
  */
-export function roundToFivePaise(valuePaise: number, retailFloorPaise?: number): number {
+export function roundToTenPaise(valuePaise: number, retailFloorPaise?: number): number {
   if (!Number.isFinite(valuePaise) || valuePaise <= 0) return valuePaise;
-  let rupees = Math.round(valuePaise / 100 / 5) * 5;
-  if (rupees <= 0) rupees = 5;
+  let rupees = Math.round(valuePaise / 100 / 10) * 10;
+  if (rupees <= 0) rupees = 10;
   let out = rupees * 100;
   if (typeof retailFloorPaise === "number" && Number.isFinite(retailFloorPaise) && out < retailFloorPaise) {
     const floorRupees = Math.ceil(retailFloorPaise / 100);
-    out = Math.ceil(floorRupees / 5) * 5 * 100; // next multiple of 5 ≥ retail
+    out = Math.ceil(floorRupees / 10) * 10 * 100; // next multiple of 10 ≥ retail
   }
   return out;
+}
+
+/**
+ * Retail multiplier tier (owner's rule): a higher markup on cheaper pieces.
+ *   base wholesale BELOW ₹1500  → 1.6×
+ *   base wholesale ₹1500 & ABOVE → 1.5×
+ * Applied to the base wholesale price to reach the retail selling price.
+ */
+export const RETAIL_TIER_THRESHOLD_PAISE = 150000; // ₹1500
+export function retailMultiplierForBase(baseWholesalePaise: number): number {
+  return (Number(baseWholesalePaise) || 0) < RETAIL_TIER_THRESHOLD_PAISE ? 1.6 : 1.5;
 }
 
 /**
@@ -119,17 +130,19 @@ export function computePrices(baseWholesalePaise: number, formula: PricingFormul
   // Final display rule (owner's request): RETAIL always ends in 9, MRP always ends in 0/5.
   if (formula.useBuildup) {
     const s = buildupStages(base, formula);
-    const retailPrice = roundToFivePaise(s.retail);
+    const retailPrice = roundToTenPaise(s.retail);
     return {
       wholesaleRate: roundToNearest(s.wholesale, formula.roundToPaise),
       retailPrice,
-      mrp: roundToFivePaise(s.mrp, retailPrice),
+      mrp: roundToTenPaise(s.mrp, retailPrice),
     };
   }
 
   const wholesaleRate = roundToNearest(base * (1 + formula.wholesaleMarkupPct / 100), formula.roundToPaise);
-  const retailPrice = roundToFivePaise(base * formula.retailMultiplier);
-  const mrp = roundToFivePaise(base * formula.mrpMultiplier, retailPrice);
+  // Retail multiplier is tiered by the base wholesale price (1.6× below ₹1500, 1.5× at/above),
+  // then rounded to the nearest ₹10. This supersedes formula.retailMultiplier for the retail tier.
+  const retailPrice = roundToTenPaise(base * retailMultiplierForBase(base));
+  const mrp = roundToTenPaise(base * formula.mrpMultiplier, retailPrice);
 
   return { wholesaleRate, retailPrice, mrp };
 }
@@ -144,7 +157,7 @@ export function buildupBreakdown(baseWholesalePaise: number, formula: PricingFor
   const round = formula.roundToPaise;
   // Intermediate stages show the raw running total; the FINAL retail/mrp use the charm rounding
   // (retail → ends in 9, mrp → ends in 0/5) so the preview matches what the storefront prints.
-  const retail = roundToFivePaise(s.retail);
+  const retail = roundToTenPaise(s.retail);
   return {
     base,
     wholesale: roundToNearest(s.wholesale, round),
@@ -153,7 +166,7 @@ export function buildupBreakdown(baseWholesalePaise: number, formula: PricingFor
     afterPromotion: roundToNearest(s.afterPromotion, round),
     afterReseller: roundToNearest(s.afterReseller, round),
     retail,
-    mrp: roundToFivePaise(s.mrp, retail),
+    mrp: roundToTenPaise(s.mrp, retail),
   };
 }
 
