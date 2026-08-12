@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { createProductFullAction, createCategoryJsonAction, createSubcategoryJsonAction, createStyleJsonAction, checkSkuAvailable, type CreateProductPayload } from "@/app/actions/catalog";
+import { createBoxGroupAction } from "@/app/actions/groups";
 import { getProductVariantsAction, addVariantImageAction } from "@/app/actions/variants";
 import { compressImage } from "@/lib/image";
 
@@ -86,13 +87,12 @@ export function AddInventoryClient({
   const stylesForCat = styleList.filter((s) => s.categoryId === catId);
 
   const [name, setName] = useState("");
-  // Packaging: how many pieces sit in ONE packet. The packet is still a single stock unit — this only
-  // decorates the product NAME (e.g. "Mahika Necklace (Pack of 6)") so the counter reads it at a glance.
-  // "" = single piece (no suffix). Custom lets them type any count.
+  // Packaging: how many pieces sit in ONE box/packet. If set (>1), saving the product AUTO-CREATES a
+  // box QR for it (scanning that one QR at the POS adds the whole pack). The product NAME is left
+  // clean — no "(Pack of N)" suffix. "" = single piece. Custom lets them type any count.
   const [packSize, setPackSize] = useState("");
   const [customPack, setCustomPack] = useState(false);
   const packN = Math.floor(Number(packSize) || 0);
-  const packSuffix = packN > 1 ? ` (Pack of ${packN})` : "";
   const [basePrice, setBasePrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
   const [sku, setSku] = useState("");
@@ -110,7 +110,7 @@ export function AddInventoryClient({
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ sku: string } | null>(null); // last saved product → offer to print its labels
+  const [created, setCreated] = useState<{ sku: string; box?: boolean } | null>(null); // last saved product → offer to print its labels / box QR
   const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "w-full rounded-xl border border-sand px-3.5 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors";
@@ -234,8 +234,7 @@ export function AddInventoryClient({
     try {
       const real = rows.filter((r) => r.color.trim() || r.size.trim() || r.polish.trim());
       const payload: CreateProductPayload = {
-        // Packaging count is baked into the display name — the packet stays one stock unit.
-        name: name.trim() + packSuffix,
+        name: name.trim(),
         categoryId: catId,
         subcategoryId: subId || undefined,
         styleId: styleId || undefined,
@@ -294,7 +293,16 @@ export function AddInventoryClient({
       }
 
       toast(`${res.sku} ${mode === "publish" ? "created & published" : "saved as draft"}`);
-      if (res.sku) setCreated({ sku: res.sku }); // surface a one-click "Print labels" for this SKU
+      // If this design comes in a box (pack size set), auto-create its box QR so it's ready to print.
+      // Boxes are homogeneous (N of the same simple product), so only for simple products.
+      let madeBox = false;
+      if (res.sku && packN > 1 && type === "simple") {
+        const b = await createBoxGroupAction({ sku: res.sku, packQty: packN });
+        madeBox = b.ok;
+        if (b.ok) toast(`Box QR for ${packN} pieces created`);
+        else if (b.error) toast(b.error, "error");
+      }
+      if (res.sku) setCreated({ sku: res.sku, box: madeBox }); // surface a one-click print (box QR if made, else labels)
       // Invalidate the client Router Cache so the Catalogue (and every list) shows this new product
       // the instant the owner navigates there — no manual refresh. (Server already revalidated;
       // this clears the browser's cached copy of the pages too.)
@@ -349,9 +357,9 @@ export function AddInventoryClient({
           the SKU and its variants pre-queued, counts pre-filled from stock). No more hunting for it. */}
       {created && (
         <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-emerald-dark">Saved <b className="font-mono">{created.sku}</b>. Print its barcode stickers now?</p>
+          <p className="text-sm text-emerald-dark">Saved <b className="font-mono">{created.sku}</b>.{created.box ? " Its box QR is ready — print it from Labels." : " Print its barcode stickers now?"}</p>
           <div className="flex items-center gap-2">
-            <Link href={`/admin/barcodes?sku=${encodeURIComponent(created.sku)}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print labels</Link>
+            <Link href={created.box ? "/admin/barcodes" : `/admin/barcodes?sku=${encodeURIComponent(created.sku)}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />{created.box ? "Print box QR" : "Print labels"}</Link>
             <button type="button" onClick={() => setCreated(null)} className="px-4 py-2 text-sm rounded-full border border-sand text-muted hover:text-ink">Dismiss</button>
           </div>
         </div>
@@ -383,7 +391,8 @@ export function AddInventoryClient({
                     className="w-20 rounded-lg border border-sand px-2 py-1 text-xs outline-none focus:border-emerald" />
                 )}
               </div>
-              {packN > 1 && <p className="text-[11px] text-emerald-dark mt-1">Saved as “{(name.trim() || "Product name")}{packSuffix}”</p>}
+              {packN > 1 && type === "simple" && <p className="text-[11px] text-emerald-dark mt-1">A box QR for {packN} pieces will be created on save — print it from Labels. The name stays clean (no “Pack of {packN}”).</p>}
+              {packN > 1 && type !== "simple" && <p className="text-[11px] text-gold-dark mt-1">Box QR is for single-design products; it won’t be auto-created for a product with colour/size variants.</p>}
             </div>
           </div>
           <div>
