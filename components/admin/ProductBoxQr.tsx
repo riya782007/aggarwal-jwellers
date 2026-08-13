@@ -21,7 +21,11 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [printBox, setPrintBox] = useState<Box | null>(null);
+  const [printCount, setPrintCount] = useState(1);
+  const [counts, setCounts] = useState<Record<string, string>>({});
   const qrHolderRef = useRef<HTMLDivElement>(null);
+  // One box QR = one sticker per physical box → default the count to boxes-in-stock.
+  const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
   const input = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   async function create() {
@@ -34,22 +38,25 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
   // Print one box label in an isolated iframe (see BoxQrMaker for why: avoids fixed/visibility print bugs).
-  function print(box: Box) { setPrintBox(box); }
+  function print(box: Box) {
+    const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
+    setPrintCount(n); setPrintBox(box);
+  }
   useEffect(() => {
     if (!printBox) return;
-    const box = printBox;
+    const box = printBox, n = Math.max(1, printCount);
     const t = setTimeout(() => {
       const svg = qrHolderRef.current?.querySelector("svg")?.outerHTML ?? "";
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(box.code)}</title><style>
-        @page{size:A4;margin:12mm} *{box-sizing:border-box} html,body{margin:0;padding:0}
-        .wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;gap:10px;font-family:system-ui,Arial,sans-serif;text-align:center;color:#111}
-        .wrap svg{width:240px !important;height:240px !important}
-        .name{font-weight:600;font-size:18px}.count{font-weight:800;font-size:24px;letter-spacing:.5px}.code{font-family:ui-monospace,monospace;font-size:14px}
-      </style></head><body><div class="wrap">${svg}
-        <div class="name">${esc(box.name)} <span style="font-family:monospace">${esc(box.sku)}</span></div>
-        <div class="count">BOX OF ${box.packQty} PIECES</div>
-        <div class="code">${esc(box.code)}</div>
-      </div></body></html>`;
+      const tile = `<div class="tile">${svg}<div class="name">${esc(box.name)}</div><div class="count">BOX OF ${box.packQty} · ${esc(box.sku)}</div><div class="code">${esc(box.code)}</div></div>`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(box.code)} ×${n}</title><style>
+        @page{size:A4;margin:8mm} *{box-sizing:border-box} html,body{margin:0;padding:0}
+        .sheet{display:flex;flex-wrap:wrap;gap:4mm}
+        .tile{width:56mm;border:1px solid #bbb;border-radius:3px;padding:2.5mm;display:flex;flex-direction:column;align-items:center;text-align:center;page-break-inside:avoid;color:#111;font-family:system-ui,Arial,sans-serif}
+        .tile svg{width:32mm !important;height:32mm !important}
+        .tile .name{font-size:8pt;font-weight:600;line-height:1.1;margin-top:1mm}
+        .tile .count{font-size:8pt;font-weight:800;margin-top:.5mm}
+        .tile .code{font-family:ui-monospace,monospace;font-size:7.5pt}
+      </style></head><body><div class="sheet">${Array.from({ length: n }, () => tile).join("")}</div></body></html>`;
       const iframe = document.createElement("iframe");
       iframe.setAttribute("aria-hidden", "true");
       iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
@@ -60,7 +67,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
       setPrintBox(null);
     }, 80);
     return () => clearTimeout(t);
-  }, [printBox]);
+  }, [printBox, printCount]);
 
   return (
     <div className="bg-white rounded-2xl border border-sand p-5 shadow-card no-print">
@@ -79,7 +86,8 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
                   <td className={`py-2 pr-3 text-center ${b.stock < b.packQty ? "text-gold-dark" : "text-emerald-dark"}`}>{b.stock}</td>
                   <td className="py-2 pr-3 font-mono text-xs">{b.code}</td>
                   <td className="py-2 text-right whitespace-nowrap">
-                    <button onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print QR</button>
+                    <label className="text-[10px] text-muted mr-1">Labels<input value={counts[b.id] ?? String(boxesInStock(b))} onChange={(e) => setCounts((c) => ({ ...c, [b.id]: e.target.value }))} inputMode="numeric" title="Stickers to print (default = boxes in stock)" className="w-14 text-center rounded-lg border border-sand px-2 py-1 text-xs ml-1" /></label>
+                    <button onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</button>
                     <form action={deleteBoxGroupAction} className="inline-block ml-2"><input type="hidden" name="id" value={b.id} /><button className="text-xs px-2 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20">Delete</button></form>
                   </td>
                 </tr>
