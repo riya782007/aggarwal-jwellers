@@ -1,11 +1,12 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode } from "@/components/admin/QrCode";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 
 type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number };
+const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 /**
  * Packaging / box QR for an EXISTING product. Mark that this design comes in a box of N and generate
@@ -20,6 +21,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [printBox, setPrintBox] = useState<Box | null>(null);
+  const qrHolderRef = useRef<HTMLDivElement>(null);
   const input = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   async function create() {
@@ -31,10 +33,36 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     if (r.ok) { setMsg({ text: `Box QR ${r.code} created.`, ok: true }); setLabel(""); setPackQty("6"); router.refresh(); }
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
-  function print(box: Box) { setPrintBox(box); setTimeout(() => window.print(), 60); }
+  // Print one box label in an isolated iframe (see BoxQrMaker for why: avoids fixed/visibility print bugs).
+  function print(box: Box) { setPrintBox(box); }
+  useEffect(() => {
+    if (!printBox) return;
+    const box = printBox;
+    const t = setTimeout(() => {
+      const svg = qrHolderRef.current?.querySelector("svg")?.outerHTML ?? "";
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(box.code)}</title><style>
+        @page{size:A4;margin:12mm} *{box-sizing:border-box} html,body{margin:0;padding:0}
+        .wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;gap:10px;font-family:system-ui,Arial,sans-serif;text-align:center;color:#111}
+        .wrap svg{width:240px !important;height:240px !important}
+        .name{font-weight:600;font-size:18px}.count{font-weight:800;font-size:24px;letter-spacing:.5px}.code{font-family:ui-monospace,monospace;font-size:14px}
+      </style></head><body><div class="wrap">${svg}
+        <div class="name">${esc(box.name)} <span style="font-family:monospace">${esc(box.sku)}</span></div>
+        <div class="count">BOX OF ${box.packQty} PIECES</div>
+        <div class="code">${esc(box.code)}</div>
+      </div></body></html>`;
+      const iframe = document.createElement("iframe");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+      document.body.appendChild(iframe);
+      const doc = iframe.contentWindow!.document; doc.open(); doc.write(html); doc.close();
+      const go = () => { try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } finally { setTimeout(() => iframe.remove(), 1500); } };
+      if (doc.readyState === "complete") go(); else iframe.onload = go;
+      setPrintBox(null);
+    }, 80);
+    return () => clearTimeout(t);
+  }, [printBox]);
 
   return (
-    <>
     <div className="bg-white rounded-2xl border border-sand p-5 shadow-card no-print">
       <h3 className="font-medium text-ink mb-1 flex items-center gap-1.5"><Icon g="📦" className="w-4 h-4" />Packaging (box QR)</h3>
       <p className="text-xs text-muted mb-3">If this design comes in a box (e.g. 6 pieces), make a box QR. Scanning it at the counter adds the whole pack at once; each piece is still tracked and sold individually.</p>
@@ -71,20 +99,10 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
         <button onClick={create} disabled={busy} className="btn-primary px-4 py-2 text-sm font-medium disabled:opacity-50">{busy ? "Creating…" : "Create box QR"}</button>
       </div>
       {msg && <p className={`text-xs mt-2 ${msg.ok ? "text-emerald-dark" : "text-rose"}`}>{msg.text}</p>}
+      {/* Off-screen QR — captured into the print iframe by print(). */}
+      <div ref={qrHolderRef} aria-hidden style={{ position: "absolute", left: -99999, top: 0, width: 240 }}>
+        {printBox && <QrCode value={printBox.code} size={240} />}
+      </div>
     </div>
-
-      {/* Print-only — OUTSIDE the no-print card (a no-print ancestor is display:none in print → blank). */}
-      {printBox && (
-        <>
-          <style dangerouslySetInnerHTML={{ __html: "@media print{body{visibility:hidden}.box-print-area{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.box-print-area *{visibility:visible}}" }} />
-          <div className="box-print-area hidden print:flex">
-            <QrCode value={printBox.code} size={240} />
-            <p className="font-semibold text-ink text-lg">{printBox.name} <span className="font-mono">{printBox.sku}</span></p>
-            <p className="font-bold text-ink" style={{ fontSize: "22px" }}>BOX OF {printBox.packQty} PIECES</p>
-            <p className="font-mono text-sm">{printBox.code}</p>
-          </div>
-        </>
-      )}
-    </>
   );
 }
