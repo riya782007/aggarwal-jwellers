@@ -41,7 +41,7 @@ export default async function Backorders() {
         <div className="rounded-2xl border border-gold/40 bg-gold/10 p-5 text-sm text-ink">
           <p className="font-medium mb-1">One-time setup needed</p>
           <p className="text-muted">
-            Run <code className="bg-white px-1 rounded border border-sand">supabase/migrations/0020_order_backorder.sql</code> on
+            Run <code className="bg-white px-1 rounded border border-sand">supabase/migrations/schema.sql</code> on
             your Supabase project (SQL editor), then reload this page. New backordered sales will appear here automatically.
           </p>
         </div>

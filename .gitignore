@@ -12,3 +12,6 @@ tsconfig.tsbuildinfo
 
 # Newvora agency onboarding forms — business docs, not part of this app
 Newvora-Form-*.md
+
+# Private handoff/context doc — never commit to the public repo
+MASTER_CONTEXT_HANDOFF.md
