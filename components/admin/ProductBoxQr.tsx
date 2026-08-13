@@ -34,6 +34,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   function print(box: Box) { setPrintBox(box); setTimeout(() => window.print(), 60); }
 
   return (
+    <>
     <div className="bg-white rounded-2xl border border-sand p-5 shadow-card no-print">
       <h3 className="font-medium text-ink mb-1 flex items-center gap-1.5"><Icon g="📦" className="w-4 h-4" />Packaging (box QR)</h3>
       <p className="text-xs text-muted mb-3">If this design comes in a box (e.g. 6 pieces), make a box QR. Scanning it at the counter adds the whole pack at once; each piece is still tracked and sold individually.</p>
@@ -70,7 +71,9 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
         <button onClick={create} disabled={busy} className="btn-primary px-4 py-2 text-sm font-medium disabled:opacity-50">{busy ? "Creating…" : "Create box QR"}</button>
       </div>
       {msg && <p className={`text-xs mt-2 ${msg.ok ? "text-emerald-dark" : "text-rose"}`}>{msg.text}</p>}
+    </div>
 
+      {/* Print-only — OUTSIDE the no-print card (a no-print ancestor is display:none in print → blank). */}
       {printBox && (
         <>
           <style dangerouslySetInnerHTML={{ __html: "@media print{body{visibility:hidden}.box-print-area{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.box-print-area *{visibility:visible}}" }} />
@@ -82,6 +85,6 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

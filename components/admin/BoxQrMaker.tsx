@@ -48,6 +48,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   function print(box: Box) { setPrintBox(box); setTimeout(() => window.print(), 60); }
 
   return (
+    <>
     <div className="bg-white rounded-2xl p-5 shadow-card mb-5 no-print">
       <h2 className="font-medium text-ink mb-1 flex items-center gap-1.5"><Icon g="📦" className="w-4 h-4" />Box / group QR</h2>
       <p className="text-xs text-muted mb-4">One QR for a box of identical pieces. Scanning it at the counter adds the whole pack (e.g. 6 bangles) to the bill at once — each piece is still tracked and sold individually, so selling some leaves the rest sellable and the box just adds however many are in stock.</p>
@@ -107,20 +108,21 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
           </table>
         </div>
       )}
+    </div>
 
-      {/* Print-only: only the selected box's QR shows on paper (everything else is hidden). */}
+      {/* Print-only — rendered OUTSIDE the no-print card. A no-print ancestor is display:none in print,
+          which would blank the whole page. Only the selected box's QR shows on paper. */}
       {printBox && (
         <>
           <style dangerouslySetInnerHTML={{ __html: "@media print{body{visibility:hidden}.box-print-area{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}.box-print-area *{visibility:visible}}" }} />
           <div className="box-print-area hidden print:flex">
             <QrCode value={qrValue(printBox.code)} size={240} />
             <p className="font-semibold text-ink text-lg">{printBox.name} <span className="font-mono">{printBox.sku}</span></p>
-            {/* Piece count — printed big so staff read the box size at a glance. */}
             <p className="font-bold text-ink" style={{ fontSize: "22px" }}>BOX OF {printBox.packQty} PIECES</p>
             <p className="font-mono text-sm">{printBox.code}</p>
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
