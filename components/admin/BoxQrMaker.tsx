@@ -1,20 +1,18 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QrCode } from "@/components/admin/QrCode";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
+import { makeLabelsPdf } from "@/lib/labelPdf";
 
 type Pick = { sku: string; name: string; qty?: number };
 type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number };
 
 /**
- * Box / group QR maker. Pick ONE piece SKU + how many sit in the box → creates a group and prints a
- * single QR sticker for the box. Scanning that QR at the POS adds all N pieces to the bill (stock-
- * aware). The pieces stay individually tracked — the box is only a scan shortcut over their stock.
+ * Box / group QR maker. Pick ONE piece SKU + how many sit in the box → creates a group and prints box
+ * QR stickers on the SAME thermal label roll as piece labels. Scanning a box QR at the POS adds all N
+ * pieces to the bill (stock-aware). The pieces stay individually tracked — the box is only a shortcut.
  */
-const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-
 export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -24,17 +22,10 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [printBox, setPrintBox] = useState<Box | null>(null);
-  const [printCount, setPrintCount] = useState(1);
   const [counts, setCounts] = useState<Record<string, string>>({}); // per-box: how many stickers to print
-  const qrHolderRef = useRef<HTMLDivElement>(null); // off-screen QR, captured for the print iframe
   // One box QR = one sticker per PHYSICAL box, so default the print count to boxes-in-stock
   // (e.g. 540 pieces ÷ 12 per box = 45 box stickers). The owner can override per print.
   const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
-
-  // PRIVACY: encode ONLY the box code — no web link — so a phone scan reveals nothing. The billing
-  // scanner reads the raw GRP-… code, which the POS resolves to the box. (POS also accepts old /g/ URLs.)
-  const qrValue = (code: string) => code;
   const input = "w-full rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
   const matches = useMemo(
@@ -53,40 +44,18 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
 
-  // Print ONE box label in an isolated iframe. The old on-page approach (position:fixed + visibility)
-  // dropped the QR and repeated text across pages; an iframe renders just the label on a clean A4 sheet
-  // so direct-print == Save-as-PDF. We render the QR off-screen (qrHolderRef) then copy its SVG in.
-  function print(box: Box) {
+  // Print box stickers on the SAME thermal label roll as piece labels (2in×1in, QR + text), via the
+  // shared makeLabelsPdf. One box QR = one sticker per physical box → default the count to boxes-in-
+  // stock (e.g. 540 ÷ 12 = 45), editable per row. QR encodes only the box code (privacy); the price-
+  // code line is replaced with "BOX OF N".
+  async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-    setPrintCount(n); setPrintBox(box);
+    const labels = Array.from({ length: n }, () => ({
+      name: box.name, sku: box.code, qrValue: box.code, priceLine: `BOX OF ${box.packQty}`,
+      showName: true, showSku: true,
+    }));
+    await makeLabelsPdf(labels, "print").catch((e: any) => alert(e?.message || "Couldn't generate the labels."));
   }
-  useEffect(() => {
-    if (!printBox) return;
-    const box = printBox, n = Math.max(1, printCount);
-    const t = setTimeout(() => {
-      const svg = qrHolderRef.current?.querySelector("svg")?.outerHTML ?? "";
-      // One box QR = one sticker per physical box. Tile N identical stickers across the sheet.
-      const tile = `<div class="tile">${svg}<div class="name">${esc(box.name)}</div><div class="count">BOX OF ${box.packQty} · ${esc(box.sku)}</div><div class="code">${esc(box.code)}</div></div>`;
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(box.code)} ×${n}</title><style>
-        @page{size:A4;margin:8mm} *{box-sizing:border-box} html,body{margin:0;padding:0}
-        .sheet{display:flex;flex-wrap:wrap;gap:4mm}
-        .tile{width:56mm;border:1px solid #bbb;border-radius:3px;padding:2.5mm;display:flex;flex-direction:column;align-items:center;text-align:center;page-break-inside:avoid;color:#111;font-family:system-ui,Arial,sans-serif}
-        .tile svg{width:32mm !important;height:32mm !important}
-        .tile .name{font-size:8pt;font-weight:600;line-height:1.1;margin-top:1mm}
-        .tile .count{font-size:8pt;font-weight:800;margin-top:.5mm}
-        .tile .code{font-family:ui-monospace,monospace;font-size:7.5pt}
-      </style></head><body><div class="sheet">${Array.from({ length: n }, () => tile).join("")}</div></body></html>`;
-      const iframe = document.createElement("iframe");
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-      document.body.appendChild(iframe);
-      const doc = iframe.contentWindow!.document; doc.open(); doc.write(html); doc.close();
-      const go = () => { try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } finally { setTimeout(() => iframe.remove(), 1500); } };
-      if (doc.readyState === "complete") go(); else iframe.onload = go;
-      setPrintBox(null);
-    }, 80);
-    return () => clearTimeout(t);
-  }, [printBox, printCount]);
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-card mb-5 no-print">
@@ -149,10 +118,6 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
           </table>
         </div>
       )}
-      {/* Off-screen QR — rendered here so print() can copy its SVG into the isolated print iframe. */}
-      <div ref={qrHolderRef} aria-hidden style={{ position: "absolute", left: -99999, top: 0, width: 240 }}>
-        {printBox && <QrCode value={qrValue(printBox.code)} size={240} />}
-      </div>
     </div>
   );
 }
