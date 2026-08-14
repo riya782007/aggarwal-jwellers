@@ -1625,10 +1625,16 @@ export async function getEstimates(opts: { sort?: string } = {}) {
   const [field, dir] = (opts.sort ?? "").split("_");
   const col = ESTIMATES_SORT[field] ?? "created_at";
   const asc = col === "created_at" ? dir === "asc" : dir !== "desc";
-  let q = sb.from("estimates").select("id,customer_name,customer_phone,total,status,order_id,created_at").order(col, { ascending: asc, nullsFirst: false });
+  const RICH = "id,customer_name,customer_phone,total,status,order_id,created_at,sales_employee_id";
+  const BASIC = "id,customer_name,customer_phone,total,status,order_id,created_at";
+  let q = sb.from("estimates").select(RICH).order(col, { ascending: asc, nullsFirst: false });
   if (col !== "created_at") q = q.order("created_at", { ascending: false });
-  const { data } = await q.limit(200);
-  return (data as any[]) ?? [];
+  const rich = await q.limit(200);
+  if (!rich.error) return ((rich.data as any[]) ?? []);
+  let q2 = sb.from("estimates").select(BASIC).order(col, { ascending: asc, nullsFirst: false });
+  if (col !== "created_at") q2 = q2.order("created_at", { ascending: false });
+  const fallback = await q2.limit(200);
+  return ((fallback.data as any[]) ?? []);
 }
 export async function getEstimate(id: string) {
   const sb = supabaseServer();
