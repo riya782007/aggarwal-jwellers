@@ -1620,21 +1620,38 @@ const ESTIMATES_SORT: Record<string, string> = {
   date: "created_at",
   amount: "total",
 };
-export async function getEstimates(opts: { sort?: string } = {}) {
+export async function getEstimates(opts: { sort?: string; status?: string; statuses?: string[] } = {}) {
   const sb = supabaseServer();
   const [field, dir] = (opts.sort ?? "").split("_");
   const col = ESTIMATES_SORT[field] ?? "created_at";
   const asc = col === "created_at" ? dir === "asc" : dir !== "desc";
   const RICH = "id,customer_name,customer_phone,total,status,order_id,created_at,sales_employee_id";
   const BASIC = "id,customer_name,customer_phone,total,status,order_id,created_at";
-  let q = sb.from("estimates").select(RICH).order(col, { ascending: asc, nullsFirst: false });
+  const applyStatus = (q: any) => {
+    if (opts.status) return q.eq("status", opts.status);
+    if (opts.statuses?.length) return q.in("status", opts.statuses);
+    return q;
+  };
+  let q = applyStatus(sb.from("estimates").select(RICH)).order(col, { ascending: asc, nullsFirst: false });
   if (col !== "created_at") q = q.order("created_at", { ascending: false });
   const rich = await q.limit(200);
   if (!rich.error) return ((rich.data as any[]) ?? []);
-  let q2 = sb.from("estimates").select(BASIC).order(col, { ascending: asc, nullsFirst: false });
+  let q2 = applyStatus(sb.from("estimates").select(BASIC)).order(col, { ascending: asc, nullsFirst: false });
   if (col !== "created_at") q2 = q2.order("created_at", { ascending: false });
   const fallback = await q2.limit(200);
   return ((fallback.data as any[]) ?? []);
+}
+
+/** Lightweight per-status counts for estimate tabs (query-level, not a CSS hide). */
+export async function getEstimateStatusCounts(): Promise<Record<string, number>> {
+  const sb = supabaseServer();
+  const { data } = await sb.from("estimates").select("status");
+  const counts: Record<string, number> = { open: 0, converted: 0, cash_billed: 0, denied: 0, expired: 0 };
+  for (const r of ((data as any[]) ?? [])) {
+    const s = String(r.status ?? "");
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+  return counts;
 }
 export async function getEstimate(id: string) {
   const sb = supabaseServer();

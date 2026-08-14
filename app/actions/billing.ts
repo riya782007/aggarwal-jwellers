@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
+import { estimateStatusAfterBill, isBilledEstimate, isOpenEstimate } from "@/lib/estimates";
 
 /**
  * Resolve a single SKU (product OR variant) to a billable line, straight from the DB.
@@ -69,6 +70,9 @@ export async function updateEstimateCustomerAction(formData: FormData): Promise<
   if (!(await requirePerm("estimates.create"))) return;
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", id).maybeSingle();
+  if (!isOpenEstimate((est as any)?.status, (est as any)?.order_id)) return;
   const name = String(formData.get("customer_name") ?? "").trim() || null;
   const phone = String(formData.get("customer_phone") ?? "").trim() || null;
   const salesEmployeeId = String(formData.get("sales_employee_id") ?? "").trim() || null;
@@ -78,7 +82,7 @@ export async function updateEstimateCustomerAction(formData: FormData): Promise<
   if (formData.has("sales_employee_id")) patch.sales_employee_id = salesEmployeeId;
   if (formData.has("buyer_gstin")) patch.buyer_gstin = buyerGstin;
   if (formData.has("buyer_address")) patch.buyer_address = buyerAddress;
-  const { error } = await supabaseServer().from("estimates").update(patch).eq("id", id);
+  const { error } = await sb.from("estimates").update(patch).eq("id", id);
   if (error) console.warn("estimate customer update:", error.message);
   revalidatePath(`/admin/estimate/${id}`);
   revalidatePath("/admin/estimates");
@@ -92,6 +96,8 @@ export async function updateEstimateLineAction(formData: FormData): Promise<void
   const qty = Math.max(1, Math.floor(Number(formData.get("qty") ?? 1)));
   if (!itemId || !estimateId) return;
   const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", estimateId).maybeSingle();
+  if (!isOpenEstimate((est as any)?.status, (est as any)?.order_id)) return;
   const { data: it } = await sb.from("estimate_items").select("unit_price").eq("id", itemId).maybeSingle();
   if (!it) return;
   await sb.from("estimate_items").update({ qty, line_total: (it as any).unit_price * qty }).eq("id", itemId);
@@ -109,6 +115,8 @@ export async function updateEstimateLinePriceAction(formData: FormData): Promise
   if (!itemId || !estimateId || !Number.isFinite(rupees) || rupees < 0) return;
   const unit = Math.round(rupees * 100); // store paise
   const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", estimateId).maybeSingle();
+  if (!isOpenEstimate((est as any)?.status, (est as any)?.order_id)) return;
   const { data: it } = await sb.from("estimate_items").select("qty").eq("id", itemId).maybeSingle();
   if (!it) return;
   await sb.from("estimate_items").update({ unit_price: unit, line_total: unit * (it as any).qty }).eq("id", itemId);
@@ -123,6 +131,8 @@ export async function removeEstimateLineAction(formData: FormData): Promise<void
   const estimateId = String(formData.get("estimate_id") ?? "");
   if (!itemId || !estimateId) return;
   const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", estimateId).maybeSingle();
+  if (!isOpenEstimate((est as any)?.status, (est as any)?.order_id)) return;
   await sb.from("estimate_items").delete().eq("id", itemId);
   await recomputeEstimateTotal(sb, estimateId);
   revalidatePath(`/admin/estimate/${estimateId}`);
@@ -136,6 +146,8 @@ export async function addEstimateLineAction(formData: FormData): Promise<void> {
   const qty = Math.max(1, Math.floor(Number(formData.get("qty") ?? 1)));
   if (!estimateId || !sku) return;
   const sb = supabaseServer();
+  const { data: estLock } = await sb.from("estimates").select("status,order_id").eq("id", estimateId).maybeSingle();
+  if (!isOpenEstimate((estLock as any)?.status, (estLock as any)?.order_id)) return;
   // Resolve the SKU to a specific variant first (so the estimate records the exact colour),
   // then fall back to a bare product SKU.
   const { data: v } = await sb.from("variants").select("id,product_id,wholesale_override,retail_override,product:products(base_wholesale,wholesale_override,retail_override,mrp_override)").ilike("sku", sku).maybeSingle();
@@ -262,17 +274,24 @@ export async function billEstimateAction(formData: FormData) {
   const sb = supabaseServer();
   let estPre: any = null;
   {
-    const rich = await sb.from("estimates").select("sales_employee_id,customer_id,customer_name,customer_phone,buyer_gstin,buyer_address,merge_variants,extra_packing,extra_courier,extra_adjustment,price_tier").eq("id", id).maybeSingle();
+    const rich = await sb.from("estimates").select("status,order_id,sales_employee_id,customer_id,customer_name,customer_phone,buyer_gstin,buyer_address,merge_variants,extra_packing,extra_courier,extra_adjustment,price_tier").eq("id", id).maybeSingle();
     if (rich.error) {
-      const basic = await sb.from("estimates").select("extra_packing,extra_courier,extra_adjustment,customer_name,customer_phone").eq("id", id).maybeSingle();
+      const basic = await sb.from("estimates").select("status,order_id,extra_packing,extra_courier,extra_adjustment,customer_name,customer_phone").eq("id", id).maybeSingle();
       estPre = basic.data;
     } else estPre = rich.data;
   }
+  if (isBilledEstimate((estPre as any)?.status, (estPre as any)?.order_id)) {
+    const existing = (estPre as any)?.order_id;
+    if (existing) redirect(`/admin/invoice/${existing}`);
+    redirect(`/admin/estimate/${id}?billerror=${encodeURIComponent("This estimate is already billed.")}`);
+  }
+  if (estPre && (estPre as any).status && (estPre as any).status !== "open") {
+    redirect(`/admin/estimate/${id}?billerror=${encodeURIComponent("This estimate cannot be billed (re-open it first).")}`);
+  }
+  // Carry Sold By from the estimate. Optional form override (Employee B handling a quote Employee A wrote).
+  // NULL is allowed so quotes created before Sold By existed still convert.
   const formEmp = String(formData.get("sales_employee_id") ?? "").trim();
   const salesEmployeeId = formEmp || ((estPre as any)?.sales_employee_id as string | undefined) || "";
-  if (!salesEmployeeId) {
-    redirect(`/admin/estimate/${id}?billerror=${encodeURIComponent('Pick who made this sale under "Sold by" before billing — otherwise the bill will not count on anyone\'s tally.')}`);
-  }
   const { data, error } = await sb.rpc("convert_estimate_v2", { p_estimate_id: id, p_bill_type: billType, p_allow_oversell: allowOversell });
   // Insufficient-stock (or any) error: bounce back to the estimate with a clear message
   // instead of throwing a server error page.
@@ -298,13 +317,13 @@ export async function billEstimateAction(formData: FormData) {
       }
     }
     const patch: Record<string, unknown> = {
-      sales_employee_id: salesEmployeeId,
       merge_variants: !!(est?.merge_variants || formData.get("merge_variants") === "1"),
       buyer_gstin: gstin,
       buyer_address: addr,
       buyer_state: buyerState,
       customer_id: customerId,
     };
+    if (salesEmployeeId) patch.sales_employee_id = salesEmployeeId;
     if (xp !== 0 || xc !== 0 || xa !== 0) {
       const { data: oi } = await sb.from("order_items").select("line_total").eq("order_id", orderId);
       const itemsSum = ((oi as any[]) ?? []).reduce((s, r) => s + (r.line_total ?? 0), 0);
@@ -316,9 +335,16 @@ export async function billEstimateAction(formData: FormData) {
     const { error: patchErr } = await sb.from("orders").update(patch).eq("id", orderId);
     if (patchErr) {
       console.warn("estimate→bill POS fields failed (retrying salesperson only):", patchErr.message);
-      const { error: empErr } = await sb.from("orders").update({ sales_employee_id: salesEmployeeId }).eq("id", orderId);
-      if (empErr) console.error("estimate→bill salesperson update ALSO failed:", empErr.message);
+      if (salesEmployeeId) {
+        const { error: empErr } = await sb.from("orders").update({ sales_employee_id: salesEmployeeId }).eq("id", orderId);
+        if (empErr) console.error("estimate→bill salesperson update ALSO failed:", empErr.message);
+      }
     }
+    // Belt-and-suspenders: mark the quote converted / cash_billed so it leaves the active list even
+    // if an older convert_estimate_v2 (pre-0077) still stamps every bill as 'converted'.
+    const nextStatus = estimateStatusAfterBill(billType);
+    const { error: stErr } = await sb.from("estimates").update({ status: nextStatus, order_id: orderId }).eq("id", id);
+    if (stErr) console.warn("estimate status after bill:", stErr.message);
     await sb.rpc("assign_invoice_no", { p_order: orderId });
   }
   revalidatePath("/admin/estimates"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/sales");
@@ -330,15 +356,23 @@ export async function billEstimateAction(formData: FormData) {
 export async function denyEstimateAction(formData: FormData) {
   if (!(await requirePerm("estimates.deny"))) return;
   const id = String(formData.get("id"));
-  await supabaseServer().from("estimates").update({ status: "denied" }).eq("id", id);
+  const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", id).maybeSingle();
+  if (!isOpenEstimate((est as any)?.status, (est as any)?.order_id)) return;
+  await sb.from("estimates").update({ status: "denied" }).eq("id", id).eq("status", "open");
   revalidatePath("/admin/estimates");
 }
 
-/** Re-open a held/denied estimate. */
+/** Re-open a denied/expired estimate. Never re-open a billed quote (that would allow a second sale). */
 export async function reopenEstimateAction(formData: FormData) {
   if (!(await requirePerm("estimates.create"))) return;
   const id = String(formData.get("id"));
-  await supabaseServer().from("estimates").update({ status: "open" }).eq("id", id);
+  const sb = supabaseServer();
+  const { data: est } = await sb.from("estimates").select("status,order_id").eq("id", id).maybeSingle();
+  if (isBilledEstimate((est as any)?.status, (est as any)?.order_id)) return;
+  const st = (est as any)?.status;
+  if (st !== "denied" && st !== "expired") return;
+  await sb.from("estimates").update({ status: "open" }).eq("id", id);
   revalidatePath("/admin/estimates");
 }
 

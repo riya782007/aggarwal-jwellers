@@ -8,6 +8,8 @@ import { PrintButton } from "@/components/admin/PrintButton";
 import { BUSINESS, amountInWords } from "@/lib/business";
 import { requirePerm } from "@/lib/auth";
 import { updateEstimateCustomerAction, updateEstimateLineAction, updateEstimateLinePriceAction, removeEstimateLineAction, addEstimateLineAction, billEstimateAction } from "@/app/actions/billing";
+import { SubmitOnce } from "@/components/admin/SubmitOnce";
+import { isOpenEstimate } from "@/lib/estimates";
 
 export const metadata = { title: "Estimate / Quotation" };
 
@@ -15,7 +17,7 @@ export default async function EstimatePrint({ params, searchParams }: { params: 
   const data = await getEstimate(params.id);
   if (!data) notFound();
   const { estimate, items } = data;
-  const isOpen = estimate.status === "open";
+  const isOpen = isOpenEstimate(estimate.status, estimate.order_id);
   const canEdit = isOpen && (await requirePerm("estimates.create"));
   const canBill = isOpen && (await requirePerm("estimates.bill"));
   const products = canEdit ? await getProductsLite() : [];
@@ -47,8 +49,8 @@ export default async function EstimatePrint({ params, searchParams }: { params: 
         </div>
         {!isOpen && (
           <div className="no-print mb-4 rounded-2xl border border-gold/40 bg-gold/5 p-3 text-sm text-gold-dark">
-            This estimate is <b className="capitalize">{String(estimate.status).replace("_", " ")}</b>, so its items and prices are locked.
-            {estimate.order_id && <> View the <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">billed invoice <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link></>}
+            This estimate is <b className="capitalize">{String(estimate.status).replace(/_/g, " ")}</b>, so it is no longer active.
+            {estimate.order_id && <> The sale is on <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">this bill <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>. Convert is disabled to prevent a duplicate sale.</>}
             {(estimate.status === "denied" || estimate.status === "expired") && <> Re-open it from the <Link href="/admin/estimates" className="text-emerald nav-link">Estimates list</Link> to edit again.</>}
           </div>
         )}
@@ -166,28 +168,23 @@ export default async function EstimatePrint({ params, searchParams }: { params: 
             </form>
             {canBill && (
               <div className="flex flex-wrap items-end gap-2 border-t border-sand/60 mt-4 pt-4">
-                <p className="w-full text-xs text-muted mb-1">Billing copies <b>Sold by</b> onto the invoice so the sale lands on that employee&apos;s tally (same as POS).</p>
+                <p className="w-full text-xs text-muted mb-1">Billing copies <b>Sold by</b> from this quote automatically. Change it here only if a different employee is closing the sale.</p>
                 <form action={billEstimateAction} className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="id" value={estimate.id} />
                   <input type="hidden" name="bill_type" value="gst" />
                   <label className="text-[11px] text-muted">Sold by
-                    <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} required className={`${inp} w-44 block mt-0.5`}>
-                      <option value="">— select —</option>
+                    <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} className={`${inp} w-44 block mt-0.5`}>
+                      <option value="">— keep as on quote —</option>
                       {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>
                   </label>
-                  <button className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium">Bill · GST</button>
+                  <SubmitOnce className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium">Bill · GST</SubmitOnce>
                 </form>
                 <form action={billEstimateAction} className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="id" value={estimate.id} />
                   <input type="hidden" name="bill_type" value="cash" />
-                  <label className="text-[11px] text-muted">Sold by
-                    <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} required className={`${inp} w-44 block mt-0.5`}>
-                      <option value="">— select —</option>
-                      {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                  </label>
-                  <button className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium">Bill · Final Estimate</button>
+                  <input type="hidden" name="sales_employee_id" value={estimate.sales_employee_id ?? ""} />
+                  <SubmitOnce className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium">Bill · Final Estimate</SubmitOnce>
                 </form>
               </div>
             )}

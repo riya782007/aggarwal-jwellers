@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getEstimates, getStorefront, getCustomersDb, getEmployees } from "@/lib/supabase/queries";
+import { getEstimates, getEstimateStatusCounts, getStorefront, getCustomersDb, getEmployees } from "@/lib/supabase/queries";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
 import { EstimateClient } from "@/components/admin/EstimateClient";
@@ -19,11 +19,11 @@ const waLink = (phone: string, msg: string) => {
 const qfld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
 const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
-  { key: "all", label: "All", match: () => true },
-  { key: "open", label: "Held", match: (s) => s === "open" },
+  { key: "open", label: "Active", match: (s) => s === "open" },
   { key: "converted", label: "GST billed", match: (s) => s === "converted" },
   { key: "cash_billed", label: "Final estimate", match: (s) => s === "cash_billed" },
   { key: "denied", label: "Denied", match: (s) => s === "denied" || s === "expired" },
+  { key: "all", label: "All history", match: () => true },
 ];
 
 const STATUS_STYLE: Record<string, string> = {
@@ -34,17 +34,20 @@ const STATUS_STYLE: Record<string, string> = {
   expired: "bg-cream text-muted",
 };
 const STATUS_LABEL: Record<string, string> = {
-  open: "Held", converted: "GST billed", cash_billed: "Final estimate", denied: "Denied", expired: "Expired",
+  open: "Held", converted: "Converted · GST", cash_billed: "Converted · Final Estimate", denied: "Denied", expired: "Expired",
 };
 
 export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string } }) {
   const sb = supabaseServer();
-  const [{ products, formula }, estimates, customers, { data: variants }, employees] = await Promise.all([
+  const tab = TABS.find((t) => t.key === (searchParams.tab ?? "open")) ?? TABS[0];
+  const listFilter = tab.key === "all" ? {} : tab.key === "denied" ? { statuses: ["denied", "expired"] } : { status: tab.key };
+  const [{ products, formula }, estimates, customers, { data: variants }, employees, statusCounts] = await Promise.all([
     getStorefront({ includeDrafts: true, includeWholesaleOnly: true }),
-    getEstimates({ sort: searchParams.sort }),
+    getEstimates({ sort: searchParams.sort, ...listFilter }),
     getCustomersDb({}),
     sb.from("variants").select("sku,color,qty,product_id,wholesale_override,retail_override,mrp_override"),
-    getEmployees({ activeOnly: true }),
+    getEmployees({ includeDeleted: true }),
+    getEstimateStatusCounts(),
   ]);
   // Expand each design into its colour VARIANTS (variant SKUs are what get billed), so the estimate
   // search shows the exact colour — e.g. "Rajwada Necklace · Green (KN132-GREEN)" — not just the parent.
@@ -65,15 +68,21 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   }
   const custList = customers.map((c: any) => ({ id: c.id, name: c.name, phone: c.phone ?? "", type: c.type ?? "retail", gstin: c.gstin ?? "" }));
   const empById = new Map(employees.map((e) => [e.id, e.name]));
+  const activeEmps = employees.filter((e) => e.active);
 
   // Active dealer rate requests (new / quoted) from the trade portal, surfaced inline below.
   const { data: quoteData } = await sb.from("quote_requests").select("*").in("status", ["new", "quoted"]).order("created_at", { ascending: false }).limit(50);
   const quoteRows = (quoteData as any[]) ?? [];
 
-  const tab = TABS.find((t) => t.key === (searchParams.tab ?? "all")) ?? TABS[0];
   const q = (searchParams.q ?? "").toLowerCase().trim();
-  const rows = estimates.filter((e: any) => tab.match(e.status) && (!q || (e.customer_name ?? "").toLowerCase().includes(q) || String(e.id).toLowerCase().includes(q)));
-  const counts = Object.fromEntries(TABS.map((t) => [t.key, estimates.filter((e: any) => t.match(e.status)).length]));
+  const rows = estimates.filter((e: any) => !q || (e.customer_name ?? "").toLowerCase().includes(q) || String(e.id).toLowerCase().includes(q));
+  const counts: Record<string, number> = {
+    open: statusCounts.open ?? 0,
+    converted: statusCounts.converted ?? 0,
+    cash_billed: statusCounts.cash_billed ?? 0,
+    denied: (statusCounts.denied ?? 0) + (statusCounts.expired ?? 0),
+    all: Object.values(statusCounts).reduce((s, n) => s + n, 0),
+  };
 
   // Pillar 1 — sortable column headers, mirroring the sales register so A–Z by customer
   // and Ref-ID order are one click away on quotes too.
@@ -94,8 +103,8 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Estimates &amp; Quotations</h1>
-      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Pick <b>Sold by</b> on every quote so the bill counts on that person&apos;s tally — same as POS. Each estimate can be held, billed with GST, billed as a final estimate (non-GST bill), or denied. Dealer rate requests from the trade portal appear at the bottom.</p>
-      <EstimateClient products={list} customers={custList} employees={employees.map((e) => ({ id: e.id, name: e.name }))} />
+      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. <b>Sold by</b> is stored on the quote and copies onto the bill automatically. Converted quotes leave the Active list (history is under GST billed / Final estimate). Dealer rate requests from the trade portal appear at the bottom.</p>
+      <EstimateClient products={list} customers={custList} employees={activeEmps.map((e) => ({ id: e.id, name: e.name }))} />
 
       {/* tabs + search */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -142,9 +151,9 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
                     <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</Link>
                     {e.status === "open" && <>
                       <Link href={`/admin/estimate/${e.id}#edit-estimate`} className="px-2.5 py-1 rounded-full bg-emerald-mist text-emerald-dark text-xs font-medium hover:bg-emerald/20"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Edit</Link>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
-                      <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<SubmitOnce className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></SubmitOnce></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<SubmitOnce className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></SubmitOnce></form>
+                      <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><SubmitOnce className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</SubmitOnce></form>
                     </>}
                     {(e.status === "converted" || e.status === "cash_billed") && e.order_id &&
                       <Link href={`/admin/invoice/${e.order_id}`} className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">{e.status === "cash_billed" ? "View final estimate →" : "View invoice →"}</Link>}
