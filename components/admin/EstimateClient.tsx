@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing";
 import { QtyField } from "@/components/admin/QtyField";
+import { resolveBoxScanAction } from "@/app/actions/groups";
+import { isBoxScan, boxScanFeedback } from "@/lib/boxQr";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
 type Cust = { id: string; name: string; phone: string; type: string; gstin: string };
@@ -47,7 +49,15 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const chargesTotal = Math.max(0, toPaise(packing)) + Math.max(0, toPaise(courier)) + toPaise(adjustment);
   const total = lines.reduce((s, l) => s + effUnit(l) * l.qty, 0) + chargesTotal;
 
-  const add = (p: P) => { setLines((prev) => (prev.find((l) => l.sku === p.sku) ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)) : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }])); setQ(""); };
+  const add = (p: P, n = 1) => {
+    const addN = Math.max(1, Math.floor(n));
+    setLines((prev) => {
+      const ex = prev.find((l) => l.sku === p.sku);
+      if (ex) return prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + addN } : l));
+      return [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: addN, override: "" }];
+    });
+    setQ("");
+  };
 
   /** Same scan+search box as the POS: a QR sticker encodes the product-page URL (…/p/AJ1004-RED),
    *  so extract the SKU so one sticker both opens the page AND adds to the estimate. */
@@ -59,14 +69,26 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   /** Enter/scan: add the exact SKU match, else the first search result, else look the SKU up on the
    *  server (covers colour variants and freshly-added items) — so a real code always adds. */
   async function submitSearch() {
-    const code = skuFromScan(q.trim());
+    const scanned = q.trim();
+    if (isBoxScan(scanned)) {
+      setScanMsg({ text: "Box…", ok: true });
+      const r = await resolveBoxScanAction(scanned);
+      if (r.ok && r.item && r.packQty) {
+        const addN = Math.max(1, r.packQty);
+        const unit = custType === "wholesale" && r.item.wholesale > 0 ? r.item.wholesale : r.item.price;
+        add(r.item, addN);
+        setScanMsg(boxScanFeedback({ sku: r.item.sku, name: r.item.name, packQty: r.packQty, addQty: addN, unitPaise: unit, stock: r.item.qty ?? addN }));
+      } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      setQ(""); searchRef.current?.focus(); return;
+    }
+    const code = skuFromScan(scanned);
     if (!code) return;
     const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
     const p = exact ?? matches[0];
-    if (p) { add(p); setScanMsg({ text: `Added ${p.name}`, ok: true }); searchRef.current?.focus(); return; }
+    if (p) { add(p); setScanMsg({ text: `Added ${p.sku} · ${p.name} · ${formatPaise(baseUnit(p))}`, ok: true }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     const found = await resolveSellableSku(code);
-    if (found) { add({ sku: found.sku, name: found.name, price: found.price, wholesale: found.wholesale }); setScanMsg({ text: `Added ${found.name}`, ok: true }); }
+    if (found) { add({ sku: found.sku, name: found.name, price: found.price, wholesale: found.wholesale }); setScanMsg({ text: `Added ${found.sku} · ${found.name} · ${formatPaise(custType === "wholesale" && found.wholesale > 0 ? found.wholesale : found.price)}`, ok: true }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
@@ -131,7 +153,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
       {/* Products */}
       <div className="relative mb-2">
-        <input ref={searchRef} className={input} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
+        <input ref={searchRef} className={input} placeholder="Scan a piece or box QR, or search a product — press Enter" value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }} />
         {matches.length > 0 && (
