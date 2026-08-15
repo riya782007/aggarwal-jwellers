@@ -904,17 +904,24 @@ export async function getLabelItems(): Promise<LabelItem[]> {
   return out;
 }
 
-/** Box/group QRs for the label module — each with its target piece SKU, name and LIVE stock so the
- *  owner can reprint and see how many pieces the box currently resolves to. */
-export async function getBoxGroups(): Promise<{ id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number }[]> {
+/** Box/group QRs for the label module — each with its target piece SKU, name, LIVE stock and
+ *  prices so stickers print the same SKU + price numbers as a piece label (not a random GRP code). */
+export async function getBoxGroups(): Promise<{ id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price: number; wholesale: number }[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("inventory_groups")
-    .select("id,code,label,pack_qty,status, product:products(sku,name,qty), variant:variants(sku,color,qty, product:products(name))")
-    .eq("status", "active").order("created_at", { ascending: false });
-  return ((data as any[]) ?? []).map((g) => {
+  const formula = await getPricingFormula();
+  const RICH = "id,code,label,pack_qty,status, product:products(sku,name,qty,base_wholesale,wholesale_override,retail_override,mrp_override), variant:variants(sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override))";
+  const BASIC = "id,code,label,pack_qty,status, product:products(sku,name,qty,base_wholesale), variant:variants(sku,color,qty, product:products(name,base_wholesale))";
+  const rich = await sb.from("inventory_groups").select(RICH).eq("status", "active").order("created_at", { ascending: false });
+  const rows = !rich.error ? ((rich.data as any[]) ?? []) : (((await sb.from("inventory_groups").select(BASIC).eq("status", "active").order("created_at", { ascending: false })).data as any[]) ?? []);
+  return rows.map((g) => {
     const v = g.variant, p = g.product;
-    if (v) return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: v.sku, name: `${v.product?.name ?? ""}${v.color ? " · " + v.color : ""}`, stock: v.qty ?? 0 };
-    return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: p?.sku ?? "", name: p?.name ?? "", stock: p?.qty ?? 0 };
+    if (v) {
+      const parent = v.product ?? {};
+      const vp = _resolvePrices(parent.base_wholesale ?? 0, formula, overridesOf(v), overridesOf(parent));
+      return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: v.sku, name: `${parent.name ?? ""}${v.color ? " · " + v.color : ""}`, stock: v.qty ?? 0, price: vp.retailPrice, wholesale: vp.wholesaleRate };
+    }
+    const pp = _resolvePrices(p?.base_wholesale ?? 0, formula, overridesOf(p));
+    return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: p?.sku ?? "", name: p?.name ?? "", stock: p?.qty ?? 0, price: pp.retailPrice, wholesale: pp.wholesaleRate };
   });
 }
 

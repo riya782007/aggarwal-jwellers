@@ -4,14 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
+import { boxPdfLabel } from "@/lib/boxQr";
 
-type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number };
+type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number };
 
 /**
  * Packaging / box QR for an EXISTING product. Mark that this design comes in a box of N and generate
- * its box QR — scanning it at the POS adds the whole pack. Same mechanism as the auto-box created when
- * adding a new product; this lets the owner attach one to inventory that already exists.
- * The QR encodes only the internal code (no web link), so a phone scan reveals nothing.
+ * its box QR — scanning it at the POS adds the whole pack. The QR encodes the piece SKU + pack count
+ * (BOX:AJ1004:5). Reprinting an old GRP sticker uses the same piece SKU on the new label.
  */
 export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string; groups: Box[] }) {
   const router = useRouter();
@@ -30,36 +30,34 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     setBusy(true); setMsg(null);
     const r = await createBoxGroupAction({ sku, packQty: n, label: label.trim() || undefined });
     setBusy(false);
-    if (r.ok) { setMsg({ text: `Box QR ${r.code} created.`, ok: true }); setLabel(""); setPackQty("6"); router.refresh(); }
+    if (r.ok) { setMsg({ text: `Box QR for ${sku} ×${n} created.`, ok: true }); setLabel(""); setPackQty("6"); router.refresh(); }
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
   // Print box stickers on the SAME thermal label roll as piece labels, via the shared makeLabelsPdf.
   // One box QR = one sticker per physical box → default count to boxes-in-stock (editable per row).
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-    const labels = Array.from({ length: n }, () => ({
-      name: box.name, sku: box.code, qrValue: box.code, priceLine: `BOX OF ${box.packQty}`,
-      showName: true, showSku: true,
-    }));
+    const one = boxPdfLabel(box);
+    const labels = Array.from({ length: n }, () => ({ ...one }));
     await makeLabelsPdf(labels, "print").catch((e: any) => alert(e?.message || "Couldn't generate the labels."));
   }
 
   return (
     <div className="bg-white rounded-2xl border border-sand p-5 shadow-card no-print">
       <h3 className="font-medium text-ink mb-1 flex items-center gap-1.5"><Icon g="📦" className="w-4 h-4" />Packaging (box QR)</h3>
-      <p className="text-xs text-muted mb-3">If this design comes in a box (e.g. 6 pieces), make a box QR. Scanning it at the counter adds the whole pack at once; each piece is still tracked and sold individually.</p>
+      <p className="text-xs text-muted mb-3">If this design comes in a box (e.g. 5 pieces), make a box QR. Scanning it at the counter adds the whole pack under this product&apos;s SKU. The sticker shows that SKU, pack size, and the same price numbers as a piece label.</p>
 
       {groups.length > 0 && (
         <div className="mb-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-muted"><tr><th className="py-1.5 pr-3">Box</th><th className="py-1.5 pr-3 text-center">Pack</th><th className="py-1.5 pr-3 text-center">In stock</th><th className="py-1.5 pr-3">Code</th><th className="py-1.5 text-right">Action</th></tr></thead>
+            <thead className="text-left text-xs uppercase tracking-wide text-muted"><tr><th className="py-1.5 pr-3">Box</th><th className="py-1.5 pr-3 text-center">Pack</th><th className="py-1.5 pr-3 text-center">In stock</th><th className="py-1.5 pr-3">SKU</th><th className="py-1.5 text-right">Action</th></tr></thead>
             <tbody>
               {groups.map((b) => (
                 <tr key={b.id} className="border-t border-sand/60">
                   <td className="py-2 pr-3 text-ink">{b.label}</td>
                   <td className="py-2 pr-3 text-center">×{b.packQty}</td>
                   <td className={`py-2 pr-3 text-center ${b.stock < b.packQty ? "text-gold-dark" : "text-emerald-dark"}`}>{b.stock}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{b.code}</td>
+                  <td className="py-2 pr-3 font-mono text-xs">{b.sku}</td>
                   <td className="py-2 text-right whitespace-nowrap">
                     <label className="text-[10px] text-muted mr-1">Labels<input value={counts[b.id] ?? String(boxesInStock(b))} onChange={(e) => setCounts((c) => ({ ...c, [b.id]: e.target.value }))} inputMode="numeric" title="Stickers to print (default = boxes in stock)" className="w-14 text-center rounded-lg border border-sand px-2 py-1 text-xs ml-1" /></label>
                     <button onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</button>
