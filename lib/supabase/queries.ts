@@ -2,6 +2,7 @@
 import "server-only";
 import { supabaseServer } from "./server";
 import type { PricingFormula } from "../pricing";
+import { isOpenEstimate, resolveEstimateWorkbenchStatuses, belongsOnEstimateWorkbench } from "../estimates";
 
 /**
  * Sanitise a user search term before putting it in a PostgREST `.or(...ilike...)` filter.
@@ -613,11 +614,11 @@ export async function getOrdersPage(opts: { page?: number; pageSize?: number; q?
   const sb = supabaseServer();
   const pageSize = opts.pageSize ?? 25;
   const page = Math.max(1, opts.page ?? 1);
-  let query = sb.from("orders").select("id,total,amount_paid,invoice_no,channel,status,payment_mode,bill_type,gst_mode,customer_name,customer_phone,source_tag,created_at", { count: "exact" });
+  let query = sb.from("orders").select("id,total,amount_paid,invoice_no,channel,status,payment_mode,bill_type,gst_mode,customer_name,customer_phone,source_tag,sales_employee_id,created_at", { count: "exact" });
   // A cancelled / voided / refunded bill is NOT a sale — keep dead orders out of the sales register
   // (and out of its page totals). They were already reversed in stock and the day-book on cancel.
   query = query.not("status", "in", "(cancelled,void,refunded)");
-  if (opts.q?.trim()) { const s = escLike(opts.q); if (s) query = query.or(`customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%`); }
+  if (opts.q?.trim()) { const s = escLike(opts.q); if (s) query = query.or(`customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%,invoice_no.ilike.%${s}%`); }
   if (opts.channel && opts.channel !== "all") query = query.eq("channel", opts.channel);
   if (opts.billType) query = query.eq("bill_type", opts.billType);
   if (opts.from) query = query.gte("created_at", opts.from);
@@ -970,10 +971,10 @@ export async function getProductEstimateReservations(productId: string): Promise
   const sb = supabaseServer();
   const { data } = await sb
     .from("estimate_items")
-    .select("qty, estimate:estimates(id,customer_name,status,created_at)")
+    .select("qty, estimate:estimates(id,customer_name,status,order_id,created_at)")
     .eq("product_id", productId);
   return ((data as any[]) ?? [])
-    .filter((r) => r.estimate && r.estimate.status === "open")
+    .filter((r) => r.estimate && isOpenEstimate(r.estimate.status, r.estimate.order_id))
     .map((r) => ({ id: r.estimate.id as string, customer: r.estimate.customer_name as string | null, qty: r.qty as number, created_at: r.estimate.created_at as string }))
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 }
@@ -1037,6 +1038,7 @@ export async function getOpenEstimateReservations(limit = 50) {
     .from("estimates")
     .select("id, customer_name, created_at, estimate_items(qty, product:products(sku,name))")
     .eq("status", "open")
+    .is("order_id", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   return ((data as any[]) ?? []).map((e) => ({
@@ -1150,10 +1152,10 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
 
   // --- reservations (open estimates = soft holds, not in the ledger) ---
   const { data: resv } = await sb.from("estimate_items")
-    .select("qty, estimate:estimates(id,customer_name,status,created_at)")
+    .select("qty, estimate:estimates(id,customer_name,status,order_id,created_at)")
     .eq("product_id", productId);
   const reservations = ((resv as any[]) ?? [])
-    .filter((r) => r.estimate && r.estimate.status === "open")
+    .filter((r) => r.estimate && isOpenEstimate(r.estimate.status, r.estimate.order_id))
     .map((r) => ({ id: r.estimate.id as string, customer: (r.estimate.customer_name as string) ?? "Walk-in", qty: (r.qty as number) ?? 0, status: r.estimate.status as string, created_at: r.estimate.created_at as string }))
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const reserved = reservations.reduce((s, r) => s + r.qty, 0);
@@ -1620,15 +1622,38 @@ const ESTIMATES_SORT: Record<string, string> = {
   date: "created_at",
   amount: "total",
 };
-export async function getEstimates(opts: { sort?: string } = {}) {
+export async function getEstimates(opts: { sort?: string; status?: string; statuses?: string[] } = {}) {
   const sb = supabaseServer();
   const [field, dir] = (opts.sort ?? "").split("_");
   const col = ESTIMATES_SORT[field] ?? "created_at";
   const asc = col === "created_at" ? dir === "asc" : dir !== "desc";
-  let q = sb.from("estimates").select("id,customer_name,customer_phone,total,status,order_id,created_at").order(col, { ascending: asc, nullsFirst: false });
+  const RICH = "id,customer_name,customer_phone,total,status,order_id,created_at,sales_employee_id";
+  const BASIC = "id,customer_name,customer_phone,total,status,order_id,created_at";
+  // Converted quotes are sales: never list them here, even if a tab/query asks for "all" or billed.
+  const statuses = resolveEstimateWorkbenchStatuses(opts.status ?? opts.statuses);
+  const applyWorkbench = (q: any) => q.in("status", statuses).is("order_id", null);
+  let q = applyWorkbench(sb.from("estimates").select(RICH)).order(col, { ascending: asc, nullsFirst: false });
   if (col !== "created_at") q = q.order("created_at", { ascending: false });
-  const { data } = await q.limit(200);
-  return (data as any[]) ?? [];
+  const rich = await q.limit(200);
+  const keep = (rows: any[]) => rows.filter((e) => belongsOnEstimateWorkbench(e.status, e.order_id));
+  if (!rich.error) return keep((rich.data as any[]) ?? []);
+  let q2 = applyWorkbench(sb.from("estimates").select(BASIC)).order(col, { ascending: asc, nullsFirst: false });
+  if (col !== "created_at") q2 = q2.order("created_at", { ascending: false });
+  const fallback = await q2.limit(200);
+  return keep((fallback.data as any[]) ?? []);
+}
+
+/** Lightweight per-status counts for estimate tabs. Billed quotes are sales — not counted here. */
+export async function getEstimateStatusCounts(): Promise<Record<string, number>> {
+  const sb = supabaseServer();
+  const { data } = await sb.from("estimates").select("status,order_id");
+  const counts: Record<string, number> = { open: 0, denied: 0, expired: 0 };
+  for (const r of ((data as any[]) ?? [])) {
+    if (!belongsOnEstimateWorkbench(r.status, r.order_id)) continue;
+    const s = String(r.status ?? "");
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+  return counts;
 }
 export async function getEstimate(id: string) {
   const sb = supabaseServer();
