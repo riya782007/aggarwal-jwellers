@@ -8,6 +8,7 @@ import { EstimateClient } from "@/components/admin/EstimateClient";
 import { billEstimateAction, denyEstimateAction, reopenEstimateAction } from "@/app/actions/billing";
 import { setQuoteStatusAction } from "@/app/actions/quotes";
 import { SubmitOnce } from "@/components/admin/SubmitOnce";
+import { belongsOnEstimateWorkbench } from "@/lib/estimates";
 
 export const metadata = { title: "Owner Console · Estimates & Quotes" };
 
@@ -18,12 +19,9 @@ const waLink = (phone: string, msg: string) => {
 };
 const qfld = "rounded-xl border border-sand bg-white px-3 py-2 text-sm outline-none focus:border-emerald";
 
-const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
-  { key: "open", label: "Active", match: (s) => s === "open" },
-  { key: "converted", label: "GST billed", match: (s) => s === "converted" },
-  { key: "cash_billed", label: "Final estimate", match: (s) => s === "cash_billed" },
-  { key: "denied", label: "Denied", match: (s) => s === "denied" || s === "expired" },
-  { key: "all", label: "All history", match: () => true },
+const TABS: { key: string; label: string }[] = [
+  { key: "open", label: "Active" },
+  { key: "denied", label: "Denied" },
 ];
 
 const STATUS_STYLE: Record<string, string> = {
@@ -75,13 +73,12 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   const quoteRows = (quoteData as any[]) ?? [];
 
   const q = (searchParams.q ?? "").toLowerCase().trim();
-  const rows = estimates.filter((e: any) => !q || (e.customer_name ?? "").toLowerCase().includes(q) || String(e.id).toLowerCase().includes(q));
+  const rows = estimates.filter((e: any) =>
+    belongsOnEstimateWorkbench(e.status, e.order_id) &&
+    (!q || (e.customer_name ?? "").toLowerCase().includes(q) || String(e.id).toLowerCase().includes(q)));
   const counts: Record<string, number> = {
     open: statusCounts.open ?? 0,
-    converted: statusCounts.converted ?? 0,
-    cash_billed: statusCounts.cash_billed ?? 0,
     denied: (statusCounts.denied ?? 0) + (statusCounts.expired ?? 0),
-    all: Object.values(statusCounts).reduce((s, n) => s + n, 0),
   };
 
   // Pillar 1 — sortable column headers, mirroring the sales register so A–Z by customer
@@ -103,7 +100,7 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Estimates &amp; Quotations</h1>
-      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. <b>Sold by</b> is stored on the quote and copies onto the bill automatically. Converted quotes leave the Active list (history is under GST billed / Final estimate). Dealer rate requests from the trade portal appear at the bottom.</p>
+      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. <b>Sold by</b> is stored on the quote and copies onto the bill. Once converted, the quote leaves this list and the sale appears in <Link href="/admin/sales" className="text-emerald nav-link">Sales Records</Link>. Dealer rate requests from the trade portal appear at the bottom.</p>
       <EstimateClient products={list} customers={custList} employees={activeEmps.map((e) => ({ id: e.id, name: e.name }))} />
 
       {/* tabs + search */}
@@ -155,8 +152,6 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
                       <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<SubmitOnce className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></SubmitOnce></form>
                       <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><SubmitOnce className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</SubmitOnce></form>
                     </>}
-                    {(e.status === "converted" || e.status === "cash_billed") && e.order_id &&
-                      <Link href={`/admin/invoice/${e.order_id}`} className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">{e.status === "cash_billed" ? "View final estimate →" : "View invoice →"}</Link>}
                     {(e.status === "denied" || e.status === "expired") &&
                       <form action={reopenEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-gold/15 text-gold-dark text-xs hover:bg-gold/25">Re-open</button></form>}
                   </div>

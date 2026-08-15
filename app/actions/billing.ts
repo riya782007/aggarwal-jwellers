@@ -5,7 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
-import { estimateStatusAfterBill, isBilledEstimate, isOpenEstimate } from "@/lib/estimates";
+import { estimateStatusAfterBill, isBilledEstimate, isOpenEstimate, ESTIMATE_ORDER_SOURCE_TAG } from "@/lib/estimates";
 
 /**
  * Resolve a single SKU (product OR variant) to a billable line, straight from the DB.
@@ -322,6 +322,7 @@ export async function billEstimateAction(formData: FormData) {
       buyer_address: addr,
       buyer_state: buyerState,
       customer_id: customerId,
+      source_tag: ESTIMATE_ORDER_SOURCE_TAG,
     };
     if (salesEmployeeId) patch.sales_employee_id = salesEmployeeId;
     if (xp !== 0 || xc !== 0 || xa !== 0) {
@@ -334,11 +335,11 @@ export async function billEstimateAction(formData: FormData) {
     }
     const { error: patchErr } = await sb.from("orders").update(patch).eq("id", orderId);
     if (patchErr) {
-      console.warn("estimate→bill POS fields failed (retrying salesperson only):", patchErr.message);
-      if (salesEmployeeId) {
-        const { error: empErr } = await sb.from("orders").update({ sales_employee_id: salesEmployeeId }).eq("id", orderId);
-        if (empErr) console.error("estimate→bill salesperson update ALSO failed:", empErr.message);
-      }
+      console.warn("estimate→bill POS fields failed (retrying salesperson + source):", patchErr.message);
+      const slim: Record<string, unknown> = { source_tag: ESTIMATE_ORDER_SOURCE_TAG };
+      if (salesEmployeeId) slim.sales_employee_id = salesEmployeeId;
+      const { error: empErr } = await sb.from("orders").update(slim).eq("id", orderId);
+      if (empErr) console.error("estimate→bill salesperson/source update ALSO failed:", empErr.message);
     }
     // Belt-and-suspenders: mark the quote converted / cash_billed so it leaves the active list even
     // if an older convert_estimate_v2 (pre-0077) still stamps every bill as 'converted'.
@@ -348,6 +349,7 @@ export async function billEstimateAction(formData: FormData) {
     await sb.rpc("assign_invoice_no", { p_order: orderId });
   }
   revalidatePath("/admin/estimates"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/sales");
+  revalidatePath("/admin/employees");
   if (orderId) redirect(`/admin/invoice/${orderId}`);
   redirect("/admin/estimates");
 }

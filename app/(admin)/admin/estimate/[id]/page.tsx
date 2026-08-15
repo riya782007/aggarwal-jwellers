@@ -49,8 +49,8 @@ export default async function EstimatePrint({ params, searchParams }: { params: 
         </div>
         {!isOpen && (
           <div className="no-print mb-4 rounded-2xl border border-gold/40 bg-gold/5 p-3 text-sm text-gold-dark">
-            This estimate is <b className="capitalize">{String(estimate.status).replace(/_/g, " ")}</b>, so it is no longer active.
-            {estimate.order_id && <> The sale is on <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">this bill <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>. Convert is disabled to prevent a duplicate sale.</>}
+            This estimate is <b className="capitalize">{String(estimate.status).replace(/_/g, " ")}</b>, so it is no longer on the Estimates list.
+            {estimate.order_id && <> The sale is in <Link href="/admin/sales" className="text-emerald nav-link">Sales Records</Link> — open <Link href={`/admin/invoice/${estimate.order_id}`} className="text-emerald nav-link">this bill <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>. Convert is disabled to prevent a duplicate sale.</>}
             {(estimate.status === "denied" || estimate.status === "expired") && <> Re-open it from the <Link href="/admin/estimates" className="text-emerald nav-link">Estimates list</Link> to edit again.</>}
           </div>
         )}

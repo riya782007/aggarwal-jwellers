@@ -4390,3 +4390,73 @@ begin
   return jsonb_build_object('order_id', v_order, 'total', v_total, 'estimate_status', v_est_status);
 end; $$;
 
+
+-- ------------------------------------------------------------ 0078_estimate_convert_source_tag.sql
+-- Converted quotes must appear on Sales Records as POS sales originating from an estimate.
+-- Stamp orders.source_tag = 'estimate' in the same atomic write as the bill (app also patches
+-- this after RPC for older convert_estimate_v2). Sold-by was already copied in 0076/0077.
+create or replace function public.convert_estimate_v2(p_estimate_id uuid, p_bill_type text default 'cash', p_allow_oversell boolean default false)
+returns jsonb language plpgsql as $$
+declare est public.estimates; li record; v_order uuid; v_total bigint := 0; v_est_status public.estimate_status;
+begin
+  select * into est from public.estimates where id = p_estimate_id for update;
+  if est is null then raise exception 'Estimate not found'; end if;
+  if est.order_id is not null or est.status in ('converted', 'cash_billed') then
+    raise exception 'Estimate is already billed';
+  end if;
+  if est.status is distinct from 'open' then
+    raise exception 'Estimate cannot be billed (status %)', est.status;
+  end if;
+
+  for li in select ei.qty, ei.product_id, ei.variant_id, p.sku as p_sku, p.qty as p_qty, v.sku as v_sku, v.qty as v_qty
+            from public.estimate_items ei
+            join public.products p on p.id = ei.product_id
+            left join public.variants v on v.id = ei.variant_id
+            where ei.estimate_id = p_estimate_id loop
+    if not p_allow_oversell then
+      if li.variant_id is not null and coalesce(li.v_qty,0) < li.qty then
+        raise exception 'Not enough stock for % — % available, % on the estimate', li.v_sku, coalesce(li.v_qty,0), li.qty;
+      elsif li.variant_id is null and li.p_qty < li.qty then
+        raise exception 'Not enough stock for % — % available, % on the estimate', li.p_sku, li.p_qty, li.qty;
+      end if;
+    end if;
+  end loop;
+
+  insert into public.orders(
+      channel, status, total, payment_mode, bill_type,
+      customer_name, customer_phone, customer_id,
+      sales_employee_id, buyer_gstin, buyer_address, merge_variants, source_tag
+    )
+  values (
+      'pos', 'completed', 0, null, coalesce(p_bill_type,'cash'),
+      est.customer_name, est.customer_phone, est.customer_id,
+      est.sales_employee_id, est.buyer_gstin, est.buyer_address, coalesce(est.merge_variants, false), 'estimate'
+    )
+  returning id into v_order;
+
+  for li in select ei.* from public.estimate_items ei where ei.estimate_id = p_estimate_id loop
+    insert into public.order_items(order_id, product_id, variant_id, qty, unit_price, line_total)
+    values (v_order, li.product_id, li.variant_id, li.qty, li.unit_price, li.line_total);
+    v_total := v_total + li.line_total;
+    if li.variant_id is not null then
+      update public.variants set qty = greatest(0, qty - li.qty) where id = li.variant_id;
+      update public.products
+        set qty = greatest(0, coalesce((select sum(v.qty) from public.variants v where v.product_id = li.product_id), 0)),
+            last_movement_at = now()
+        where id = li.product_id;
+      insert into public.stock_adjustments(product_id, variant_id, delta, source, kind)
+      values (li.product_id, li.variant_id, -li.qty, 'estimate ' || p_estimate_id, 'sale');
+    else
+      update public.products set qty = greatest(0, qty - li.qty), last_movement_at = now() where id = li.product_id;
+      insert into public.stock_adjustments(product_id, delta, source, kind)
+      values (li.product_id, -li.qty, 'estimate ' || p_estimate_id, 'sale');
+    end if;
+  end loop;
+
+  v_est_status := case when coalesce(p_bill_type, 'cash') = 'gst' then 'converted' else 'cash_billed' end;
+  update public.orders set total = v_total, source_tag = coalesce(source_tag, 'estimate') where id = v_order;
+  update public.estimates set status = v_est_status, order_id = v_order where id = p_estimate_id;
+  insert into public.ledger(kind, ref_id, credit, note) values ('sales', v_order, v_total, 'billed estimate ' || p_estimate_id);
+  return jsonb_build_object('order_id', v_order, 'total', v_total, 'estimate_status', v_est_status);
+end; $$;
+
