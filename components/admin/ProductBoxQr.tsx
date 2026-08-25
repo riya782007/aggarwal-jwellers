@@ -1,6 +1,6 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
@@ -18,11 +18,17 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   const [packQty, setPackQty] = useState("6");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [counts, setCounts] = useState<Record<string, string>>({});
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   // One box QR = one sticker per physical box → default the count to boxes-in-stock.
   const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
   const input = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
+  const visibleGroups = useMemo(
+    () => groups.filter((b) => !hiddenIds.has(b.id)),
+    [groups, hiddenIds],
+  );
 
   async function create() {
     const n = Math.floor(Number(packQty) || 0);
@@ -33,15 +39,57 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     if (r.ok) { setMsg({ text: `Box QR ${r.code} created.`, ok: true }); setLabel(""); setPackQty("6"); router.refresh(); }
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
-  // Print box stickers on the SAME thermal label roll as piece labels, via the shared makeLabelsPdf.
-  // One box QR = one sticker per physical box → default count to boxes-in-stock (editable per row).
+
+  // Print then soft-delete so the row leaves this product page after the work is done.
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
     const labels = Array.from({ length: n }, () => ({
       name: box.name, sku: box.code, qrValue: box.code, priceLine: `BOX OF ${box.packQty}`,
       showName: true, showSku: true,
     }));
-    await makeLabelsPdf(labels, "print").catch((e: any) => alert(e?.message || "Couldn't generate the labels."));
+    try {
+      await makeLabelsPdf(labels, "print");
+      setHiddenIds((prev) => new Set(prev).add(box.id));
+      const r = await deleteBoxGroupAction(box.id);
+      if (r.ok) {
+        setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"}. Removed from list.`, ok: true });
+        router.refresh();
+      } else {
+        setMsg({ text: `Printed, but could not clear: ${r.error ?? "unknown"}`, ok: false });
+      }
+    } catch (e: any) {
+      alert(e?.message || "Couldn't generate the labels.");
+    }
+  }
+
+  async function remove(box: Box) {
+    if (!confirm(`Remove box QR "${box.label}" (${box.code})?`)) return;
+    setDeletingId(box.id);
+    setMsg(null);
+    setHiddenIds((prev) => new Set(prev).add(box.id));
+    try {
+      const r = await deleteBoxGroupAction(box.id);
+      if (r.ok) {
+        setMsg({ text: `Removed ${box.label}.`, ok: true });
+        router.refresh();
+      } else {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(box.id);
+          return next;
+        });
+        setMsg({ text: r.error ?? "Delete failed.", ok: false });
+      }
+    } catch (e: any) {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(box.id);
+        return next;
+      });
+      setMsg({ text: e?.message || "Delete failed.", ok: false });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -49,12 +97,12 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
       <h3 className="font-medium text-ink mb-1 flex items-center gap-1.5"><Icon g="📦" className="w-4 h-4" />Packaging (box QR)</h3>
       <p className="text-xs text-muted mb-3">If this design comes in a box (e.g. 6 pieces), make a box QR. Scanning it at the counter adds the whole pack at once; each piece is still tracked and sold individually.</p>
 
-      {groups.length > 0 && (
+      {visibleGroups.length > 0 && (
         <div className="mb-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted"><tr><th className="py-1.5 pr-3">Box</th><th className="py-1.5 pr-3 text-center">Pack</th><th className="py-1.5 pr-3 text-center">In stock</th><th className="py-1.5 pr-3">Code</th><th className="py-1.5 text-right">Action</th></tr></thead>
             <tbody>
-              {groups.map((b) => (
+              {visibleGroups.map((b) => (
                 <tr key={b.id} className="border-t border-sand/60">
                   <td className="py-2 pr-3 text-ink">{b.label}</td>
                   <td className="py-2 pr-3 text-center">×{b.packQty}</td>
@@ -62,8 +110,10 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
                   <td className="py-2 pr-3 font-mono text-xs">{b.code}</td>
                   <td className="py-2 text-right whitespace-nowrap">
                     <label className="text-[10px] text-muted mr-1">Labels<input value={counts[b.id] ?? String(boxesInStock(b))} onChange={(e) => setCounts((c) => ({ ...c, [b.id]: e.target.value }))} inputMode="numeric" title="Stickers to print (default = boxes in stock)" className="w-14 text-center rounded-lg border border-sand px-2 py-1 text-xs ml-1" /></label>
-                    <button onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</button>
-                    <form action={deleteBoxGroupAction} className="inline-block ml-2"><input type="hidden" name="id" value={b.id} /><button className="text-xs px-2 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20">Delete</button></form>
+                    <button type="button" onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</button>
+                    <button type="button" onClick={() => remove(b)} disabled={deletingId === b.id} className="text-xs px-2 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 ml-2 disabled:opacity-50">
+                      {deletingId === b.id ? "…" : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
