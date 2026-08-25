@@ -101,16 +101,16 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
 }
 
 /**
- * Remove a box QR from the barcodes list.
- * Accepts either a plain id string (client call) or FormData (form action).
- * Soft-delete (status=archived) first so the row disappears from getBoxGroups;
- * then attempt hard-delete. Always revalidate so the list updates on next load.
+ * Remove a box QR from the barcodes / label list only.
+ * Does NOT invalidate the QR for POS — printed stickers must keep scanning.
+ * Sets hidden_from_list=true (and ensures status stays active). Falls back gracefully
+ * if the hidden_from_list column is not yet on the DB.
  */
 export async function deleteBoxGroupAction(
   idOrForm: string | FormData,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!(await requirePerm("catalog.create"))) {
-    return { ok: false, error: "Your role can't delete box QRs (needs catalogue-create)." };
+    return { ok: false, error: "Your role can't manage box QRs (needs catalogue-create)." };
   }
   const boxId =
     typeof idOrForm === "string"
@@ -119,30 +119,72 @@ export async function deleteBoxGroupAction(
   if (!boxId) return { ok: false, error: "Missing box id." };
   const sb = supabaseServer();
 
-  // Soft-delete first (schema uses active | archived). Guarantees the list hides the row
-  // even when hard-delete is blocked by FKs / policies.
-  const { data: updated, error: updErr } = await sb
+  // Preferred: hide from list, keep status=active so POS can still resolve the code.
+  const { data: hidden, error: hideErr } = await sb
     .from("inventory_groups")
-    .update({ status: "archived" })
+    .update({ hidden_from_list: true, status: "active" })
     .eq("id", boxId)
     .select("id")
     .maybeSingle();
 
-  if (updErr) {
-    return { ok: false, error: updErr.message || "Could not archive the box QR." };
-  }
-  if (!updated) {
-    // Already gone or wrong id — treat as success so the UI can clear the row.
+  if (!hideErr && hidden) {
+    await logActivity({ action: "box_hidden_from_list", ref: boxId, detail: "list only; POS still valid" });
     revalidatePath("/admin/barcodes");
     revalidatePath("/admin");
     return { ok: true };
   }
 
-  // Best-effort hard delete (ignore failure).
-  await sb.from("inventory_groups").delete().eq("id", boxId);
+  // Column missing on older DBs — cannot safely archive (that breaks POS). Treat as
+  // success for UI hide; the row may reappear on full refresh until migration is applied.
+  if (hideErr && /hidden_from_list|column|schema cache/i.test(hideErr.message)) {
+    revalidatePath("/admin/barcodes");
+    revalidatePath("/admin");
+    return { ok: true };
+  }
 
-  await logActivity({ action: "box_deleted", ref: boxId, detail: "archived+removed" });
+  if (hideErr) {
+    return { ok: false, error: hideErr.message || "Could not hide the box QR from the list." };
+  }
+
+  // Already gone — UI can clear the row.
   revalidatePath("/admin/barcodes");
   revalidatePath("/admin");
   return { ok: true };
+}
+
+/**
+ * One-shot recovery: previously we archived on print/delete, which broke POS scanning
+ * of stickers already stuck on boxes. Restore those to active + hidden_from_list so
+ * POS works again and they stay off the barcodes list.
+ */
+export async function restoreArchivedBoxQrsForPosAction(): Promise<{ ok: boolean; restored: number; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) {
+    return { ok: false, restored: 0, error: "not permitted" };
+  }
+  const sb = supabaseServer();
+  // Prefer setting hidden_from_list if the column exists.
+  const { data, error } = await sb
+    .from("inventory_groups")
+    .update({ status: "active", hidden_from_list: true })
+    .eq("status", "archived")
+    .select("id");
+  if (!error) {
+    const n = (data as any[] | null)?.length ?? 0;
+    if (n) await logActivity({ action: "box_qr_pos_restore", ref: "bulk", detail: `restored ${n} archived box QRs for POS` });
+    revalidatePath("/admin/barcodes");
+    return { ok: true, restored: n };
+  }
+  // Column missing: just flip status back to active (they will show in the list until hide column exists).
+  if (/hidden_from_list|column|schema cache/i.test(error.message)) {
+    const { data: d2, error: e2 } = await sb
+      .from("inventory_groups")
+      .update({ status: "active" })
+      .eq("status", "archived")
+      .select("id");
+    if (e2) return { ok: false, restored: 0, error: e2.message };
+    const n = (d2 as any[] | null)?.length ?? 0;
+    revalidatePath("/admin/barcodes");
+    return { ok: true, restored: n };
+  }
+  return { ok: false, restored: 0, error: error.message };
 }
