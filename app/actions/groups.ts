@@ -100,10 +100,29 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
   }
 }
 
-export async function deleteBoxGroupAction(formData: FormData): Promise<void> {
-  if (!(await requirePerm("catalog.create"))) return;
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-  await supabaseServer().from("inventory_groups").delete().eq("id", id);
+/** Soft-delete preferred when hard delete is blocked by RLS / FKs; always revalidate so the list updates. */
+export async function deleteBoxGroupAction(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) {
+    return { ok: false, error: "Your role can't delete box QRs (needs catalogue-create)." };
+  }
+  const boxId = String(id ?? "").trim();
+  if (!boxId) return { ok: false, error: "Missing box id." };
+  const sb = supabaseServer();
+
+  // Try hard delete first.
+  const { error: delErr, count } = await sb.from("inventory_groups").delete({ count: "exact" }).eq("id", boxId);
+  if (!delErr && (count === null || count > 0)) {
+    await logActivity({ action: "box_deleted", ref: boxId, detail: "removed" });
+    revalidatePath("/admin/barcodes");
+    return { ok: true };
+  }
+
+  // Fallback: mark inactive so it disappears from the active list even if hard-delete is blocked.
+  const { error: updErr } = await sb.from("inventory_groups").update({ status: "inactive" }).eq("id", boxId);
+  if (updErr) {
+    return { ok: false, error: delErr?.message || updErr.message || "Could not remove the box QR." };
+  }
+  await logActivity({ action: "box_deactivated", ref: boxId, detail: "status=inactive" });
   revalidatePath("/admin/barcodes");
+  return { ok: true };
 }
