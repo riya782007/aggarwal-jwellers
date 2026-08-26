@@ -11,6 +11,7 @@ import { generateEmbeddingsAction } from "@/app/actions/embeddings";
 import { Pager } from "@/components/admin/Pager";
 import { getSession, can } from "@/lib/auth";
 import { CatalogueRow } from "@/components/admin/CatalogueRow";
+import { CatalogueSearch } from "@/components/admin/CatalogueSearch";
 
 export const metadata = { title: "Owner Console · Catalogue" };
 const PAGE_SIZE = 25;
@@ -53,7 +54,7 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
         </div>
         <div className="flex flex-wrap gap-2">
           {canCreate && <Link href="/admin/upload" className="px-4 py-2.5 text-sm font-medium rounded-full bg-ink text-white hover:bg-ink/90 transition-colors" title="Add a new product / inventory"><Icon g="＋" className="inline-block align-middle w-[1em] h-[1em]" />Add inventory</Link>}
-          {canPrice && <Link href="/admin/pricing" className="px-3 py-2.5 text-sm font-medium rounded-full border border-sand text-muted hover:border-emerald hover:text-ink transition-colors" title="Pricing formula — markup & retail/MRP multipliers (fixed setup)">％ Pricing</Link>}
+          {canPrice && <Link href="/admin/pricing" className="px-3 py-2.5 text-sm font-medium rounded-full border border-sand text-muted hover:border-emerald hover:text-ink transition-colors" title="Pricing formula">％ Pricing</Link>}
           <Link href="/catalog" target="_blank" className="px-4 py-2.5 text-sm font-medium rounded-full bg-gold text-ink hover:opacity-90 transition-opacity"><Icon g="📤" className="inline-block align-middle w-[1em] h-[1em]" />Share Catalogue <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
           {canAi && <>
             <form action={genAllContent}><button className="btn-primary px-4 py-2.5 text-sm font-medium"><Icon g="✨" className="inline-block align-middle w-[1em] h-[1em]" />Generate all AI pages</button></form>
@@ -67,9 +68,8 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
         <Pill on={ai.groq} label="Groq (text)" /><Pill on={ai.openai} label="OpenAI (fallback)" /><Pill on={imageReady} label="Gemini (photos)" />
       </div>
 
-      {/* search + filters */}
-      <form action="/admin/catalogue" className="flex flex-wrap gap-2 mb-4">
-        <input name="q" defaultValue={q} placeholder="Search name or SKU…" className="rounded-xl border border-sand bg-white px-4 py-2 text-sm outline-none focus:border-emerald flex-1 min-w-[180px]" />
+      <form action="/admin/catalogue" method="get" className="flex flex-wrap gap-2 mb-4 items-stretch">
+        <CatalogueSearch initialQ={q} category={category} status={status} />
         <select name="category" defaultValue={category} className={sel}>
           <option value="all">All categories</option>
           {categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
@@ -77,20 +77,26 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
         <select name="status" defaultValue={status} className={sel}>
           <option value="all">All statuses</option><option value="published">Published</option><option value="draft">Draft</option><option value="flagged">Flagged</option>
         </select>
-        <button className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Search</button>
-        {(q || category !== "all" || status !== "all") && <Link href="/admin/catalogue" className="px-3 py-2 text-sm text-muted hover:text-ink">Clear</Link>}
+        <button type="submit" className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Search</button>
+        {(q || category !== "all" || status !== "all") && <Link href="/admin/catalogue" className="px-3 py-2 text-sm text-muted hover:text-ink self-center">Clear</Link>}
       </form>
 
-      <p className="text-xs text-muted mb-2">Tip: click any product to expand it — publish, variants &amp; stock, AI and more.</p>
+      <p className="text-xs text-muted mb-2">Tip: start typing a name or partial SKU for a live list. Click <b>View stock</b> on any row for colour-wise quantities.</p>
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-left">
             <tr>
-              <th className="p-3">Photo</th><th className="p-3">Product</th><th className="p-3">Category · No.</th><th className="p-3">Price (live)</th><th className="p-3">Updates <span className="font-normal normal-case text-[10px]">· internal</span></th><th className="p-3 text-right"> </th>
+              <th className="p-3">Photo</th>
+              <th className="p-3">Product · SKU</th>
+              <th className="p-3">Category</th>
+              <th className="p-3">Stock</th>
+              <th className="p-3">Price (live)</th>
+              <th className="p-3">Updates <span className="font-normal normal-case text-[10px]">· internal</span></th>
+              <th className="p-3 text-right">Details</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={6} className="p-4 text-muted">No products match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="p-4 text-muted">No products match.</td></tr>}
             {rows.map((p: any) => {
               const o = liveOffer(p.base_wholesale, formula);
               const wholesaleRate = resolvePrices(p.base_wholesale, formula, overridesOf(p)).wholesaleRate;
