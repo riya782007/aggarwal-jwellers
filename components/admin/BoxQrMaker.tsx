@@ -67,9 +67,11 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
     const code = priceCode(box);
     const labels = Array.from({ length: n }, () => ({
-      name: box.name, sku: box.code, qrValue: box.code,
+      name: box.name, sku: box.sku, qrValue: box.code,
       priceLine: code || undefined,
-      boxLine: `BOX OF ${box.packQty}`,
+      // Print the individually tracked SKU prominently; retain the group code so staff can
+      // identify the QR that expands this pack at POS. The QR payload remains the group code.
+      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
       showName: true, showSku: true,
     }));
     try {
