@@ -90,6 +90,44 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     }
   }
 
+  /** Print every visible box QR in one PDF, respecting each row's label count. */
+  async function printAll() {
+    const snapshot = [...visibleGroups];
+    if (snapshot.length === 0) return;
+    setBusy(true); setMsg(null);
+    const labels = snapshot.flatMap((box) => {
+      const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
+      const code = priceCode(box);
+      return Array.from({ length: n }, () => ({
+        name: box.name, sku: box.sku, qrValue: box.code,
+        priceLine: code || undefined,
+        boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+        showName: true, showSku: true,
+      }));
+    });
+    try {
+      await makeLabelsPdf(labels, "print");
+      setHiddenIds((prev) => new Set([...prev, ...snapshot.map((box) => box.id)]));
+      let failed = 0;
+      for (const box of snapshot) {
+        const r = await deleteBoxGroupAction(box.id);
+        if (!r.ok) {
+          failed++;
+          setHiddenIds((prev) => { const next = new Set(prev); next.delete(box.id); return next; });
+        }
+      }
+      router.refresh();
+      setMsg({
+        text: failed ? `Printed ${labels.length} labels; ${failed} box row${failed === 1 ? "" : "s"} could not be cleared.` : `Printed ${labels.length} labels. Removed all printed boxes from the list.`,
+        ok: failed === 0,
+      });
+    } catch (e: any) {
+      setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove(box: Box) {
     if (!confirm(`Remove box QR "${box.label}" (${box.code}) from this list?\n\nPrinted stickers stay valid at POS — this only clears the row here.`)) return;
     setDeletingId(box.id);
@@ -177,9 +215,14 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
         <div className="mt-5 pt-4 border-t border-sand overflow-x-auto">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-muted">{visibleGroups.length} box QR{visibleGroups.length === 1 ? "" : "s"}</p>
-            <button type="button" onClick={removeAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 disabled:opacity-50">
-              Clear all from list
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={printAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
+                <Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print all
+              </button>
+              <button type="button" onClick={removeAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 disabled:opacity-50">
+                Clear all from list
+              </button>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted">
