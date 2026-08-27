@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
+import { labelsForBox, labelsForBoxes } from "@/lib/boxLabelPrint";
 
 type Pick = { sku: string; name: string; qty?: number };
 type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number };
@@ -50,28 +51,9 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   }
 
   // After print: hide from this list only. QR stays active so POS still scans printed stickers.
-  /** Same coded price scheme as piece labels: A + 7{wholesale}7 + {retail} + 51 */
-  function priceCode(box: Box): string {
-    const intOf = (paise?: number) => {
-      if (paise == null || !Number.isFinite(paise) || paise <= 0) return "";
-      return String(Math.round(paise / 100));
-    };
-    const w = intOf(box.wholesale);
-    const r = intOf(box.price);
-    const mid = w ? `7${w}7` : "";
-    if (!mid && !r) return "";
-    return `A${mid}${r}51`;
-  }
-
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-    const code = priceCode(box);
-    const labels = Array.from({ length: n }, () => ({
-      name: box.name, sku: box.code, qrValue: box.code,
-      priceLine: code || undefined,
-      boxLine: `BOX OF ${box.packQty}`,
-      showName: true, showSku: true,
-    }));
+    const labels = labelsForBox(box, n);
     try {
       await makeLabelsPdf(labels, "print");
       setHiddenIds((prev) => new Set(prev).add(box.id));
@@ -85,6 +67,20 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
       }
     } catch (e: any) {
       alert(e?.message || "Couldn't generate the labels.");
+    }
+  }
+
+  async function printAll() {
+    const labels = labelsForBoxes(visibleGroups, counts, boxesInStock);
+    if (labels.length === 0) return;
+    setBusy(true); setMsg(null);
+    try {
+      await makeLabelsPdf(labels, "print");
+      setMsg({ text: `Opened ${labels.length} box label${labels.length === 1 ? "" : "s"} for printing.`, ok: true });
+    } catch (e: any) {
+      setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -175,9 +171,14 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
         <div className="mt-5 pt-4 border-t border-sand overflow-x-auto">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-muted">{visibleGroups.length} box QR{visibleGroups.length === 1 ? "" : "s"}</p>
-            <button type="button" onClick={removeAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 disabled:opacity-50">
-              Clear all from list
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={printAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
+                <Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print all
+              </button>
+              <button type="button" onClick={removeAll} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 disabled:opacity-50">
+                Clear all from list
+              </button>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-muted">
