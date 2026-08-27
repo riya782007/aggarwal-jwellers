@@ -71,7 +71,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
       priceLine: code || undefined,
       // Print the individually tracked SKU prominently; retain the group code so staff can
       // identify the QR that expands this pack at POS. The QR payload remains the group code.
-      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+      boxLine: `${box.code} · BOX ${box.packQty}`,
       showName: true, showSku: true,
     }));
     try {
@@ -101,7 +101,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
       return Array.from({ length: n }, () => ({
         name: box.name, sku: box.sku, qrValue: box.code,
         priceLine: code || undefined,
-        boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+        boxLine: `${box.code} · BOX ${box.packQty}`,
         showName: true, showSku: true,
       }));
     });

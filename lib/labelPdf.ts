@@ -80,13 +80,13 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       const tx = xoff + PAD + QR + 8;
       const maxW = xoff + HALF - PAD - tx;  // remaining width for text
       doc.setTextColor(0, 0, 0);
-      let y = 22;
+      let y = 14;
       if (lab.showName && lab.name) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
         const lines = (doc.splitTextToSize(lab.name, maxW) as string[]).slice(0, 2);
         for (const ln of lines) { doc.text(ln, tx, y); y += 8; }
-        y += 3;
+        y += 2;
       }
       if (lab.showSku) {
         doc.setFont("helvetica", "normal");
@@ -102,8 +102,11 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       }
       if (lab.boxLine) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.text(lab.boxLine, tx, y);
+        doc.setFontSize(5.5);
+        // Group codes already include their `GRP-` prefix. Keep this final line inside the
+        // label instead of allowing jsPDF to draw it into the neighbouring sticker.
+        const line = (doc.splitTextToSize(lab.boxLine, maxW) as string[])[0] ?? "";
+        doc.text(line, tx, y);
       }
     }
   }
