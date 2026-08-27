@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { requirePerm } from "@/lib/auth";
+import { authoritativePerms, requirePerm } from "@/lib/auth";
 
 /** Add or edit an employee (salesperson). Gated to customer/staff managers. */
 export async function upsertEmployeeAction(formData: FormData): Promise<void> {
@@ -29,7 +29,9 @@ export async function upsertEmployeeAction(formData: FormData): Promise<void> {
  * Gated on the same permission as ringing up a sale.
  */
 export async function quickAddEmployeeAction(name: string): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
-  if (!(await requirePerm("billing.sell"))) return { ok: false, error: "not permitted" };
+  const perms = await authoritativePerms();
+  const canAdd = perms === "*" || perms.includes("billing.sell") || perms.includes("estimates.create");
+  if (!canAdd) return { ok: false, error: "not permitted" };
   const n = (name ?? "").trim();
   if (!n) return { ok: false, error: "Enter a name" };
   const sb = supabaseServer();

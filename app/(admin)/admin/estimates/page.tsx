@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getEstimates, getStorefront, getCustomersDb } from "@/lib/supabase/queries";
+import { getEstimates, getStorefront, getCustomersDb, getEmployees } from "@/lib/supabase/queries";
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatPaise, resolvePrices, overridesOf } from "@/lib/pricing";
 import { EstimateClient } from "@/components/admin/EstimateClient";
@@ -39,30 +39,32 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string } }) {
   const sb = supabaseServer();
-  const [{ products, formula }, estimates, customers, { data: variants }] = await Promise.all([
+  const [{ products, formula }, estimates, customers, { data: variants }, employees] = await Promise.all([
     getStorefront({ includeDrafts: true, includeWholesaleOnly: true }),
     getEstimates({ sort: searchParams.sort }),
     getCustomersDb({}),
     sb.from("variants").select("sku,color,qty,product_id,wholesale_override,retail_override,mrp_override"),
+    getEmployees({ activeOnly: true }),
   ]);
   // Expand each design into its colour VARIANTS (variant SKUs are what get billed), so the estimate
   // search shows the exact colour — e.g. "Rajwada Necklace · Green (KN132-GREEN)" — not just the parent.
   const varsByProduct = new Map<string, any[]>();
   for (const v of ((variants ?? []) as any[])) { const a = varsByProduct.get(v.product_id) ?? []; a.push(v); varsByProduct.set(v.product_id, a); }
-  const list: { sku: string; name: string; price: number; wholesale: number }[] = [];
+  const list: { sku: string; name: string; price: number; wholesale: number; qty: number }[] = [];
   for (const p of products as any[]) {
     const vs = varsByProduct.get(p.id) ?? [];
     if (vs.length) {
       for (const v of vs) {
         const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
-        list.push({ sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate });
+        list.push({ sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, qty: v.qty ?? 0 });
       }
     } else {
       const ps = resolvePrices(p.base_wholesale, formula, overridesOf(p));
-      list.push({ sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate });
+      list.push({ sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, qty: p.qty ?? 0 });
     }
   }
   const custList = customers.map((c: any) => ({ id: c.id, name: c.name, phone: c.phone ?? "", type: c.type ?? "retail", gstin: c.gstin ?? "" }));
+  const empById = new Map(employees.map((e) => [e.id, e.name]));
 
   // Active dealer rate requests (new / quoted) from the trade portal, surfaced inline below.
   const { data: quoteData } = await sb.from("quote_requests").select("*").in("status", ["new", "quoted"]).order("created_at", { ascending: false }).limit(50);
@@ -92,8 +94,8 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Estimates &amp; Quotations</h1>
-      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Each estimate can be held, billed with GST, billed as a final estimate (non-GST bill), or denied. Dealer rate requests from the trade portal appear at the bottom.</p>
-      <EstimateClient products={list} customers={custList} />
+      <p className="text-sm text-muted mb-6">Quote now; bill only when the customer confirms. Pick <b>Sold by</b> on every quote so the bill counts on that person&apos;s tally — same as POS. Each estimate can be held, billed with GST, billed as a final estimate (non-GST bill), or denied. Dealer rate requests from the trade portal appear at the bottom.</p>
+      <EstimateClient products={list} customers={custList} employees={employees.map((e) => ({ id: e.id, name: e.name }))} />
 
       {/* tabs + search */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -121,25 +123,27 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
             <th className="p-3"><Link href={sortHref("customer", true)} className="hover:text-ink">Customer <span className="opacity-60">{arrow("customer")}</span></Link></th>
             <th className="p-3"><Link href={sortHref("amount", false)} className="hover:text-ink">Total <span className="opacity-60">{arrow("amount")}</span></Link></th>
             <th className="p-3">Status</th>
+            <th className="p-3">Sold by</th>
             <th className="p-3"><Link href={sortHref("date", false)} className="hover:text-ink">Date <span className="opacity-60">{arrow("date")}</span></Link></th>
             <th className="p-3 text-right">Actions</th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={6} className="p-4 text-muted">No estimates here.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="p-4 text-muted">No estimates here.</td></tr>}
             {rows.map((e: any) => (
               <tr key={e.id} className="border-t border-sand/60 align-middle">
                 <td className="p-3 whitespace-nowrap"><Link href={`/admin/estimate/${e.id}`} className="text-emerald nav-link font-mono">{String(e.id).slice(0, 8).toUpperCase()}</Link></td>
                 <td className="p-3 text-ink">{e.customer_name || "—"}{e.customer_phone && <span className="block text-xs text-muted">{e.customer_phone}</span>}</td>
                 <td className="p-3 font-medium whitespace-nowrap">{formatPaise(e.total)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_STYLE[e.status] ?? "bg-cream text-muted"}`}>{STATUS_LABEL[e.status] ?? e.status}</span></td>
+                <td className="p-3 text-muted whitespace-nowrap">{e.sales_employee_id ? (empById.get(e.sales_employee_id) ?? "—") : <span className="text-gold-dark">not set</span>}</td>
                 <td className="p-3 text-muted whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-1.5 justify-end items-center">
                     <Link href={`/admin/estimate/${e.id}`} className="px-2.5 py-1 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</Link>
                     {e.status === "open" && <>
                       <Link href={`/admin/estimate/${e.id}#edit-estimate`} className="px-2.5 py-1 rounded-full bg-emerald-mist text-emerald-dark text-xs font-medium hover:bg-emerald/20"><Icon g="✏️" className="inline-block align-middle w-[1em] h-[1em]" />Edit</Link>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" /><button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
-                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" /><button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="gst" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<button className="px-2.5 py-1 rounded-full bg-emerald/10 text-emerald text-xs font-medium hover:bg-emerald/20">Bill · GST <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
+                      <form action={billEstimateAction}><input type="hidden" name="id" value={e.id} /><input type="hidden" name="bill_type" value="cash" />{e.sales_employee_id && <input type="hidden" name="sales_employee_id" value={e.sales_employee_id} />}<button className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100">Bill · Final Estimate <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></button></form>
                       <form action={denyEstimateAction}><input type="hidden" name="id" value={e.id} /><button className="px-2.5 py-1 rounded-full bg-rose/10 text-rose text-xs hover:bg-rose/20">Deny</button></form>
                     </>}
                     {(e.status === "converted" || e.status === "cash_billed") && e.order_id &&

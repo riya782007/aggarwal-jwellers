@@ -2,22 +2,31 @@ import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getEstimate, getProductsLite } from "@/lib/supabase/queries";
+import { getEstimate, getProductsLite, getEmployees } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { BUSINESS, amountInWords } from "@/lib/business";
 import { requirePerm } from "@/lib/auth";
-import { updateEstimateCustomerAction, updateEstimateLineAction, updateEstimateLinePriceAction, removeEstimateLineAction, addEstimateLineAction } from "@/app/actions/billing";
+import { updateEstimateCustomerAction, updateEstimateLineAction, updateEstimateLinePriceAction, removeEstimateLineAction, addEstimateLineAction, billEstimateAction } from "@/app/actions/billing";
 
 export const metadata = { title: "Estimate / Quotation" };
 
-export default async function EstimatePrint({ params }: { params: { id: string } }) {
+export default async function EstimatePrint({ params, searchParams }: { params: { id: string }; searchParams: { billerror?: string } }) {
   const data = await getEstimate(params.id);
   if (!data) notFound();
   const { estimate, items } = data;
   const isOpen = estimate.status === "open";
   const canEdit = isOpen && (await requirePerm("estimates.create"));
+  const canBill = isOpen && (await requirePerm("estimates.bill"));
   const products = canEdit ? await getProductsLite() : [];
+  const employees = await getEmployees({ activeOnly: true });
+  let empName: string | null = estimate.sales_employee_id
+    ? (employees.find((e) => e.id === estimate.sales_employee_id)?.name ?? null)
+    : null;
+  if (estimate.sales_employee_id && !empName) {
+    const all = await getEmployees({ includeDeleted: true });
+    empName = all.find((e) => e.id === estimate.sales_employee_id)?.name ?? null;
+  }
   const total = estimate.total as number;
   const ref = "EST-" + String(estimate.id).slice(0, 8).toUpperCase();
   const date = new Date(estimate.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -43,6 +52,9 @@ export default async function EstimatePrint({ params }: { params: { id: string }
             {(estimate.status === "denied" || estimate.status === "expired") && <> Re-open it from the <Link href="/admin/estimates" className="text-emerald nav-link">Estimates list</Link> to edit again.</>}
           </div>
         )}
+        {searchParams.billerror && (
+          <div className="no-print mb-4 rounded-2xl border border-rose/40 bg-rose/5 p-3 text-sm text-rose">{searchParams.billerror}</div>
+        )}
 
         <div className="print-area bg-white rounded-2xl shadow-card p-5 sm:p-8 text-[13px]" id="estimate">
           <div className="text-center pb-3 mb-3 border-b-2 border-ink/80">
@@ -61,6 +73,7 @@ export default async function EstimatePrint({ params }: { params: { id: string }
               <div className="flex justify-between"><span className="text-muted">Estimate No.</span><span className="font-medium text-ink">{ref}</span></div>
               <div className="flex justify-between"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
               <div className="flex justify-between"><span className="text-muted">Status</span><span className="text-ink capitalize">{String(estimate.status).replace("_", " ")}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Sold by</span><span className="text-ink">{empName || "—"}</span></div>
             </div>
           </div>
 
@@ -68,6 +81,8 @@ export default async function EstimatePrint({ params }: { params: { id: string }
             <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Prepared for</p>
             <p className="text-ink font-medium">{estimate.customer_name || "—"}</p>
             {estimate.customer_phone && <p className="text-muted text-xs">Ph: {estimate.customer_phone}</p>}
+            {estimate.buyer_address && <p className="text-muted text-xs">{estimate.buyer_address}</p>}
+            {estimate.buyer_gstin && <p className="text-xs text-ink mt-0.5"><b>GSTIN:</b> {estimate.buyer_gstin}</p>}
           </div>
 
           <table className="w-full mt-4 border border-sand">
@@ -116,6 +131,14 @@ export default async function EstimatePrint({ params }: { params: { id: string }
               <input type="hidden" name="id" value={estimate.id} />
               <label className="text-[11px] text-muted">Customer<input name="customer_name" defaultValue={estimate.customer_name ?? ""} className={`${inp} w-44 block mt-0.5`} /></label>
               <label className="text-[11px] text-muted">Phone<input name="customer_phone" defaultValue={estimate.customer_phone ?? ""} className={`${inp} w-36 block mt-0.5`} /></label>
+              <label className="text-[11px] text-muted">Sold by
+                <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} className={`${inp} w-44 block mt-0.5`}>
+                  <option value="">— select —</option>
+                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </label>
+              <label className="text-[11px] text-muted">Buyer GSTIN<input name="buyer_gstin" defaultValue={estimate.buyer_gstin ?? ""} className={`${inp} w-40 block mt-0.5 uppercase`} /></label>
+              <label className="text-[11px] text-muted flex-1 min-w-[180px]">Buyer address<input name="buyer_address" defaultValue={estimate.buyer_address ?? ""} className={`${inp} w-full block mt-0.5`} /></label>
               <button className="px-3 py-2 rounded-xl bg-ink/5 text-ink text-xs hover:bg-ink/10">Save customer</button>
             </form>
 
@@ -141,6 +164,33 @@ export default async function EstimatePrint({ params }: { params: { id: string }
               <label className="text-[11px] text-muted">Qty<input name="qty" type="number" min={1} defaultValue={1} className={`${inp} w-16 text-center block mt-0.5`} /></label>
               <button className="btn-primary px-4 py-2 text-sm font-medium">+ Add item</button>
             </form>
+            {canBill && (
+              <div className="flex flex-wrap items-end gap-2 border-t border-sand/60 mt-4 pt-4">
+                <p className="w-full text-xs text-muted mb-1">Billing copies <b>Sold by</b> onto the invoice so the sale lands on that employee&apos;s tally (same as POS).</p>
+                <form action={billEstimateAction} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="id" value={estimate.id} />
+                  <input type="hidden" name="bill_type" value="gst" />
+                  <label className="text-[11px] text-muted">Sold by
+                    <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} required className={`${inp} w-44 block mt-0.5`}>
+                      <option value="">— select —</option>
+                      {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                  </label>
+                  <button className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium">Bill · GST</button>
+                </form>
+                <form action={billEstimateAction} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="id" value={estimate.id} />
+                  <input type="hidden" name="bill_type" value="cash" />
+                  <label className="text-[11px] text-muted">Sold by
+                    <select name="sales_employee_id" defaultValue={estimate.sales_employee_id ?? ""} required className={`${inp} w-44 block mt-0.5`}>
+                      <option value="">— select —</option>
+                      {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                  </label>
+                  <button className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium">Bill · Final Estimate</button>
+                </form>
+              </div>
+            )}
           </div>
         )}
       </div>
