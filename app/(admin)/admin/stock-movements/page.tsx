@@ -22,7 +22,7 @@ const KINDS = [
 ];
 // Row rendering, document links and click-to-open ledger now live in <StockMovementsTable/>.
 
-export default async function StockMovements({ searchParams }: { searchParams: { page?: string; kind?: string; q?: string; from?: string; to?: string; supplier?: string } }) {
+export default async function StockMovements({ searchParams }: { searchParams: { page?: string; kind?: string; q?: string; from?: string; to?: string; supplier?: string; productId?: string } }) {
   const page = parseInt(searchParams.page ?? "1", 10) || 1;
   const kind = searchParams.kind ?? "all";
   const q = searchParams.q ?? "";
@@ -80,7 +80,7 @@ export default async function StockMovements({ searchParams }: { searchParams: {
       )}
 
       <p className="text-xs text-muted mb-2">Tip: click any row to open the full <b>Product Stock Ledger</b> for that SKU.</p>
-      <StockMovementsTable rows={rows as any} />
+      <StockMovementsTable rows={rows as any} initialProductId={searchParams.productId} />
       <Pager basePath="/admin/stock-movements" params={{ q, kind, supplier, from, to }} page={page} pageSize={PAGE_SIZE} total={total} />
     </main>
   );

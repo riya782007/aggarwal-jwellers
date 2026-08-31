@@ -1131,7 +1131,10 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
   const totalMovements = allRows.length;
 
   // --- related documents (batch lookups) ---
-  const saleRefs = [...new Set(allRows.filter((r) => r.kind === "sale" && r.ref_id).map((r) => r.ref_id))];
+  // Older sale rows carry their order id only in `source` ("order <uuid>"). Resolve both
+  // forms so historic COD reserves explain themselves just like newly-linked movements.
+  const orderRef = (r: any): string | null => r.ref_id ?? (typeof r.source === "string" ? (r.source.match(/(?:^|\s)order\s+([0-9a-f-]{36})/i)?.[1] ?? null) : null);
+  const orderRefs = [...new Set(allRows.filter((r) => ["sale", "cancel"].includes(r.kind)).map(orderRef).filter(Boolean))];
   const purchaseRefs = [...new Set(allRows.filter((r) => r.kind === "purchase" && r.ref_id).map((r) => r.ref_id))];
   const estimateRefs = [...new Set(allRows.filter((r) => r.kind === "estimate" && r.ref_id).map((r) => r.ref_id))];
   const invoiceBy = new Map<string, string>();
@@ -1139,13 +1142,15 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
   // Party = who the movement was with — the customer on a sale/estimate, the supplier on a purchase.
   // Surfaced on every timeline row so the owner can trace "sold 2 to Riya" without opening the bill.
   const partyBy = new Map<string, string>();
-  if (saleRefs.length) { const { data } = await sb.from("orders").select("id,invoice_no,customer_name").in("id", saleRefs as string[]); for (const o of (data as any[]) ?? []) { invoiceBy.set(o.id, o.invoice_no); if (o.customer_name) partyBy.set(o.id, o.customer_name); } }
+  const orderBy = new Map<string, any>();
+  if (orderRefs.length) { const { data } = await sb.from("orders").select("id,invoice_no,customer_name,payment_mode,status,fulfillment,dispatched_at,delivered_at").in("id", orderRefs as string[]); for (const o of (data as any[]) ?? []) { orderBy.set(o.id, o); invoiceBy.set(o.id, o.invoice_no); if (o.customer_name) partyBy.set(o.id, o.customer_name); } }
   if (purchaseRefs.length) { const { data } = await sb.from("purchases").select("id,bill_no, supplier:suppliers(name)").in("id", purchaseRefs as string[]); for (const o of (data as any[]) ?? []) { billBy.set(o.id, o.bill_no); if (o.supplier?.name) partyBy.set(o.id, o.supplier.name); } }
   if (estimateRefs.length) { const { data } = await sb.from("estimates").select("id,customer_name").in("id", estimateRefs as string[]); for (const o of (data as any[]) ?? []) { if (o.customer_name) partyBy.set(o.id, o.customer_name); } }
 
   const docFor = (r: any): { href: string; label: string } | null => {
-    if (!r.ref_id) return null;
-    if (r.kind === "sale") return { href: `/admin/invoice/${r.ref_id}`, label: "Open invoice →" };
+    const ref = orderRef(r) ?? r.ref_id;
+    if (!ref) return null;
+    if (r.kind === "sale" || r.kind === "cancel") return { href: `/admin/invoice/${ref}`, label: r.kind === "cancel" ? "Open cancelled order →" : "Open invoice →" };
     if (r.kind === "purchase") return { href: `/admin/purchase/${r.ref_id}`, label: "Open purchase →" };
     if (r.kind === "estimate") return { href: `/admin/estimate/${r.ref_id}`, label: "Open estimate →" };
     if (r.kind === "return" || r.kind === "purchase_return") return { href: `/admin/returns`, label: "Open return →" };
@@ -1157,22 +1162,39 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
   const movements: LedgerMovement[] = desc.slice(offset, offset + limit).map((r) => ({
     id: r.id, kind: r.kind ?? "adjustment", delta: r.delta ?? 0, runningBalance: r.runningBalance ?? 0,
     source: r.source ?? null, reason: r.reason ?? null, created_by: r.created_by ?? r.source ?? null,
-    ref_id: r.ref_id ?? null, created_at: r.created_at,
-    invoice_no: r.kind === "sale" ? (invoiceBy.get(r.ref_id) ?? null) : r.kind === "purchase" ? (billBy.get(r.ref_id) ?? null) : null,
-    party: r.ref_id ? (partyBy.get(r.ref_id) ?? null) : null,
+    ref_id: orderRef(r) ?? r.ref_id ?? null, created_at: r.created_at,
+    invoice_no: r.kind === "sale" ? (invoiceBy.get(orderRef(r) ?? r.ref_id) ?? null) : r.kind === "purchase" ? (billBy.get(r.ref_id) ?? null) : null,
+    party: (orderRef(r) ?? r.ref_id) ? (partyBy.get(orderRef(r) ?? r.ref_id) ?? null) : null,
     variant: r.variant_id ? { color: variantById.get(r.variant_id)?.color ?? null, sku: variantById.get(r.variant_id)?.sku ?? null } : null,
     doc: docFor(r),
+    explanation: r.kind === "sale" && orderBy.get(orderRef(r) ?? r.ref_id)?.payment_mode === "cod"
+      ? "COD reserve — stock committed when the order was placed; it returns only if cancelled."
+      : r.kind === "cancel" ? "Order cancelled — stock returned to available inventory."
+      : r.reason ?? r.source ?? null,
   }));
 
-  // --- reservations (open estimates = soft holds, not in the ledger) ---
-  const { data: resv } = await sb.from("estimate_items")
-    .select("qty, estimate:estimates(id,customer_name,status,created_at)")
-    .eq("product_id", productId);
+  // --- allocations that explain the difference between shelf count and saleable stock ---
+  // Estimates are soft holds and do not change `products.qty`. Retail COD orders already deduct
+  // stock at checkout, so they are shown separately as committed stock rather than subtracted twice.
+  const [{ data: resv }, { data: codRows }] = await Promise.all([
+    sb.from("estimate_items").select("qty, estimate:estimates(id,customer_name,status,created_at)").eq("product_id", productId),
+    sb.from("order_items").select("qty,variant_id, order:orders(id,customer_name,payment_mode,status,fulfillment,created_at,dispatched_at,delivered_at)").eq("product_id", productId),
+  ]);
   const reservations = ((resv as any[]) ?? [])
     .filter((r) => r.estimate && r.estimate.status === "open")
     .map((r) => ({ id: r.estimate.id as string, customer: (r.estimate.customer_name as string) ?? "Walk-in", qty: (r.qty as number) ?? 0, status: r.estimate.status as string, created_at: r.estimate.created_at as string }))
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const reserved = reservations.reduce((s, r) => s + r.qty, 0);
+  const codReservations = ((codRows as any[]) ?? [])
+    .filter((r) => r.order && r.order.payment_mode === "cod" && !isDeadOrder(r.order.status) && !r.order.delivered_at)
+    .map((r) => ({ id: r.order.id as string, customer: (r.order.customer_name as string) ?? "Customer", qty: (r.qty as number) ?? 0,
+      stage: r.order.dispatched_at ? "Dispatched with courier" : r.order.fulfillment === "accepted" ? "Preparing" : "New", created_at: r.order.created_at as string,
+      dispatched: !!r.order.dispatched_at, variantId: r.variant_id as string | null }))
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const codReserved = codReservations.reduce((sum, r) => sum + r.qty, 0);
+  // Only new/preparing COD orders are normally still on the shop shelf. Dispatched COD stock is
+  // with the courier and remains visible in the allocation list, but is excluded from shelf count.
+  const codOnShelf = codReservations.filter((r) => !r.dispatched).reduce((sum, r) => sum + r.qty, 0);
 
   // --- supplier + cost from purchase history ---
   const { data: pis } = await sb.from("purchase_items")
@@ -1197,6 +1219,7 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
   const adjusted = allRows.filter((r) => ["adjustment", "damage", "correction"].includes(r.kind)).reduce((s, r) => s + (r.delta ?? 0), 0);
   const currentStock = prod.qty ?? bal;
   const available = currentStock - reserved;
+  const expectedShelfStock = currentStock + codOnShelf;
   const daysSinceLastSale = lastSale ? Math.floor((Date.now() - new Date(lastSale).getTime()) / 86400000) : null;
   const firstAt = allRows[0]?.created_at ? new Date(allRows[0].created_at) : null;
   const monthsActive = firstAt ? Math.max(1, (Date.now() - firstAt.getTime()) / (86400000 * 30)) : 1;
@@ -1206,11 +1229,12 @@ export async function getProductLedger(productId: string, opts: { offset?: numbe
   return {
     header: {
       id: prod.id, sku: prod.sku, name: prod.name, image, category: prod.category?.name ?? null,
-      supplier, currentStock, reserved, available, reorderLevel: prod.reorder_level ?? null,
+      supplier, currentStock, reserved, codReserved, codOnShelf, expectedShelfStock, available, reorderLevel: prod.reorder_level ?? null,
       avgCost, lastPurchaseCost, lastSaleDate: lastSale, lastPurchaseDate,
     },
-    analytics: { opening, purchased, sold, returned, adjusted, reserved, available, currentStock, daysSinceLastSale, turnover, avgMonthlySales },
+    analytics: { opening, purchased, sold, returned, adjusted, reserved, codReserved, codOnShelf, expectedShelfStock, available, currentStock, daysSinceLastSale, turnover, avgMonthlySales },
     reservations,
+    codReservations,
     variants,
     movements,
     totalMovements,
@@ -1409,17 +1433,33 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   };
 }
 
-export type ClassifiedRow = { id: string; sku: string; name: string; category: string; categorySlug: string; status: string; qty: number; lastMovementAt: string | null; hasVariants: boolean; cls: string };
+export type ClassifiedRow = { id: string; sku: string; name: string; category: string; categorySlug: string; status: string; qty: number; lastMovementAt: string | null; hasVariants: boolean; codReserved: number; codOnShelf: number; expectedShelfStock: number; cls: string };
 
 export async function getInventoryClassified(rule: InventoryRule = DEFAULT_RULE): Promise<ClassifiedRow[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug),variants(id)").order("sku");
+  const [{ data: products }, orderItems] = await Promise.all([
+    sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug),variants(id)").order("sku"),
+    allRows<any>(() => sb.from("order_items").select("product_id,qty,order:orders(payment_mode,status,fulfillment,dispatched_at,delivered_at)")),
+  ]);
+  const codByProduct = new Map<string, { total: number; onShelf: number }>();
+  for (const row of orderItems) {
+    const order = row.order;
+    if (!row.product_id || !order || order.payment_mode !== "cod" || isDeadOrder(order.status) || order.delivered_at) continue;
+    const entry = codByProduct.get(row.product_id) ?? { total: 0, onShelf: 0 };
+    entry.total += row.qty ?? 0;
+    if (!order.dispatched_at) entry.onShelf += row.qty ?? 0;
+    codByProduct.set(row.product_id, entry);
+  }
   const now = new Date();
-  return ((data as any[]) ?? []).map((p) => ({
-    id: p.id, sku: p.sku, name: p.name, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
-    status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at, hasVariants: ((p.variants as any[]) ?? []).length > 0,
-    cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now),
-  }));
+  return ((products as any[]) ?? []).map((p) => {
+    const cod = codByProduct.get(p.id) ?? { total: 0, onShelf: 0 };
+    return {
+      id: p.id, sku: p.sku, name: p.name, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
+      status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at, hasVariants: ((p.variants as any[]) ?? []).length > 0,
+      codReserved: cod.total, codOnShelf: cod.onShelf, expectedShelfStock: (p.qty ?? 0) + cod.onShelf,
+      cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now),
+    };
+  });
 }
 
 export async function getApprovals() {
