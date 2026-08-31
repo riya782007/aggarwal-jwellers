@@ -37,11 +37,11 @@ const STATUS_LABEL: Record<string, string> = {
   open: "Held", converted: "GST billed", cash_billed: "Final estimate", denied: "Denied", expired: "Expired",
 };
 
-export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string } }) {
+export default async function Estimates({ searchParams }: { searchParams: { tab?: string; q?: string; sort?: string; from?: string; to?: string } }) {
   const sb = supabaseServer();
   const [{ products, formula }, estimates, customers, { data: variants }] = await Promise.all([
     getStorefront({ includeDrafts: true, includeWholesaleOnly: true }),
-    getEstimates({ sort: searchParams.sort }),
+    getEstimates({ sort: searchParams.sort, from: searchParams.from ? searchParams.from + "T00:00:00+05:30" : undefined, to: searchParams.to ? searchParams.to + "T23:59:59+05:30" : undefined }),
     getCustomersDb({}),
     sb.from("variants").select("sku,color,qty,product_id,wholesale_override,retail_override,mrp_override"),
   ]);
@@ -84,6 +84,8 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
     const sp = new URLSearchParams();
     sp.set("tab", tab.key);
     if (searchParams.q) sp.set("q", searchParams.q);
+    if (searchParams.from) sp.set("from", searchParams.from);
+    if (searchParams.to) sp.set("to", searchParams.to);
     sp.set("sort", next);
     return `/admin/estimates?${sp.toString()}`;
   };
@@ -100,6 +102,8 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
         {TABS.map((t) => {
           const sp = new URLSearchParams(); sp.set("tab", t.key);
           if (searchParams.sort) sp.set("sort", searchParams.sort);
+          if (searchParams.from) sp.set("from", searchParams.from);
+          if (searchParams.to) sp.set("to", searchParams.to);
           return (
             <Link key={t.key} href={`/admin/estimates?${sp.toString()}`}
               className={`px-3.5 py-1.5 rounded-full text-sm transition-colors ${tab.key === t.key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-gold"}`}>
@@ -110,6 +114,8 @@ export default async function Estimates({ searchParams }: { searchParams: { tab?
         <form className="ml-auto" action="/admin/estimates">
           <input type="hidden" name="tab" value={tab.key} />
           {searchParams.sort && <input type="hidden" name="sort" value={searchParams.sort} />}
+          {searchParams.from && <input type="hidden" name="from" value={searchParams.from} />}
+          {searchParams.to && <input type="hidden" name="to" value={searchParams.to} />}
           <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search customer / ref…" className="rounded-full border border-sand px-4 py-1.5 text-sm bg-white outline-none focus:border-emerald w-56" />
         </form>
       </div>

@@ -9,8 +9,10 @@ import { TableSearch } from "@/components/admin/TableSearch";
 
 export const metadata = { title: "Owner Console · Purchases" };
 
-export default async function Purchases() {
-  const [suppliers, products, purchases, lastCosts, tree] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases(), getLastPurchaseCosts(), getCategoryTree().catch(() => [] as any[])]);
+export default async function Purchases({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+  const from = searchParams.from ? searchParams.from + "T00:00:00+05:30" : undefined;
+  const to = searchParams.to ? searchParams.to + "T23:59:59+05:30" : undefined;
+  const [suppliers, products, purchases, lastCosts, tree] = await Promise.all([getSuppliers(), getProductsForPurchase(), getRecentPurchases({ from, to, limit: (from || to) ? 1000 : 15 }), getLastPurchaseCosts(), getCategoryTree().catch(() => [] as any[])]);
   // Category + subcategory master, so a purchase line can create a brand-new product on the spot.
   const categories = (tree as any[]).map((c) => ({ id: c.id, name: c.name }));
   const subcategories = (tree as any[]).flatMap((c) => ((c.subcategories ?? []) as any[]).map((s) => ({ id: s.id, name: s.name, categoryId: c.id })));
@@ -18,6 +20,7 @@ export default async function Purchases() {
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Purchases</h1>
       <p className="text-sm text-muted mb-6">Record supplier bills by city. Mapped items add to stock; the purchase ledger updates automatically. New designs can be created right on a line — start selling on the counter at once.</p>
+      {(searchParams.from || searchParams.to) && <p className="text-sm text-emerald-dark mb-4">Showing purchase bills for the selected dashboard period.</p>}
 
       <PurchaseClient suppliers={suppliers} products={products} lastCosts={lastCosts} categories={categories} subcategories={subcategories} />
 

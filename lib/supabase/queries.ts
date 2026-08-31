@@ -1323,6 +1323,50 @@ export type DashboardData = {
   lowList: { sku: string; name: string; qty: number }[];
 };
 
+export type OwnerOperationsReport = {
+  estimates: { total: number; open: number; converted: number; finalEstimate: number; denied: number; value: number };
+  purchases: { count: number; value: number };
+  movements: { count: number; additions: number; removals: number };
+};
+
+/** Owner-facing totals derived from source documents and the stock ledger for the active reporting window. */
+export async function getOwnerOperationsReport(fromISO: string, toISO: string): Promise<OwnerOperationsReport> {
+  const sb = supabaseServer();
+  // PostgREST returns at most 1,000 rows per read. Page each source so the monthly report stays
+  // accurate for high-volume periods instead of silently undercounting the stock ledger.
+  const loadAll = async <T,>(makeQuery: () => any): Promise<T[]> => {
+    const rows: T[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await makeQuery().range(offset, offset + 999);
+      if (error) throw new Error(`Unable to load owner operations report: ${error.message}`);
+      const page = (data as T[]) ?? [];
+      rows.push(...page);
+      if (page.length < 1000) return rows;
+    }
+  };
+  const [estimates, purchases, movements] = await Promise.all([
+    loadAll<any>(() => sb.from("estimates").select("status,total").gte("created_at", fromISO).lte("created_at", toISO)),
+    loadAll<any>(() => sb.from("purchases").select("total").gte("created_at", fromISO).lte("created_at", toISO)),
+    loadAll<any>(() => sb.from("stock_adjustments").select("delta").gte("created_at", fromISO).lte("created_at", toISO)),
+  ]);
+  return {
+    estimates: {
+      total: estimates.length,
+      open: estimates.filter((r) => r.status === "open").length,
+      converted: estimates.filter((r) => r.status === "converted").length,
+      finalEstimate: estimates.filter((r) => r.status === "cash_billed").length,
+      denied: estimates.filter((r) => r.status === "denied" || r.status === "expired").length,
+      value: estimates.reduce((sum, r) => sum + (r.total ?? 0), 0),
+    },
+    purchases: { count: purchases.length, value: purchases.reduce((sum, r) => sum + (r.total ?? 0), 0) },
+    movements: {
+      count: movements.length,
+      additions: movements.filter((r) => (r.delta ?? 0) > 0).reduce((sum, r) => sum + r.delta, 0),
+      removals: movements.filter((r) => (r.delta ?? 0) < 0).reduce((sum, r) => sum + Math.abs(r.delta), 0),
+    },
+  };
+}
+
 export async function getDashboardData(fromISO: string, toISO: string, rule: InventoryRule = DEFAULT_RULE): Promise<DashboardData> {
   const sb = supabaseServer();
   const now = new Date();
@@ -1636,12 +1680,14 @@ const ESTIMATES_SORT: Record<string, string> = {
   date: "created_at",
   amount: "total",
 };
-export async function getEstimates(opts: { sort?: string } = {}) {
+export async function getEstimates(opts: { sort?: string; from?: string; to?: string } = {}) {
   const sb = supabaseServer();
   const [field, dir] = (opts.sort ?? "").split("_");
   const col = ESTIMATES_SORT[field] ?? "created_at";
   const asc = col === "created_at" ? dir === "asc" : dir !== "desc";
   let q = sb.from("estimates").select("id,customer_name,customer_phone,total,status,order_id,created_at").order(col, { ascending: asc, nullsFirst: false });
+  if (opts.from) q = q.gte("created_at", opts.from);
+  if (opts.to) q = q.lte("created_at", opts.to);
   if (col !== "created_at") q = q.order("created_at", { ascending: false });
   const { data } = await q.limit(200);
   return (data as any[]) ?? [];
@@ -1693,11 +1739,14 @@ export async function getProductsForPurchase() {
     })),
   }));
 }
-export async function getRecentPurchases() {
+export async function getRecentPurchases(opts: { from?: string; to?: string; limit?: number } = {}) {
   const sb = supabaseServer();
-  const { data } = await sb.from("purchases")
+  let q = sb.from("purchases")
     .select("id,bill_no,total,created_at,supplier:suppliers(name,city),purchase_items(qty)")
-    .order("created_at", { ascending: false }).limit(15);
+    .order("created_at", { ascending: false });
+  if (opts.from) q = q.gte("created_at", opts.from);
+  if (opts.to) q = q.lte("created_at", opts.to);
+  const { data } = await q.limit(opts.limit ?? 15);
   return (data as any[]) ?? [];
 }
 
