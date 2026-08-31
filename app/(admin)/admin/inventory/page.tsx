@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
 import { Pager } from "@/components/admin/Pager";
 import { StockAdjust } from "@/components/admin/StockAdjust";
+import { BulkInventoryCleanup } from "@/components/admin/BulkInventoryCleanup";
 import { getSession, can } from "@/lib/auth";
 import { setProductVisibilityAction } from "@/app/actions/catalog";
 import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
@@ -39,6 +40,7 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
       <p className="text-sm text-muted mb-4"><b>Dead</b> = no movement in {deadDays} days · <b>Low</b> = ≤ {lowQty} pcs · <b>Inactive</b> = never sold. Adjust the thresholds below and it re-classifies live.</p>
 
       <StockAdjust />
+      {can(session, "inventory.remove") && <BulkInventoryCleanup items={filtered.slice(0, 100).map((r) => ({ sku: r.sku, name: r.name, qty: r.qty, cls: r.cls, hasVariants: r.hasVariants }))} />}
 
       <form className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-2xl p-4 shadow-card border border-sand">
         <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search a product or SKU…" className="h-11 flex-1 min-w-[220px] rounded-xl border border-sand px-4 text-[15px] outline-none focus:border-emerald" />

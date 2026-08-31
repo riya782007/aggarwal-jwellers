@@ -1409,15 +1409,15 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   };
 }
 
-export type ClassifiedRow = { id: string; sku: string; name: string; category: string; categorySlug: string; status: string; qty: number; lastMovementAt: string | null; cls: string };
+export type ClassifiedRow = { id: string; sku: string; name: string; category: string; categorySlug: string; status: string; qty: number; lastMovementAt: string | null; hasVariants: boolean; cls: string };
 
 export async function getInventoryClassified(rule: InventoryRule = DEFAULT_RULE): Promise<ClassifiedRow[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug)").order("sku");
+  const { data } = await sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug),variants(id)").order("sku");
   const now = new Date();
   return ((data as any[]) ?? []).map((p) => ({
     id: p.id, sku: p.sku, name: p.name, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
-    status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at,
+    status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at, hasVariants: ((p.variants as any[]) ?? []).length > 0,
     cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now),
   }));
 }
