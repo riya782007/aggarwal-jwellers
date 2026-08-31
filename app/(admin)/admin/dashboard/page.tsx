@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors, getReorderCandidates, getOwnerOperationsReport } from "@/lib/supabase/queries";
+import { getDashboardData, getDashboardAnalytics, getChannelReport, getCreditors, getReorderCandidates } from "@/lib/supabase/queries";
 import { getLang } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { formatPaise } from "@/lib/pricing";
@@ -22,8 +22,8 @@ function presetRange(preset: string): { from: string; to: string } {
   return { from: start.toISOString(), to: now.toISOString() };
 }
 
-function Tile({ label, children, sub, accent, icon, bar, href }: { label: string; children: React.ReactNode; sub?: string; accent?: string; icon?: string; bar?: string; href?: string }) {
-  const body = (
+function Tile({ label, children, sub, accent, icon, bar }: { label: string; children: React.ReactNode; sub?: string; accent?: string; icon?: string; bar?: string }) {
+  return (
     <div className="relative bg-white rounded-2xl p-4 shadow-card hover:shadow-luxe transition-all hover:-translate-y-0.5 overflow-hidden">
       <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar ?? "bg-emerald"}`} />
       <div className="flex items-center justify-between">
@@ -34,7 +34,6 @@ function Tile({ label, children, sub, accent, icon, bar, href }: { label: string
       {sub && <p className="text-[13px] text-muted mt-0.5">{sub}</p>}
     </div>
   );
-  return href ? <Link href={href} className="block" aria-label={`Open ${label}`}>{body}</Link> : body;
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: { preset?: string; from?: string; to?: string; denied?: string } }) {
@@ -51,7 +50,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   // owner can see exactly which dates the figures cover — the earlier blank-box confusion.
   const fromDate = searchParams.from ?? from.slice(0, 10);
   const toDate = searchParams.to ?? to.slice(0, 10);
-  const [d, a, report, creditors, reorder, operations] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors(), getReorderCandidates(), getOwnerOperationsReport(from, to)]);
+  const [d, a, report, creditors, reorder] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors(), getReorderCandidates()]);
   const udhaarTotal = creditors.reduce((s, r) => s + r.outstanding, 0);
   const lang = getLang();
   const label = custom
@@ -93,20 +92,22 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Tile href={`/admin/sales?from=${fromDate}&to=${toDate}`} label={t(lang, "revenue")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} ${t(lang, "orders").toLowerCase()}`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
-        <Tile href={`/admin/sales?from=${fromDate}&to=${toDate}`} label={t(lang, "orders")} icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
-        <Tile href="/admin/customers" label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingDealers} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
-        <Tile href="/admin/approvals" label={t(lang, "pendingApprovals")} icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub={t(lang, "needsOwnerOtp")}><AnimatedNumber value={d.pendingApprovals} /></Tile>
+        <Tile label={t(lang, "revenue")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={`${d.orders} ${t(lang, "orders").toLowerCase()}`}><span className="sensitive"><AnimatedNumber value={d.revenue / 100} prefix="₹" /></span></Tile>
+        <Tile label={t(lang, "orders")} icon="❑" bar="bg-gold" sub={`${d.pos} POS · ${d.cod} COD`}><AnimatedNumber value={d.orders} /></Tile>
+        <Tile label={t(lang, "approvedRetailers")} icon="♚" bar="bg-wine" sub={`${d.pendingDealers} ${t(lang, "pendingWord")}`}><AnimatedNumber value={d.retailers} /></Tile>
+        <Tile label={t(lang, "pendingApprovals")} icon="✓" accent={d.pendingApprovals ? "text-gold-dark" : undefined} bar={d.pendingApprovals ? "bg-gold-dark" : "bg-sand"} sub={t(lang, "needsOwnerOtp")}><AnimatedNumber value={d.pendingApprovals} /></Tile>
       </div>
 
       {/* Collections split — cash in hand vs bank/UPI (#14/#37) + live udhaar (party ledger) */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 sensitive">
-        <Tile href={`/admin/cashbook?from=${fromDate}&to=${toDate}`} label={t(lang, "cashCollected")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={t(lang, "counterCash")}>{formatPaise(d.cashCollected)}</Tile>
-        <Tile href={`/admin/cashbook?from=${fromDate}&to=${toDate}`} label={t(lang, "bankCollected")} icon="🏦" bar="bg-wine" sub={t(lang, "onlineCard")}>{formatPaise(d.bankCollected)}</Tile>
-        <Tile href="/admin/creditors" label={t(lang, "udhaarCard")} icon="⏳" accent={udhaarTotal > 0 ? "text-rose" : undefined} bar={udhaarTotal > 0 ? "bg-rose" : "bg-sand"}
+        <Tile label={t(lang, "cashCollected")} icon="₹" accent="text-emerald" bar="bg-emerald" sub={t(lang, "counterCash")}>{formatPaise(d.cashCollected)}</Tile>
+        <Tile label={t(lang, "bankCollected")} icon="🏦" bar="bg-wine" sub={t(lang, "onlineCard")}>{formatPaise(d.bankCollected)}</Tile>
+        <Link href="/admin/creditors" className="block">
+          <Tile label={t(lang, "udhaarCard")} icon="⏳" accent={udhaarTotal > 0 ? "text-rose" : undefined} bar={udhaarTotal > 0 ? "bg-rose" : "bg-sand"}
             sub={udhaarTotal > 0 ? `${creditors.length} ${t(lang, "partiesTap")}` : t(lang, "allSettled")}>
             {formatPaise(udhaarTotal)}
           </Tile>
+        </Link>
       </div>
 
       {/* Expandable channel reports — headline number, click to see the full report for the range */}
@@ -122,49 +123,30 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
       </div>
 
       <div className="grid lg:grid-cols-3 gap-3 mb-4 sensitive">
-        <Link href={`/admin/sales?from=${fromDate}&to=${toDate}`} className="lg:col-span-2 block bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-ink">Revenue trend</h2>
             <span className="text-xs text-muted">8 weeks</span>
           </div>
           <BarChart data={a.weekly} />
-        </Link>
-        <Link href={`/admin/sales?from=${fromDate}&to=${toDate}`} className="block bg-white rounded-2xl p-5 shadow-card hover:shadow-luxe">
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-card">
           <h2 className="font-medium text-ink mb-4">{t(lang, "salesByChannel")}</h2>
           <Donut data={a.channels.map((c) => ({ label: c.channel, value: c.revenue }))} />
-        </Link>
+        </div>
       </div>
 
-      <section className="mb-4 bg-white rounded-2xl p-5 shadow-card sensitive">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div><h2 className="font-medium text-ink">Monthly owner report</h2><p className="text-sm text-muted">Live figures for {label}. Select a date range above to review another period.</p></div>
-          <Link href={`/admin/sales?from=${fromDate}&to=${toDate}`} className="text-sm text-emerald nav-link">Open sales register <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
-        </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          <Tile href={`/admin/estimates?tab=open&from=${fromDate}&to=${toDate}`} label="Open estimates" sub={`${operations.estimates.total} created in this period`} accent={operations.estimates.open ? "text-gold-dark" : undefined}><AnimatedNumber value={operations.estimates.open} /></Tile>
-          <Tile href={`/admin/sales?from=${fromDate}&to=${toDate}`} label="Bills issued" sub={`${operations.estimates.converted} GST · ${operations.estimates.finalEstimate} final estimates`}><AnimatedNumber value={d.orders} /></Tile>
-          <Tile href={`/admin/purchases?from=${fromDate}&to=${toDate}`} label="Purchase bills" sub={`${operations.purchases.count} supplier bills`} accent="text-emerald"><span>{formatPaise(operations.purchases.value)}</span></Tile>
-          <Tile href={`/admin/stock-movements?from=${fromDate}&to=${toDate}`} label="Stock movement" sub={`${operations.movements.additions} in · ${operations.movements.removals} out`}><AnimatedNumber value={operations.movements.count} /></Tile>
-        </div>
-      </section>
-
-      <section className="mb-4 bg-white rounded-2xl p-5 shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div><h2 className="font-medium text-ink">Monthly inventory review</h2><p className="text-sm text-muted">Review exceptions; stock is never changed automatically.</p></div>
-          <Link href="/admin/stock-movements" className="text-sm text-emerald nav-link">Audit stock ledger <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
-        </div>
-        <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <Tile href="/admin/inventory" label="Total Products" sub={`${d.newProducts} added in this period`}><AnimatedNumber value={d.totalProducts} /></Tile>
-          <Tile href="/admin/categories" label="Categories"><AnimatedNumber value={d.categories} /></Tile>
-          <Tile href="/admin/inventory?cls=dead" label="Dead Stock" accent={d.dead ? "text-rose" : undefined} sub="no movement · capital tied up"><AnimatedNumber value={d.dead} /></Tile>
-          <Tile href="/admin/inventory?cls=low" label="Low Stock" accent={d.low ? "text-gold-dark" : undefined} sub="at/under reorder level"><AnimatedNumber value={d.low} /></Tile>
-          <Tile href="/admin/inventory?cls=inactive" label="Inactive" accent={d.inactive ? "text-muted" : undefined} sub="never sold"><AnimatedNumber value={d.inactive} /></Tile>
-        </div>
-      </section>
+      <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+        <Tile label="Total Products" sub={`${d.newProducts} new`}><AnimatedNumber value={d.totalProducts} /></Tile>
+        <Tile label="Categories"><AnimatedNumber value={d.categories} /></Tile>
+        <Tile label="Dead Stock" accent={d.dead ? "text-rose" : undefined} sub="no movement · capital tied up"><AnimatedNumber value={d.dead} /></Tile>
+        <Tile label="Low Stock" accent={d.low ? "text-gold-dark" : undefined} sub="at/under reorder level"><AnimatedNumber value={d.low} /></Tile>
+        <Tile label="Inactive" accent={d.inactive ? "text-muted" : undefined} sub="never sold"><AnimatedNumber value={d.inactive} /></Tile>
+      </div>
 
       <div className="grid md:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl p-5 shadow-card sensitive">
-          <Link href={`/admin/sales?from=${fromDate}&to=${toDate}`} className="inline-block font-medium text-ink mb-4 hover:text-emerald">Revenue by category <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
+          <h2 className="font-medium text-ink mb-4">Revenue by category</h2>
           <div className="space-y-3">
             {a.categories.map((c, i) => {
               const max = Math.max(1, ...a.categories.map((x) => x.revenue));
@@ -178,10 +160,10 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-card">
-          <Link href="/admin/inventory?cls=dead" className="inline-block font-medium text-rose mb-4 hover:text-rose/70"><Icon g="🔴" className="inline-block align-middle w-[1em] h-[1em]" />Dead stock — act now <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
+          <h2 className="font-medium text-rose mb-4"><Icon g="🔴" className="inline-block align-middle w-[1em] h-[1em]" />Dead stock — act now</h2>
           <ul className="text-sm divide-y divide-sand/60">
             {d.deadList.length === 0 ? <li className="py-2 text-muted">None <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></li> : d.deadList.map((p) => (
-              <li key={p.sku} className="py-2"><Link href={`/admin/inventory?cls=dead&q=${encodeURIComponent(p.sku)}`} className="flex justify-between hover:text-emerald"><span>{p.name}</span><span className="text-muted">{p.qty} pcs</span></Link></li>
+              <li key={p.sku} className="flex justify-between py-2"><span>{p.name}</span><span className="text-muted">{p.qty} pcs</span></li>
             ))}
           </ul>
         </div>

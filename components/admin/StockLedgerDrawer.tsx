@@ -17,19 +17,17 @@ type Movement = {
   party?: string | null;
   variant?: { color: string | null; sku: string | null } | null;
   doc: { href: string; label: string } | null;
-  explanation: string | null;
 };
 type VariantSummary = { id: string; sku: string; color: string | null; qty: number; purchased: number; sold: number; net: number };
 type Ledger = {
   header: { id: string; sku: string; name: string; image: string | null; category: string | null;
-    supplier: string | null; currentStock: number; reserved: number; codReserved: number; codOnShelf: number; expectedShelfStock: number; available: number;
+    supplier: string | null; currentStock: number; reserved: number; available: number;
     reorderLevel: number | null; avgCost: number | null; lastPurchaseCost: number | null;
     lastSaleDate: string | null; lastPurchaseDate: string | null };
   analytics: { opening: number; purchased: number; sold: number; returned: number; adjusted: number;
-    reserved: number; codReserved: number; codOnShelf: number; expectedShelfStock: number; available: number; currentStock: number; daysSinceLastSale: number | null;
+    reserved: number; available: number; currentStock: number; daysSinceLastSale: number | null;
     turnover: number; avgMonthlySales: number };
   reservations: { id: string; customer: string; qty: number; status: string; created_at: string }[];
-  codReservations: { id: string; customer: string; qty: number; stage: string; created_at: string; dispatched: boolean; variantId: string | null }[];
   variants: VariantSummary[];
   movements: Movement[];
   totalMovements: number;
@@ -53,7 +51,6 @@ const FILTERS: { key: string; label: string; kinds: string[] }[] = [
   { key: "sale", label: "Sales", kinds: ["sale"] },
   { key: "purchase", label: "Purchases", kinds: ["purchase"] },
   { key: "estimate", label: "Estimates / Reservations", kinds: ["estimate"] },
-  { key: "cod", label: "COD reserves", kinds: [] },
   { key: "return", label: "Returns", kinds: ["return", "purchase_return", "replacement"] },
   { key: "adjustment", label: "Manual Adjustments", kinds: ["adjustment", "damage", "correction"] },
   { key: "audit", label: "Inventory Audits", kinds: ["audit", "inventory_audit"] },
@@ -96,7 +93,6 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
     const kinds = FILTERS.find((f) => f.key === filter)?.kinds ?? [];
     const s = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (filter === "cod") return false;
       if (kinds.length && !kinds.includes(r.kind)) return false;
       if (colour && (r.variant?.color ?? "") !== colour) return false;
       if (from && r.created_at < from) return false;
@@ -140,10 +136,9 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
             <p className="text-xs text-muted">{h?.sku} · {h?.category ?? "—"} {h?.supplier ? `· ${h.supplier}` : ""}</p>
             {h && (
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-[11px]">
-                <span className="text-ink">Available stock <b>{h.currentStock}</b></span>
-                <span className="text-wine">COD committed <b>{h.codReserved}</b></span>
-                <span className="text-gold-dark">Estimate holds <b>{h.reserved}</b></span>
-                <span className="text-emerald-dark">Shelf count target <b>{h.expectedShelfStock}</b></span>
+                <span className="text-ink">Stock <b>{h.currentStock}</b></span>
+                <span className="text-gold-dark">Reserved <b>{h.reserved}</b></span>
+                <span className="text-emerald-dark">Available <b>{h.available}</b></span>
                 <span className="text-muted">Reorder {h.reorderLevel ?? "—"}</span>
                 <span className="text-muted">Avg cost {fmt(h.avgCost)}</span>
                 <span className="text-muted">Last buy {fmt(h.lastPurchaseCost)}</span>
@@ -163,7 +158,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-4">
               {[
                 ["Opening", a!.opening], ["Purchased", a!.purchased], ["Sold", a!.sold], ["Returned", a!.returned],
-                ["Adjusted", a!.adjusted], ["Estimate holds", a!.reserved], ["COD committed", a!.codReserved], ["Shelf count target", a!.expectedShelfStock], ["Available to sell", a!.available], ["Current", a!.currentStock],
+                ["Adjusted", a!.adjusted], ["Reserved", a!.reserved], ["Available", a!.available], ["Current", a!.currentStock],
               ].map(([label, val]) => (
                 <div key={label as string} className="bg-white rounded-xl border border-sand p-2.5">
                   <p className="text-[10px] uppercase tracking-wide text-muted">{label as string}</p>
@@ -184,22 +179,6 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
                     <li key={r.id} className="py-1.5 flex items-center justify-between gap-2 text-xs">
                       <span className="min-w-0 truncate"><Link href={`/admin/estimate/${r.id}`} className="text-emerald nav-link font-medium">EST-{r.id.slice(0, 8).toUpperCase()}</Link> · {r.customer} · {day(r.created_at)}</span>
                       <span className="text-gold-dark font-semibold whitespace-nowrap">{r.qty} pcs · {r.status}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* COD allocations are already deducted at checkout. They explain why a physical shelf count can be higher than the available stock figure. */}
-            {data.codReservations.length > 0 && (
-              <div className="mx-4 mb-3 rounded-xl border border-wine/30 bg-wine/5 p-3">
-                <p className="text-xs font-semibold text-wine mb-1.5">COD commitments · {h!.codReserved}pcs deducted from available stock · shelf count target {h!.expectedShelfStock}</p>
-                <p className="text-[11px] text-muted mb-2">New and preparing orders remain in the shop count; dispatched orders are with the courier. Use the COD reserves filter to review these commitments separately.</p>
-                <ul className="divide-y divide-wine/15">
-                  {data.codReservations.map((r) => (
-                    <li key={`${r.id}-${r.variantId ?? "product"}`} className="py-1.5 flex items-center justify-between gap-2 text-xs">
-                      <span className="min-w-0 truncate"><Link href={`/admin/invoice/${r.id}`} className="text-emerald nav-link font-medium">COD-{r.id.slice(0, 8).toUpperCase()}</Link> · {r.customer} · {day(r.created_at)}</span>
-                      <span className="text-wine font-semibold whitespace-nowrap">{r.qty} pcs · {r.stage}</span>
                     </li>
                   ))}
                 </ul>
@@ -229,10 +208,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
             {/* Filters + search + export */}
             <div className="px-4 sticky top-0 bg-ivory/95 backdrop-blur py-2 border-y border-sand z-10">
               <div className="flex flex-wrap gap-1.5 mb-2">
-                <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Ledger filter" className="rounded-full border border-sand bg-white px-2.5 py-1 text-[11px] text-ink">
-                  {FILTERS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-                </select>
-                {FILTERS.filter((f) => f.key !== "cod").map((f) => (
+                {FILTERS.map((f) => (
                   <button key={f.key} onClick={() => setFilter(f.key)} className={`px-2.5 py-1 rounded-full text-[11px] ${filter === f.key ? "bg-ink text-white" : "bg-white border border-sand text-muted hover:border-gold"}`}>{f.label}</button>
                 ))}
               </div>
@@ -247,8 +223,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
 
             {/* Grouped timeline with running balance */}
             <div className="p-4 space-y-4">
-              {filter === "cod" && data.codReservations.length === 0 && <p className="text-sm text-muted text-center py-8">No active COD commitments for this product.</p>}
-              {filter !== "cod" && groups.length === 0 && <p className="text-sm text-muted text-center py-8">No movements match these filters.</p>}
+              {groups.length === 0 && <p className="text-sm text-muted text-center py-8">No movements match these filters.</p>}
               {groups.map(([d, items]) => (
                 <div key={d}>
                   <div className="flex items-center justify-between mb-1.5">
@@ -261,7 +236,7 @@ export function StockLedgerDrawer({ productId, onClose }: { productId: string; o
                         <span className={`px-2 py-0.5 rounded-full text-[10px] capitalize ${KIND_STYLE[r.kind] ?? "bg-cream text-muted"}`}>{r.kind}</span>
                         {r.variant?.color && <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-cream text-ink border border-sand whitespace-nowrap">{r.variant.color}</span>}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-ink truncate">{r.invoice_no ? <b>{r.invoice_no} · </b> : ""}{r.explanation ?? "—"}</p>
+                          <p className="text-xs text-ink truncate">{r.invoice_no ? <b>{r.invoice_no} · </b> : ""}{r.reason ?? r.source ?? "—"}</p>
                           <p className="text-[10px] text-muted">
                             {r.party && <b className="text-ink">{r.kind === "purchase" ? "From" : "To"} {r.party}</b>}
                             {r.party ? " · " : ""}{time(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}{r.doc ? " · " : ""}{r.doc && <Link href={r.doc.href} className="text-emerald nav-link">{r.doc.label}</Link>}

@@ -29,8 +29,8 @@ function docFor(r: Row): { href: string; label: string } | null {
   return null;
 }
 
-export function StockMovementsTable({ rows, initialProductId }: { rows: Row[]; initialProductId?: string }) {
-  const [openId, setOpenId] = useState<string | null>(initialProductId ?? null);
+export function StockMovementsTable({ rows }: { rows: Row[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getInventoryClassified } from "@/lib/supabase/queries";
 import { Pager } from "@/components/admin/Pager";
 import { StockAdjust } from "@/components/admin/StockAdjust";
-import { BulkInventoryCleanup } from "@/components/admin/BulkInventoryCleanup";
 import { getSession, can } from "@/lib/auth";
 import { setProductVisibilityAction } from "@/app/actions/catalog";
 import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
@@ -37,10 +36,9 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Inventory</h1>
-      <p className="text-sm text-muted mb-4"><b>Available</b> excludes active COD commitments. <b>Shelf target</b> adds COD orders still awaiting dispatch, so it is the number to compare during a physical count. Dead = no movement in {deadDays} days · Low = ≤ {lowQty} pcs.</p>
+      <p className="text-sm text-muted mb-4"><b>Dead</b> = no movement in {deadDays} days · <b>Low</b> = ≤ {lowQty} pcs · <b>Inactive</b> = never sold. Adjust the thresholds below and it re-classifies live.</p>
 
       <StockAdjust />
-      {can(session, "inventory.remove") && <BulkInventoryCleanup items={filtered.slice(0, 100).map((r) => ({ sku: r.sku, name: r.name, qty: r.qty, cls: r.cls, hasVariants: r.hasVariants }))} />}
 
       <form className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-2xl p-4 shadow-card border border-sand">
         <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search a product or SKU…" className="h-11 flex-1 min-w-[220px] rounded-xl border border-sand px-4 text-[15px] outline-none focus:border-emerald" />
@@ -65,17 +63,15 @@ export default async function Inventory({ searchParams }: { searchParams: { dead
       <div className="overflow-x-auto rounded-2xl border border-sand bg-white shadow-card">
         <table className="w-full text-[15px]">
           <thead className="bg-cream text-muted text-left">
-            <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Available</th><th className="p-3">COD committed</th><th className="p-3">Shelf target</th><th className="p-3">Last movement</th><th className="p-3">Health</th><th className="p-3">Visibility</th><th className="p-3 text-right">Actions</th></tr>
+            <tr><th className="p-3">Product</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Last movement</th><th className="p-3">Health</th><th className="p-3">Visibility</th><th className="p-3 text-right">Actions</th></tr>
           </thead>
           <tbody>
-            {shown.length === 0 && <tr><td colSpan={9} className="p-4 text-muted">No items match.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={7} className="p-4 text-muted">No items match.</td></tr>}
             {shown.map((r) => (
               <tr key={r.sku} className="border-t border-sand/60 hover:bg-cream/40 align-middle">
                 <td className="p-3 text-ink"><Link href={`/admin/products/${r.id}`} className="hover:text-emerald font-medium" title="Open product management">{r.name}</Link> <span className="text-muted">· {r.sku}</span></td>
                 <td className="p-3 text-muted">{r.category}</td>
                 <td className="p-3"><span className={r.qty <= lowQty ? "text-rose font-medium" : ""}>{r.qty}</span></td>
-                <td className="p-3"><Link href={`/admin/stock-movements?productId=${r.id}`} className={r.codReserved ? "text-wine font-medium hover:underline" : "text-muted"}>{r.codReserved || "—"}</Link></td>
-                <td className="p-3 font-medium">{r.expectedShelfStock}</td>
                 <td className="p-3 text-muted">{daysSince(r.lastMovementAt)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${BADGE[r.cls]}`}>{r.cls}</span></td>
                 <td className="p-3"><span className={`text-xs ${r.status === "published" ? "text-emerald-dark" : "text-gold-dark"}`}>{r.status === "published" ? "Visible" : "Hidden"}</span></td>
