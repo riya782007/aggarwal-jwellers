@@ -38,10 +38,15 @@ export async function generateContentAction(sku: string, keywords?: string[]): P
   if (!p) return { ok: false, sku, error: "not found" };
   const colors = (p.variants ?? []).map((v) => v.color ?? "").filter(Boolean);
   const { imageBase64, imageMime } = await fetchProductImage(p);
+  // Give the writer the existing title prefixes so each new listing receives a distinct house name.
+  const { data: existingContent } = await supabaseServer().from("products").select("generated_content").neq("id", p.id).not("generated_content", "is", null);
+  const reservedTitleNames = ((existingContent ?? []) as any[])
+    .map((row) => String(row.generated_content?.title ?? "").trim().split(/\s+/)[0])
+    .filter((value) => /^[\p{L}][\p{L}'-]*$/u.test(value));
   const { content, provider, fallbackUsed } = await generateProductContent({
     name: p.name, sku: p.sku, categoryName: p.category?.name, colors,
     keywords: (keywords ?? []).map((k) => k.trim()).filter(Boolean),
-    imageBase64, imageMime,
+    imageBase64, imageMime, reservedTitleNames,
   });
   const { error } = await supabaseServer().from("products").update({ generated_content: content }).eq("id", p.id);
   if (error) return { ok: false, sku, error: error.message };

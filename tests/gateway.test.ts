@@ -37,6 +37,18 @@ describe("AiGateway", () => {
     expect(r.provider).toBe("s");
   });
 
+  it("uses ordered additional fallbacks after primary and secondary fail", async () => {
+    const g = new AiGateway({
+      primary: provider("openai", async () => { throw new Error("down"); }),
+      secondary: provider("gemini", async () => { throw new Error("down"); }),
+      fallbacks: [provider("groq", async () => ({ title: "FROM GROQ" }))],
+      deterministic: det,
+    });
+    const r = await g.run(call);
+    expect(r.data.title).toBe("FROM GROQ");
+    expect(r.provider).toBe("groq");
+  });
+
   it("falls back to deterministic when all providers fail", async () => {
     const g = new AiGateway({
       primary: provider("p", async () => { throw new Error("boom"); }),

@@ -7,17 +7,18 @@ import { getLang } from "@/lib/auth";
 export const metadata = { title: "Owner Console · Upload" };
 
 export default async function UploadPage() {
-  // Colours are FIXED from the master catalog (lib/colors.ts) — only approved colours appear, each
-  // carries its scanner barcode code, and the picker shows them alphabetically. Size/polish still
-  // come from the self-growing master; "Oxidised" is a POLISH/finish, never a colour. The category
-  // tree lets a product be filed into a subcategory at creation time.
+  // The canonical catalogue provides barcode codes, while the live Colours master remains the
+  // source of newly added values so stock entry reflects changes without a code deployment.
   const [tree, dbOpts, styleRows] = await Promise.all([
     getCategoryTree(),
     getVariantOptions().catch(() => ({ color: [] as string[], size: [] as string[], polish: [] as string[] })),
     getStyles().catch(() => []),
   ]);
+  const canonicalColours = COLOR_CATALOG.map((c) => c.name);
   const variantOptions = {
-    color: COLOR_CATALOG.map((c) => c.name),
+    color: Array.from(new Map([...canonicalColours, ...(dbOpts.color ?? [])].map((value) => [value.trim().toLowerCase(), value.trim()])).values())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b)),
     size: dbOpts.size ?? [],
     polish: Array.from(new Set([...(dbOpts.polish ?? []), "Oxidised"])).sort((a, b) => a.localeCompare(b)),
   };

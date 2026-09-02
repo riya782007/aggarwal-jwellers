@@ -1,11 +1,11 @@
 /**
  * lib/ai/listingAgent.ts — generates a full product page via the AI gateway.
- * Chain: Groq (primary) -> OpenAI (secondary) -> deterministic template (always).
+ * Chain: OpenAI (primary) -> Gemini -> Groq -> deterministic template (always).
  * Output is zod-validated; any failure falls back so a page is never blank.
  */
 import "server-only";
 import { AiGateway, z } from "./gateway";
-import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "./providers";
+import { geminiChat, groqChat, openaiChat, geminiTextConfigured, groqConfigured, openaiConfigured } from "./providers";
 import { templateContent, type GeneratedContent, type ProductLike } from "../content";
 
 const schema = z.object({
@@ -21,6 +21,7 @@ function prompt(p: ProductLike) {
   const sub = (p as any).subcategoryName ? ` Sub-category (type): ${(p as any).subcategoryName}.` : "";
   const kw = (p.keywords ?? []).filter(Boolean).join(", ");
   const hasImage = !!p.imageBase64;
+  const reservedNames = [...new Set((p.reservedTitleNames ?? []).map((name) => name.trim()).filter(Boolean))];
   return [
     `You are the senior product copywriter for "Aggarwal Jewellers", a Sadar Bazar (Delhi) jewellery house making bridal, AD (American Diamond), anti-tarnish and daily-wear artificial jewellery (retail + wholesale).`,
     `Write ONE product page as STRICT minified JSON with keys: title, description, specs (object label->value), tags (array), seo (object: metaTitle, metaDescription, keywords array).`,
@@ -38,7 +39,7 @@ function prompt(p: ProductLike) {
         : `• No extra specifications given — infer ONLY from the product name & category; do not invent components or materials.`,
     ``,
     `TITLE — MUST follow Aggarwal Jewellers's exact house style:  «{First name} {material/style descriptors} {jewellery type} with {included pieces}»`,
-    `  1. START with a single elegant UNIQUE Indian girl's first name (e.g. Dhyani, Khyati, Ananya, Rutvika, Nashvika, Drishika, Tanisha, Priyanshi, Nidhi, Gitanjali, Aaradhya, Myra, Vanya…). Choose one that suits the piece; do not always use the same one.`,
+    `  1. START with a single elegant UNIQUE Indian girl's first name (e.g. Dhyani, Khyati, Ananya, Rutvika, Nashvika, Drishika, Tanisha, Priyanshi, Nidhi, Gitanjali, Aaradhya, Myra, Vanya…). Choose one that suits the piece; do not always use the same one.${reservedNames.length ? ` These names are already used in the catalogue and are forbidden: ${reservedNames.join(", ")}.` : ""}`,
     `  2. Then descriptors drawn ONLY from the name + specifications: material (Kundan, Uncut Kundan, Acrylic Kundan, Meenakari, Temple, Polki, Pearl, Moissanite, Turkish Stone, Crystal, Oxidised…), style/length (Semi Long, Long, Double Layer, Layered, Single Line, Choker…), design (Chandbali, Jhumka, Danglers…).`,
     `  3. Then the jewellery TYPE from the category (Necklace Set, Choker Set, Earrings, Ring, Bracelet…). If it ships with extra pieces, use "Set".`,
     `  4. If the specifications list included pieces (earrings, maang tikka, finger ring…), append "with {those pieces}" — e.g. "with Maang Tikka", "with Maang Tikka and Finger Ring".`,
@@ -67,7 +68,7 @@ function prompt(p: ProductLike) {
 
 export function buildGateway() {
   // OpenAI is the PRIMARY writer (the owner sets OPENAI_API_KEY for high-quality Aggarwal Jewellers titles);
-  // Groq is a free secondary if present; deterministic template is the always-there final hop.
+  // Gemini retains image grounding; Groq is the final text-only fallback before the deterministic template.
   return new AiGateway({
     primary: {
       name: "openai",
@@ -80,10 +81,19 @@ export function buildGateway() {
       })),
     },
     secondary: {
-      // Groq's text models can't see images; it only runs if OpenAI is unavailable, as a text-only writer.
+      // Gemini can use the same product photo, preserving image-grounded copy if OpenAI is unavailable.
+      name: "gemini",
+      run: async (call: any) => JSON.parse(await geminiChat({
+        system: "You are Aggarwal Jewellers's product copywriter. Return only valid minified JSON.",
+        user: call._prompt, json: true,
+        imageBase64: call._product?.imageBase64, imageMime: call._product?.imageMime,
+      })),
+    },
+    fallbacks: [{
+      // Groq is the final text-only AI fallback before deterministic content.
       name: "groq",
       run: async (call: any) => JSON.parse(await groqChat({ system: "You are Aggarwal Jewellers's product copywriter. Return only valid minified JSON.", user: call._prompt, json: true })),
-    },
+    }],
     deterministic: (call: any) => templateContent(call._product) as GeneratedContent,
     budgetPaise: Number(process.env.AI_BUDGET_PAISE ?? 500000),
     maxRetries: 1,
@@ -100,7 +110,7 @@ export async function generateProductContent(p: ProductLike): Promise<{ content:
 }
 
 export function aiProvidersStatus() {
-  return { groq: groqConfigured(), openai: openaiConfigured() };
+  return { groq: groqConfigured(), openai: openaiConfigured(), gemini: geminiTextConfigured() };
 }
 
 /** 0049 — several distinct title options for the picker (name/description align with the
