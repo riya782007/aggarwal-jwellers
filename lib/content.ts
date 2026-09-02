@@ -22,6 +22,8 @@ export type ProductLike = {
    *  when writing the title & description. Ignored by the deterministic template fallback. */
   imageBase64?: string;
   imageMime?: string;
+  /** First-name prefixes already used by catalogue titles; used to prevent title collisions. */
+  reservedTitleNames?: string[];
 };
 
 const LOCATION = ["Sadar Bazar", "Rui Mandi", "Delhi", "artificial jewellery wholesale Delhi", "imitation jewellery online India"];
