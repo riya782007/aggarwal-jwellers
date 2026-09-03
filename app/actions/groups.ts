@@ -11,18 +11,9 @@ import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { logActivity } from "@/lib/audit";
+import { groupCodeFromScan } from "@/lib/groupQr";
 
 const genCode = () => `GRP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-/** Pull a bare group code out of a scanned string: a `<site>/g/<code>` URL or a raw `GRP-…`.
- *  Local helper (a "use server" module may only EXPORT async functions). */
-function groupCodeFromScan(raw: string): string | null {
-  const s = (raw ?? "").trim();
-  const m = s.match(/\/g\/([A-Za-z0-9%._-]+)/);
-  if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
-  if (/^GRP-[A-Za-z0-9]+$/i.test(s)) return s.toUpperCase();
-  return null;
-}
 
 /** Create a box: a group QR over `pack_qty` units of one piece SKU (product OR variant). */
 export async function createBoxGroupAction(input: { sku: string; packQty: number; label?: string }): Promise<{ ok: boolean; code?: string; id?: string; error?: string }> {
