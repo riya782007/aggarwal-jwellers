@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing";
 import { QtyField } from "@/components/admin/QtyField";
+import { skuCandidatesFromScan } from "@/lib/scan";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
 type Cust = { id: string; name: string; phone: string; type: string; gstin: string };
@@ -49,24 +50,20 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
   const add = (p: P) => { setLines((prev) => (prev.find((l) => l.sku === p.sku) ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)) : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }])); setQ(""); };
 
-  /** Same scan+search box as the POS: a QR sticker encodes the product-page URL (…/p/AJ1004-RED),
-   *  so extract the SKU so one sticker both opens the page AND adds to the estimate. */
-  function skuFromScan(raw: string): string {
-    const m = raw.match(/\/p\/([A-Za-z0-9%._-]+)/);
-    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
-    return raw;
-  }
+  /** Scanner payloads support product-page URLs and legacy space-separated SKU labels. */
   /** Enter/scan: add the exact SKU match, else the first search result, else look the SKU up on the
    *  server (covers colour variants and freshly-added items) — so a real code always adds. */
   async function submitSearch() {
-    const code = skuFromScan(q.trim());
+    const codes = skuCandidatesFromScan(q);
+    const code = codes[0];
     if (!code) return;
-    const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
-    const p = exact ?? matches[0];
-    if (p) { add(p); setScanMsg({ text: `Added ${p.name}`, ok: true }); searchRef.current?.focus(); return; }
+    const exact = codes.map((candidate) => products.find((x) => x.sku.toLowerCase() === candidate.toLowerCase())).find(Boolean);
+    if (exact) { add(exact); setScanMsg({ text: `Added ${exact.name}`, ok: true }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
-    const found = await resolveSellableSku(code);
-    if (found) { add({ sku: found.sku, name: found.name, price: found.price, wholesale: found.wholesale }); setScanMsg({ text: `Added ${found.name}`, ok: true }); }
+    let found = null;
+    for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
+    const p = found ?? matches[0];
+    if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}`, ok: true }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
