@@ -8,6 +8,7 @@ import { resolveSellableSku } from "@/app/actions/billing";
 import { resolveBoxScanAction } from "@/app/actions/groups";
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
+import { skuCandidatesFromScan } from "@/lib/scan";
 
 type P = { sku: string; name: string; price: number; wholesale: number; mrp: number; category: string; qty: number };
 type Line = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; stock: number; override: string; disc: string };
@@ -128,14 +129,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   function setLineDisc(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, disc: val } : l)); }
   function rm(sku: string) { setLines((p) => p.filter((l) => l.sku !== sku)); }
 
-  /** One box for scan + search: Enter adds the exact SKU match, else the first result.
-   *  QR stickers encode the product-page URL (…/p/AJ1004-RED) — extract the SKU so the
-   *  same sticker both opens the page on a phone AND bills at the counter. */
-  function skuFromScan(raw: string): string {
-    const m = raw.match(/\/p\/([A-Za-z0-9%._-]+)/);
-    if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
-    return raw;
-  }
+  /** Scanner payloads support product-page URLs and legacy space-separated SKU labels. */
   /** A scanned string is a BOX/group QR if it's a `/g/<code>` URL or a raw `GRP-…` code. */
   function groupCodeFromScan(raw: string): string | null {
     const s = raw.trim();
@@ -161,16 +155,18 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
       setQ(""); searchRef.current?.focus(); return;
     }
-    const code = skuFromScan(q.trim());
+    const codes = skuCandidatesFromScan(q);
+    const code = codes[0];
     if (!code) return;
-    const exact = products.find((x) => x.sku.toLowerCase() === code.toLowerCase());
-    const p = exact ?? matches[0];
-    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); setQ(""); searchRef.current?.focus(); return; }
-    // Not in the loaded catalogue list — look the exact SKU up on the server (covers colour
-    // variants and freshly-added items) so a real sku is never wrongly reported as missing.
+    const exact = codes.map((candidate) => products.find((x) => x.sku.toLowerCase() === candidate.toLowerCase())).find(Boolean);
+    if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); setQ(""); searchRef.current?.focus(); return; }
+    // Not in the loaded catalogue list — try literal and legacy-normalized SKU values before
+    // falling back to product-name search, so a scan never adds an unrelated first result.
     setScanMsg({ text: "Looking up…", ok: true });
-    const found = await resolveSellableSku(code);
-    if (found) { addLine(found); setScanMsg({ text: `${found.name} · ${found.qty} in stock${found.qty <= 0 ? " (OUT)" : ""}`, ok: found.qty > 0 }); }
+    let found = null;
+    for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
+    const p = found ?? matches[0];
+    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
