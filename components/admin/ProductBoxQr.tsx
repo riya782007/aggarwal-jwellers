@@ -41,27 +41,13 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   }
 
   // Print then hide from this list only — POS keeps resolving the printed QR.
-  function priceCode(box: Box): string {
-    const intOf = (paise?: number) => {
-      if (paise == null || !Number.isFinite(paise) || paise <= 0) return "";
-      return String(Math.round(paise / 100));
-    };
-    const w = intOf(box.wholesale);
-    const r = intOf(box.price);
-    const mid = w ? `7${w}7` : "";
-    if (!mid && !r) return "";
-    return `A${mid}${r}51`;
-  }
-
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-    const code = priceCode(box);
     const labels = Array.from({ length: n }, () => ({
       name: box.name, sku: box.sku, qrValue: box.code,
-      priceLine: code || undefined,
-      // Print the individually tracked SKU prominently; retain the group code so staff can
-      // identify the QR that expands this pack at POS. The QR payload remains the group code.
-      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+      // The QR payload is the group code used by POS. Keep printed text compact so it never
+      // competes with the QR's quiet zone on a 2in × 1in sticker.
+      boxLine: `BOX OF ${box.packQty}`,
       showName: true, showSku: true,
     }));
     try {

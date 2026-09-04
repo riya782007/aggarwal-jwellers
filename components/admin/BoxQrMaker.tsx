@@ -51,27 +51,13 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
 
   // After print: hide from this list only. QR stays active so POS still scans printed stickers.
   /** Same coded price scheme as piece labels: A + 7{wholesale}7 + {retail} + 51 */
-  function priceCode(box: Box): string {
-    const intOf = (paise?: number) => {
-      if (paise == null || !Number.isFinite(paise) || paise <= 0) return "";
-      return String(Math.round(paise / 100));
-    };
-    const w = intOf(box.wholesale);
-    const r = intOf(box.price);
-    const mid = w ? `7${w}7` : "";
-    if (!mid && !r) return "";
-    return `A${mid}${r}51`;
-  }
-
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-    const code = priceCode(box);
     const labels = Array.from({ length: n }, () => ({
       name: box.name, sku: box.sku, qrValue: box.code,
-      priceLine: code || undefined,
-      // Print the individually tracked SKU prominently; retain the group code so staff can
-      // identify the QR that expands this pack at POS. The QR payload remains the group code.
-      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+      // The QR payload is the group code used by POS. Keep printed text compact so it never
+      // competes with the QR's quiet zone on a 2in × 1in sticker.
+      boxLine: `BOX OF ${box.packQty}`,
       showName: true, showSku: true,
     }));
     try {
@@ -97,11 +83,11 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     setBusy(true); setMsg(null);
     const labels = snapshot.flatMap((box) => {
       const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-      const code = priceCode(box);
       return Array.from({ length: n }, () => ({
         name: box.name, sku: box.sku, qrValue: box.code,
-        priceLine: code || undefined,
-        boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+        // The QR payload is the group code used by POS. Keep printed text compact so it never
+        // competes with the QR's quiet zone on a 2in × 1in sticker.
+        boxLine: `BOX OF ${box.packQty}`,
         showName: true, showSku: true,
       }));
     });

@@ -80,13 +80,16 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       const tx = xoff + PAD + QR + 8;
       const maxW = xoff + HALF - PAD - tx;  // remaining width for text
       doc.setTextColor(0, 0, 0);
-      let y = 22;
+      // Box labels reserve room for the pack line and use a single-line product name. This
+      // prevents any text from crossing into the next 1in label, even with long product names.
+      const compactBoxLabel = !!lab.boxLine;
+      let y = compactBoxLabel ? 17 : 13;
       if (lab.showName && lab.name) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
-        const lines = (doc.splitTextToSize(lab.name, maxW) as string[]).slice(0, 2);
+        const lines = (doc.splitTextToSize(lab.name, maxW) as string[]).slice(0, compactBoxLabel ? 1 : 2);
         for (const ln of lines) { doc.text(ln, tx, y); y += 8; }
-        y += 3;
+        y += compactBoxLabel ? 2 : 3;
       }
       if (lab.showSku) {
         doc.setFont("helvetica", "normal");
