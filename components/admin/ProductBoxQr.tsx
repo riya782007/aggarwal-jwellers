@@ -61,7 +61,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
       priceLine: code || undefined,
       // Print the individually tracked SKU prominently; retain the group code so staff can
       // identify the QR that expands this pack at POS. The QR payload remains the group code.
-      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+      boxLine: `${box.code} · BOX ${box.packQty}`,
       showName: true, showSku: true,
     }));
     try {
