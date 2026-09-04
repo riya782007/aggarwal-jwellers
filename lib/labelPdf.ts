@@ -80,7 +80,9 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       const tx = xoff + PAD + QR + 8;
       const maxW = xoff + HALF - PAD - tx;  // remaining width for text
       doc.setTextColor(0, 0, 0);
-      let y = 22;
+      // All baselines stay within the 1in label. Starting at 13pt leaves room for a two-line
+      // name plus SKU, price code, and box code without printing into the next label.
+      let y = 13;
       if (lab.showName && lab.name) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
