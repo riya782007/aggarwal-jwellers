@@ -7,6 +7,7 @@ import { requirePerm } from "@/lib/auth";
 export async function upsertCustomerAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("customers.manage"))) return;
   const id = String(formData.get("id") ?? "").trim();
+  const isQuickAdd = !id;
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const creditRupees = Number(formData.get("credit_balance") ?? 0) || 0;
@@ -49,6 +50,8 @@ export async function upsertCustomerAction(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/customers");
   if (targetId) revalidatePath(`/admin/customer/${targetId}`);
+  // Return to a fresh form with a clear confirmation after an add, including a de-duplicated add.
+  if (isQuickAdd) redirect("/admin/customers?msg=Customer+saved");
 }
 
 export async function deleteCustomerAction(formData: FormData) {
