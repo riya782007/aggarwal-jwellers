@@ -561,7 +561,7 @@ insert into public.variant_options(kind,value,sort) values
  ('color','Green',5),('color','Red',6),('color','Blue',7),('color','Pink',8),
  ('color','White',9),('color','Black',10),('color','Maroon',11),('color','Multicolour',12),
  ('size','Small',1),('size','Medium',2),('size','Large',3),('size','Free Size',4),
- ('size','2.4',5),('size','2.6',6),('size','2.8',7),('size','2.10',8),
+ ('size','2.2',5),('size','2.4',6),('size','2.6',7),('size','2.8',8),('size','2.10',9),
  ('polish','Gold',1),('polish','Silver',2),('polish','Rose Gold',3),('polish','Oxidised',4),
  ('polish','Antique',5),('polish','Matte',6),('polish','High Polish',7),('polish','Dual Tone',8)
 on conflict (kind,value) do nothing;
