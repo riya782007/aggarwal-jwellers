@@ -796,6 +796,8 @@ export async function getCashBankLedger(opts: { from?: string; to?: string } = {
 }
 
 /** Self-growing master lists for variant attributes (colour / size / polish). */
+const DEFAULT_SIZE_OPTIONS = ["2.2"];
+
 export async function getVariantOptions(): Promise<{ color: string[]; size: string[]; polish: string[] }> {
   const sb = supabaseServer();
   const { data } = await sb.from("variant_options").select("kind,value,sort").order("sort").order("value");
@@ -803,6 +805,9 @@ export async function getVariantOptions(): Promise<{ color: string[]; size: stri
   for (const r of (data as any[]) ?? []) {
     const k = (r as any).kind as "color" | "size" | "polish";
     if (out[k]) out[k].push((r as any).value);
+  }
+  for (const size of DEFAULT_SIZE_OPTIONS) {
+    if (!out.size.some((value) => value.toLowerCase() === size.toLowerCase())) out.size.push(size);
   }
   return out;
 }
