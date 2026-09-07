@@ -4294,3 +4294,8 @@ begin
 end;
 $$;
 
+-- ------------------------------------------------------------ 0078_box_qr_hidden_from_list.sql
+alter table public.inventory_groups
+  add column if not exists hidden_from_list boolean not null default false;
+
+
