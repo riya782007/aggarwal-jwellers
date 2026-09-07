@@ -64,15 +64,24 @@ async function recomputeEstimateTotal(sb: ReturnType<typeof supabaseServer>, est
   await sb.from("estimates").update({ total: items + charges }).eq("id", estimateId);
 }
 
-/** #18: edit an open estimate — customer details. */
+/** #18: edit an open estimate — customer details + salesperson / GSTIN (POS parity). */
 export async function updateEstimateCustomerAction(formData: FormData): Promise<void> {
   if (!(await requirePerm("estimates.create"))) return;
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const name = String(formData.get("customer_name") ?? "").trim() || null;
   const phone = String(formData.get("customer_phone") ?? "").trim() || null;
-  await supabaseServer().from("estimates").update({ customer_name: name, customer_phone: phone }).eq("id", id);
+  const salesEmployeeId = String(formData.get("sales_employee_id") ?? "").trim() || null;
+  const buyerGstin = String(formData.get("buyer_gstin") ?? "").trim().toUpperCase() || null;
+  const buyerAddress = String(formData.get("buyer_address") ?? "").trim() || null;
+  const patch: Record<string, unknown> = { customer_name: name, customer_phone: phone };
+  if (formData.has("sales_employee_id")) patch.sales_employee_id = salesEmployeeId;
+  if (formData.has("buyer_gstin")) patch.buyer_gstin = buyerGstin;
+  if (formData.has("buyer_address")) patch.buyer_address = buyerAddress;
+  const { error } = await supabaseServer().from("estimates").update(patch).eq("id", id);
+  if (error) console.warn("estimate customer update:", error.message);
   revalidatePath(`/admin/estimate/${id}`);
+  revalidatePath("/admin/estimates");
 }
 
 /** #18: change a line's quantity on an open estimate. */
@@ -141,15 +150,29 @@ export async function addEstimateLineAction(formData: FormData): Promise<void> {
     productId = (p as any).id; base = (p as any).base_wholesale; ov = overridesOf(p);
   }
   const formula = await getPricingFormula();
-  const unit = resolvePrices(base, formula, ov).retailPrice;
+  const { data: estMeta } = await sb.from("estimates").select("price_tier").eq("id", estimateId).maybeSingle();
+  const wholesale = (estMeta as any)?.price_tier === "wholesale";
+  const ps = resolvePrices(base, formula, ov);
+  const unit = wholesale && ps.wholesaleRate > 0 ? ps.wholesaleRate : ps.retailPrice;
   await sb.from("estimate_items").insert({ estimate_id: estimateId, product_id: productId, variant_id: variantId, qty, unit_price: unit, line_total: unit * qty });
   await recomputeEstimateTotal(sb, estimateId);
   revalidatePath(`/admin/estimate/${estimateId}`);
 }
 
-export async function createEstimateAction(input: { items: { sku: string; qty: number; priceRupees?: number }[]; customer: { name?: string; phone?: string }; packingRupees?: number; courierRupees?: number; adjustmentRupees?: number }): Promise<{ ok: boolean; estimateId?: string; total?: number; error?: string }> {
+export async function createEstimateAction(input: {
+  items: { sku: string; qty: number; priceRupees?: number }[];
+  customer: { name?: string; phone?: string };
+  packingRupees?: number; courierRupees?: number; adjustmentRupees?: number;
+  salesEmployeeId?: string;
+  buyerGstin?: string;
+  buyerAddress?: string;
+  mergeVariants?: boolean;
+  tier?: "retail" | "wholesale";
+}): Promise<{ ok: boolean; estimateId?: string; total?: number; error?: string }> {
   if (!(await requirePerm("estimates.create"))) return { ok: false, error: "Your role can't create estimates." };
   if (!input.items?.length) return { ok: false, error: "Add at least one item" };
+  const salesEmployeeId = (input.salesEmployeeId ?? "").trim();
+  if (!salesEmployeeId) return { ok: false, error: 'Pick who this quote is for under "Sold by" — or add their name — before saving.' };
   const sb = supabaseServer();
   const { data, error } = await sb.rpc("create_estimate", { p_items: input.items.map((i) => ({ sku: i.sku, qty: i.qty })), p_customer: input.customer ?? {} });
   if (error) return { ok: false, error: error.message };
@@ -165,6 +188,36 @@ export async function createEstimateAction(input: { items: { sku: string; qty: n
       const { error: chErr } = await sb.from("estimates").update({ extra_packing: xp, extra_courier: xc, extra_adjustment: xa }).eq("id", estimateId);
       if (chErr) console.warn("estimate charges not saved — apply migration 0021_billing_charges.sql:", chErr.message);
     }
+    // POS-parity metadata (salesperson, GSTIN, tier, merge-colours). Best-effort if columns lag.
+    const ph = input.customer?.phone?.trim();
+    const nm = input.customer?.name?.trim();
+    let customerId: string | null = null;
+    if (ph) {
+      const { data: existing } = await sb.from("customers").select("id").eq("phone", ph).maybeSingle();
+      if (existing) {
+        customerId = (existing as any).id;
+        const cpatch: Record<string, unknown> = {};
+        if (nm) cpatch.name = nm;
+        if (input.buyerGstin?.trim()) cpatch.gstin = input.buyerGstin.trim();
+        if (Object.keys(cpatch).length) await sb.from("customers").update(cpatch).eq("id", customerId);
+      } else {
+        const { data: created } = await sb.from("customers")
+          .insert({ name: nm || ph, phone: ph, gstin: input.buyerGstin?.trim() || null, address: input.buyerAddress?.trim() || null, type: input.tier === "wholesale" ? "wholesale" : "retail" })
+          .select("id").maybeSingle();
+        customerId = (created as any)?.id ?? null;
+      }
+    }
+    const meta: Record<string, unknown> = {
+      sales_employee_id: salesEmployeeId,
+      merge_variants: !!input.mergeVariants,
+      price_tier: input.tier === "wholesale" ? "wholesale" : "retail",
+    };
+    if (customerId) meta.customer_id = customerId;
+    if (input.buyerGstin?.trim()) meta.buyer_gstin = input.buyerGstin.trim().toUpperCase();
+    if (input.buyerAddress?.trim()) meta.buyer_address = input.buyerAddress.trim();
+    if (input.customer?.phone) meta.customer_phone = input.customer.phone;
+    const { error: metaErr } = await sb.from("estimates").update(meta).eq("id", estimateId);
+    if (metaErr) console.warn("estimate POS metadata not saved — apply migration 0076_estimate_pos_parity.sql:", metaErr.message);
     // Apply the per-line rates the counter set (R/W tier or an edited rate) so the saved quote —
     // and the bill it converts to (convert uses estimate_items.unit_price) — matches the screen.
     // Match estimate_items back to the inputs by SKU.
@@ -207,20 +260,64 @@ export async function billEstimateAction(formData: FormData) {
   const billType = String(formData.get("bill_type") ?? "gst") === "cash" ? "cash" : "gst";
   const allowOversell = String(formData.get("allow_oversell") ?? "") === "1";
   const sb = supabaseServer();
+  let estPre: any = null;
+  {
+    const rich = await sb.from("estimates").select("sales_employee_id,customer_id,customer_name,customer_phone,buyer_gstin,buyer_address,merge_variants,extra_packing,extra_courier,extra_adjustment,price_tier").eq("id", id).maybeSingle();
+    if (rich.error) {
+      const basic = await sb.from("estimates").select("extra_packing,extra_courier,extra_adjustment,customer_name,customer_phone").eq("id", id).maybeSingle();
+      estPre = basic.data;
+    } else estPre = rich.data;
+  }
+  const formEmp = String(formData.get("sales_employee_id") ?? "").trim();
+  const salesEmployeeId = formEmp || ((estPre as any)?.sales_employee_id as string | undefined) || "";
+  if (!salesEmployeeId) {
+    redirect(`/admin/estimate/${id}?billerror=${encodeURIComponent('Pick who made this sale under "Sold by" before billing — otherwise the bill will not count on anyone\'s tally.')}`);
+  }
   const { data, error } = await sb.rpc("convert_estimate_v2", { p_estimate_id: id, p_bill_type: billType, p_allow_oversell: allowOversell });
   // Insufficient-stock (or any) error: bounce back to the estimate with a clear message
   // instead of throwing a server error page.
   if (error) redirect(`/admin/estimate/${id}?billerror=${encodeURIComponent(error.message)}`);
   const orderId = (data as any)?.order_id;
   if (orderId) {
-    // Carry the estimate's extra charges onto the new order so the bill itemises them and GST
-    // applies — order.total is recomputed as items + charges to stay authoritative.
-    const { data: est } = await sb.from("estimates").select("extra_packing,extra_courier,extra_adjustment").eq("id", id).maybeSingle();
-    const xp = ((est as any)?.extra_packing) || 0, xc = ((est as any)?.extra_courier) || 0, xa = ((est as any)?.extra_adjustment) || 0;
+    const est = estPre as any;
+    const xp = est?.extra_packing || 0, xc = est?.extra_courier || 0, xa = est?.extra_adjustment || 0;
+    const gstin = String(formData.get("buyer_gstin") ?? est?.buyer_gstin ?? "").trim().toUpperCase() || null;
+    const addr = String(formData.get("buyer_address") ?? est?.buyer_address ?? "").trim() || null;
+    const buyerState = gstin && /^\d{2}/.test(gstin) ? gstin.slice(0, 2) : null;
+    let customerId = (est?.customer_id as string | null) ?? null;
+    const ph = (est?.customer_phone as string | undefined)?.trim();
+    const nm = (est?.customer_name as string | undefined)?.trim();
+    if (!customerId && ph) {
+      const { data: existing } = await sb.from("customers").select("id").eq("phone", ph).maybeSingle();
+      if (existing) customerId = (existing as any).id;
+      else {
+        const { data: created } = await sb.from("customers")
+          .insert({ name: nm || ph, phone: ph, gstin, address: addr, type: est?.price_tier === "wholesale" ? "wholesale" : "retail" })
+          .select("id").maybeSingle();
+        customerId = (created as any)?.id ?? null;
+      }
+    }
+    const patch: Record<string, unknown> = {
+      sales_employee_id: salesEmployeeId,
+      merge_variants: !!(est?.merge_variants || formData.get("merge_variants") === "1"),
+      buyer_gstin: gstin,
+      buyer_address: addr,
+      buyer_state: buyerState,
+      customer_id: customerId,
+    };
     if (xp !== 0 || xc !== 0 || xa !== 0) {
       const { data: oi } = await sb.from("order_items").select("line_total").eq("order_id", orderId);
       const itemsSum = ((oi as any[]) ?? []).reduce((s, r) => s + (r.line_total ?? 0), 0);
-      await sb.from("orders").update({ extra_packing: xp, extra_courier: xc, extra_adjustment: xa, total: itemsSum + xp + xc + xa }).eq("id", orderId);
+      patch.extra_packing = xp;
+      patch.extra_courier = xc;
+      patch.extra_adjustment = xa;
+      patch.total = itemsSum + xp + xc + xa;
+    }
+    const { error: patchErr } = await sb.from("orders").update(patch).eq("id", orderId);
+    if (patchErr) {
+      console.warn("estimate→bill POS fields failed (retrying salesperson only):", patchErr.message);
+      const { error: empErr } = await sb.from("orders").update({ sales_employee_id: salesEmployeeId }).eq("id", orderId);
+      if (empErr) console.error("estimate→bill salesperson update ALSO failed:", empErr.message);
     }
     await sb.rpc("assign_invoice_no", { p_order: orderId });
   }

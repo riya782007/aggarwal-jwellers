@@ -40,7 +40,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: { 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <h1 className="font-display text-4xl text-ink mb-1">Employees</h1>
-      <p className="text-sm text-muted mb-5">Your team, and how much each has sold. Attribution is captured at billing — pick the salesperson on the POS customer panel — so you can reward performance. Click a name to see that person&apos;s bills over any date range.</p>
+      <p className="text-sm text-muted mb-5">Your team, and how much each has sold. Attribution is captured at POS billing and when an estimate is billed — pick the salesperson under “Sold by” — so you can reward performance. Click a name to see that person&apos;s bills over any date range.</p>
 
       {searchParams.msg && (
         <div className="mb-5 rounded-xl border border-emerald/30 bg-emerald-mist px-4 py-3 text-sm text-emerald-dark flex items-start justify-between gap-3">
