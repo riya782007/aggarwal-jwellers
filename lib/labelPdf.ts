@@ -83,8 +83,15 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       // Every string is clipped to maxW so it cannot paint into the next 2in sticker.
       doc.setTextColor(0, 0, 0);
       const fit = (s: string) => {
-        const lines = doc.splitTextToSize(String(s ?? ""), Math.max(1, maxW)) as string[];
-        return lines[0] ?? "";
+        const raw = String(s ?? "");
+        // splitTextToSize breaks on hyphens, so "GRP-JS3JA8" became a lone "GRP" plus overflow
+        // into the next 2in sticker. Shrink the font until the whole string fits on one line.
+        let size = doc.getFontSize() as number;
+        while (size > 4.2 && doc.getTextWidth(raw) > Math.max(1, maxW)) {
+          size -= 0.35;
+          doc.setFontSize(size);
+        }
+        return raw;
       };
       const isBox = Boolean(lab.boxLine);
       // Piece labels keep the original 22pt start. Box labels start higher so name + SKU +
@@ -95,8 +102,11 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       if (lab.showName && lab.name) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
-        const lines = (doc.splitTextToSize(lab.name, Math.max(1, maxW)) as string[]).slice(0, isBox ? 1 : 2);
-        for (const ln of lines) {
+        const nameLines = isBox ? 1 : 2;
+        const chunks = isBox
+          ? [fit(lab.name)]
+          : (doc.splitTextToSize(lab.name, Math.max(1, maxW)) as string[]).slice(0, nameLines);
+        for (const ln of chunks) {
           if (y > maxBaseline) break;
           doc.text(ln, tx, y);
           y += 8;

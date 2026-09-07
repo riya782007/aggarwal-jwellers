@@ -20,10 +20,14 @@ export const THERMAL_LABEL = {
  */
 export function formatBoxLabelLine(code: string, packQty: number): string {
   let id = String(code ?? "").trim();
-  // Drop a leading "GRP " / "GRP-" only when the remainder already starts with GRP.
-  id = id.replace(/^(?:GRP[\s-]+)(?=GRP[-])/i, "");
+  // Collapse "GRP GRP-JS3JA8" / "GRP-GRP-…" into a single GRP- token.
+  id = id.replace(/^(?:GRP[\s-]+)+/i, "");
+  id = id.replace(/^-+/, "");
+  if (!id) id = "BOX";
+  if (!/^GRP-/i.test(id)) id = `GRP-${id}`;
   const n = Math.max(1, Math.floor(Number(packQty) || 1));
-  return `${id} · BOX ${n}`;
+  const line = `${id} · BOX ${n}`;
+  return line.replace(/GRP\s+GRP/gi, "GRP").replace(/GRP-GRP-/gi, "GRP-");
 }
 
 /** Text origin + max width for sticker slot 0 (left) or 1 (right) on the 4in web. */
