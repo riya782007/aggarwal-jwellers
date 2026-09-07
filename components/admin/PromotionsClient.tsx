@@ -1,9 +1,9 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
 /**
- * Promotions studio — the owner types a rough festive idea, ChatGPT refines it into a poster prompt,
- * Gemini (Nano Banana) renders a high-quality poster, and the retail / wholesale toggles push it to
- * the storefront hero (targeted to the most-suited category).
+ * Promotions studio — the owner types a rough festive idea, AI (OpenAI → Gemini → Groq) refines it
+ * into a poster prompt, Gemini (Nano Banana) renders a high-quality poster, and the retail /
+ * wholesale toggles push it to the storefront hero (targeted to the most-suited category).
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ type Promo = {
 const field = "w-full rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm outline-none focus:border-emerald transition";
 const ASPECTS = [["16:9", "Wide banner (16:9)"], ["1:1", "Square (1:1)"], ["4:5", "Portrait (4:5)"]] as const;
 
-export function PromotionsClient({ categories, promos, ready }: { categories: Cat[]; promos: Promo[]; ready: { openai: boolean; gemini: boolean } }) {
+export function PromotionsClient({ categories, promos, ready }: { categories: Cat[]; promos: Promo[]; ready: { refine: boolean; gemini: boolean } }) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -48,7 +48,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
       setTitle(r.title ?? "Festive Campaign");
       setRefined(r.refinedPrompt ?? "");
       if (r.categorySlug && categories.some((c) => c.slug === r.categorySlug)) setCategorySlug(r.categorySlug);
-      toast("Prompt refined by ChatGPT — review, then generate", "success");
+      toast("Prompt refined — review, then generate", "success");
     } else toast(r.error ?? "Couldn't refine", "error");
   }
 
@@ -83,7 +83,7 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
 
   return (
     <div className="space-y-6">
-      {!ready.openai && <div className="rounded-xl bg-gold/15 text-gold-dark px-4 py-2 text-sm">Add <b>OPENAI_API_KEY</b> to refine prompts with ChatGPT.</div>}
+      {!ready.refine && <div className="rounded-xl bg-gold/15 text-gold-dark px-4 py-2 text-sm">Add <b>GEMINI_API_KEY</b> and/or <b>OPENAI_API_KEY</b> (optional <b>GROQ_API_KEY</b>) to refine promo prompts.</div>}
       {!ready.gemini && <div className="rounded-xl bg-gold/15 text-gold-dark px-4 py-2 text-sm">Add <b>GEMINI_API_KEY</b> (or OpenAI) to generate posters.</div>}
 
       {/* ===== Studio ===== */}
@@ -91,11 +91,11 @@ export function PromotionsClient({ categories, promos, ready }: { categories: Ca
         {/* Left: prompt + controls */}
         <section className="bg-white rounded-2xl border border-sand shadow-card p-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-muted mb-1">Your idea <span className="text-muted/70">— rough is fine, ChatGPT will refine it</span></label>
+            <label className="block text-xs font-medium text-muted mb-1">Your idea <span className="text-muted/70">— rough is fine, AI will refine it</span></label>
             <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={3} className={field}
               placeholder="e.g. Diwali sale, flat 30% off on kundan necklaces, festive vibe" />
-            <button onClick={refine} disabled={refining || !ready.openai} className="mt-2 px-4 py-2 rounded-xl bg-emerald text-white text-sm disabled:opacity-50">
-              {refining ? "Refining…" : " Refine with ChatGPT"}
+            <button onClick={refine} disabled={refining || !ready.refine} className="mt-2 px-4 py-2 rounded-xl bg-emerald text-white text-sm disabled:opacity-50">
+              {refining ? "Refining…" : " Refine with AI"}
             </button>
           </div>
 

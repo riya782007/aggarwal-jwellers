@@ -6,7 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCategories, getPromotionsAdmin, getCustomersDb, getCustomerSpend, getRewardCampaigns } from "@/lib/supabase/queries";
 import { requirePerm } from "@/lib/auth";
-import { openaiConfigured } from "@/lib/ai/providers";
+import { anyAiConfigured } from "@/lib/ai/providers";
 import { geminiConfigured } from "@/lib/ai/gemini";
 import { formatPaise } from "@/lib/pricing";
 import { PromotionsClient } from "@/components/admin/PromotionsClient";
@@ -59,8 +59,8 @@ export default async function PromotionsPage() {
       {/* ---- Storefront offers ---- */}
       <section>
         <h2 className="font-display text-2xl text-ink mb-1">Storefront offers</h2>
-        <p className="text-sm text-muted mb-4">Type a rough idea <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />ChatGPT refines it <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />Gemini designs the poster <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />choose where it goes live (hero banner, announcement strip, or popup).</p>
-        <PromotionsClient categories={categories} promos={promos as any} ready={{ openai: openaiConfigured(), gemini: geminiConfigured() }} />
+        <p className="text-sm text-muted mb-4">Type a rough idea <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />AI refines it <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />Gemini designs the poster <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" />choose where it goes live (hero banner, announcement strip, or popup).</p>
+        <PromotionsClient categories={categories} promos={promos as any} ready={{ refine: anyAiConfigured(), gemini: geminiConfigured() }} />
 
         <div className="mt-8">
           <h3 className="font-medium text-ink mb-1">Campaign settings</h3>
