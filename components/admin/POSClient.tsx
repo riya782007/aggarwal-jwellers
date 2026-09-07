@@ -9,7 +9,8 @@ import { resolveBoxScanAction } from "@/app/actions/groups";
 import { groupCodeFromScan, groupUnitsToAdd } from "@/lib/groupQr";
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
-import { skuCandidatesFromScan } from "@/lib/scan";
+import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
+import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 
 type P = { sku: string; name: string; price: number; wholesale: number; mrp: number; category: string; qty: number };
 type Line = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; stock: number; override: string; disc: string };
@@ -26,7 +27,14 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const searchRef = useRef<HTMLInputElement>(null);
   const discRef = useRef<HTMLInputElement>(null);
   const payRef = useRef<HTMLSelectElement>(null);
+  const linesRef = useRef<Line[]>([]);
+  const busyRef = useRef(false);
+  const scanBusyRef = useRef(false);
+  const scanQueueRef = useRef<string[]>([]);
+  const lastScanRef = useRef({ code: "", at: 0 });
+  const completeRef = useRef<() => void>(() => {});
   const [lines, setLines] = useState<Line[]>([]);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [cust, setCust] = useState({ name: "", phone: "" });
   const [custType, setCustType] = useState<"retail" | "wholesale">("retail");
@@ -96,18 +104,32 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     setCust({ name: c.name, phone: c.phone });
     if (c.gstin) setGstin(c.gstin);
     setCustType(c.type === "wholesale" ? "wholesale" : "retail");
+    if (c.type === "wholesale") setMergeVariants(true);
     setCustQ(""); setCustPanel(false);
   }
   function walkIn(type: "retail" | "wholesale") {
     setCust({ name: type === "wholesale" ? "Cash (W)" : "Cash (R)", phone: "" });
     setCustType(type); setCustPanel(false);
+    if (type === "wholesale") setMergeVariants(true);
   }
 
+  const skuIndex = useMemo(() => {
+    const m = new Map<string, P>();
+    for (const p of products) m.set(p.sku.toLowerCase(), p);
+    return m;
+  }, [products]);
   const matches = useMemo(() => {
     if (!q.trim()) return [];
     const s = q.toLowerCase();
     return products.filter((p) => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s) || p.category.toLowerCase().includes(s)).slice(0, 8);
   }, [q, products]);
+  function findExact(codes: string[]) {
+    for (const c of codes) {
+      const hit = skuIndex.get(c.toLowerCase());
+      if (hit) return hit;
+    }
+    return undefined;
+  }
 
   const toPaise = (v: string) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) : 0; };
   const chargesTotal = Math.max(0, toPaise(packing)) + Math.max(0, toPaise(courier)) + toPaise(adjustment);
@@ -122,23 +144,43 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const remaining = grandTotal - received;
   const addPayLine = () => setPayLines((p) => [...p, { methodId: methods[0]?.id ?? "", amount: "" }]);
   const setPayLine = (i: number, patch: Partial<PayLine>) => setPayLines((p) => p.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  function addLine(p: P) { setLines((prev) => { const ex = prev.find((l) => l.sku === p.sku); if (ex) return prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l); return [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }]; }); setQ(""); }
+  function addLine(p: P) {
+    setLines((prev) => {
+      const next = prev.find((l) => l.sku === p.sku)
+        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)
+        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }];
+      linesRef.current = next;
+      return next;
+    });
+    setQ("");
+  }
   /** Add N units of a piece at once — used when a box/group QR expands to its pack. */
-  function addLineQty(p: P, n: number) { const add = Math.max(1, Math.floor(n)); setLines((prev) => { const ex = prev.find((l) => l.sku === p.sku); if (ex) return prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + add } : l); return [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }]; }); setQ(""); }
+  function addLineQty(p: P, n: number) {
+    const add = Math.max(1, Math.floor(n));
+    setLines((prev) => {
+      const next = prev.find((l) => l.sku === p.sku)
+        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + add } : l)
+        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }];
+      linesRef.current = next;
+      return next;
+    });
+    setQ("");
+  }
   function setQty(sku: string, qty: number) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, qty: Math.max(1, Math.floor(qty || 1)) } : l)); }
   function setOverride(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, override: val } : l)); }
   function setLineDisc(sku: string, val: string) { setLines((p) => p.map((l) => l.sku === sku ? { ...l, disc: val } : l)); }
   function rm(sku: string) { setLines((p) => p.filter((l) => l.sku !== sku)); }
 
   /** Scanner payloads support product-page URLs, legacy space-separated SKU labels, and box QRs. */
-  async function submitSearch() {
-    // Box/group QR: one scan adds the pack from stock not already reserved in this bill.
-    const groupCode = groupCodeFromScan(q.trim());
+  async function submitSearch(raw?: string) {
+    const source = (raw ?? searchRef.current?.value ?? q).trim();
+    if (!source) return;
+    const groupCode = groupCodeFromScan(source);
     if (groupCode) {
       setScanMsg({ text: "Box…", ok: true });
       const r = await resolveBoxScanAction(groupCode);
       if (r.ok && r.item && r.packQty) {
-        const alreadyInBill = lines.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
+        const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
         const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill);
         const available = Math.max(0, r.item.qty - alreadyInBill);
         if (addN <= 0) setScanMsg({ text: `${r.item.name}: no stock remaining for this bill`, ok: false });
@@ -150,40 +192,53 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
       setQ(""); searchRef.current?.focus(); return;
     }
-    const codes = skuCandidatesFromScan(q);
+    const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const exact = codes.map((candidate) => products.find((x) => x.sku.toLowerCase() === candidate.toLowerCase())).find(Boolean);
-    if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); setQ(""); searchRef.current?.focus(); return; }
-    // Not in the loaded catalogue list — try literal and legacy-normalized SKU values before
-    // falling back to product-name search, so a scan never adds an unrelated first result.
+    const exact = findExact(codes);
+    if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
     for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
-    const p = found ?? matches[0];
+    const allowNameFallback = !looksLikeSkuScan(source);
+    const p = found ?? (allowNameFallback ? matches[0] : undefined);
     if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
 
+  async function ingestScan(raw: string) {
+    const payload = raw.trim();
+    if (!payload) return;
+    const now = Date.now();
+    if (payload === lastScanRef.current.code && now - lastScanRef.current.at < 140) return;
+    lastScanRef.current = { code: payload, at: now };
+    scanQueueRef.current.push(payload);
+    if (scanBusyRef.current) return;
+    scanBusyRef.current = true;
+    while (scanQueueRef.current.length) {
+      const next = scanQueueRef.current.shift();
+      if (next) await submitSearch(next);
+    }
+    scanBusyRef.current = false;
+  }
+  useWedgeScanner(ingestScan, searchRef);
+
   async function complete() {
-    if (busy || lines.length === 0) return;
-    // Require attribution so every bill lands on an employee's tally (the whole point of tracking).
+    if (busyRef.current || lines.length === 0) return;
     if (!salesEmp) {
       setErr('Pick who made this sale under "Sold by" — or add their name — before recording the bill.');
-      setAddingEmp(emps.length === 0); // if the roster is empty, open the add-name box straight away
+      setAddingEmp(emps.length === 0);
       empRef.current?.focus();
       return;
     }
-    setBusy(true); setErr("");
+    busyRef.current = true; setBusy(true); setErr("");
     const validPays = payLines.filter((l) => l.methodId && (Number(l.amount) || 0) > 0).map((l) => ({ methodId: l.methodId, amount: Number(l.amount) || 0 }));
     const res = await posSaleAction({
       items: lines.map((l) => {
         const ov = l.override.trim();
         const hasOv = ov !== "" && Number.isFinite(Number(ov)) && Number(ov) >= 0;
         const d = lineDiscPct(l);
-        // When a rate is overridden OR a discount applies, bill the NET unit and also record the
-        // ORIGINAL rate (listRupees) so the invoice can show Rate → Disc → Amount.
         if (hasOv || d > 0) return { sku: l.sku, qty: l.qty, priceRupees: effUnit(l) / 100, listRupees: rawUnit(l) / 100 };
         return { sku: l.sku, qty: l.qty };
       }),
@@ -195,10 +250,11 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       packingRupees: Number(packing) || 0, courierRupees: Number(courier) || 0, adjustmentRupees: Number(adjustment) || 0,
       mergeVariants,
     });
-    setBusy(false);
+    busyRef.current = false; setBusy(false);
     if (!res.ok) { setErr(res.error ?? "Failed"); return; }
     router.push(`/admin/invoice/${res.orderId}`);
   }
+  completeRef.current = complete;
 
   // ---- keyboard-first shortcuts ----
   useEffect(() => {
@@ -207,16 +263,16 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       else if (e.key === "F2") { e.preventDefault(); setCustPanel((v) => !v); }
       else if (e.key === "F5") { e.preventDefault(); setMoreOpen(true); setTimeout(() => discRef.current?.focus(), 0); }
       else if (e.key === "F4") { e.preventDefault(); if (methods.length && payLines.length === 0) addPayLine(); setTimeout(() => payRef.current?.focus(), 0); }
-      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); complete(); }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); completeRef.current(); }
       else if (e.key === "Escape") { setCustPanel(false); setScanMsg(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [methods.length, payLines.length]);
 
   const inp = "rounded-lg border border-sand bg-white px-2.5 py-1.5 text-sm outline-none focus:border-emerald";
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-no-autorefresh data-pos-live>
       {/* ================= TOP BAR ================= */}
       <div className="bg-white rounded-2xl shadow-card p-3 flex flex-wrap items-center gap-3">
         {/* Bill type */}
@@ -231,7 +287,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           <div className="flex items-center gap-2 rounded-xl border-2 border-emerald/40 bg-emerald-mist/30 px-4 py-3">
             <span className="text-emerald text-lg">▥</span>
             <input ref={searchRef} autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ingestScan(searchRef.current?.value ?? q); } }}
               placeholder="Scan barcode, or search SKU / product / category… (F3)"
               className="flex-1 bg-transparent outline-none text-base placeholder:text-emerald-dark/50" />
             <kbd className="text-[10px] text-emerald-dark/60 border border-emerald/30 rounded px-1">Enter</kbd>
@@ -239,7 +295,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           {matches.length > 0 && (
             <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
               {matches.map((p) => (
-                <button key={p.sku} onClick={() => { addLine(p); searchRef.current?.focus(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-mist flex justify-between items-center">
+                <button type="button" key={p.sku} onClick={() => { addLine(p); searchRef.current?.focus(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-mist flex justify-between items-center">
                   <span className="truncate">{p.name} <span className="text-muted">· {p.sku}</span> <span className={`text-[11px] ${p.qty <= 0 ? "text-rose" : "text-muted"}`}>({p.qty})</span></span>
                   <span className="text-ink shrink-0 ml-2">{formatPaise(baseUnit(p))}</span>
                 </button>
@@ -408,7 +464,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         </div>
 
         {/* Totals + payment — sticky, always visible */}
-        <div className="bg-white rounded-2xl shadow-card p-4 lg:sticky lg:top-3 space-y-1.5">
+        <div className="bg-white rounded-2xl shadow-card p-4 lg:sticky lg:top-3 space-y-1.5 relative z-10 mb-16">
           <div className="flex justify-between text-sm"><span className="text-muted">Total MRP</span><span className="text-ink/80">{formatPaise(mrpTotal)}</span></div>
           {discountTotal > 0 && <div className="flex justify-between text-sm"><span className="text-muted">Discount</span><span className="text-emerald-dark">− {formatPaise(discountTotal)}</span></div>}
           <div className="flex justify-between text-sm"><span className="text-muted">Net (items)</span><span className="text-ink/80">{formatPaise(itemsTotal)}</span></div>
@@ -454,7 +510,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
             <input type="checkbox" checked={mergeVariants} onChange={(e) => setMergeVariants(e.target.checked)} className="mt-0.5" />
             <span>Merge colours on the bill <span className="text-muted">— print one line per product with quantities added up (e.g. 3 blue + 4 yellow + 5 pink → “Necklace ×12”). Stock still moves per colour.</span></span>
           </label>
-          <button onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-4 text-base font-semibold disabled:opacity-50">
+          <button type="button" onClick={complete} disabled={busy || lines.length === 0} className="btn-primary w-full mt-2 py-4 text-base font-semibold disabled:opacity-50 relative z-10">
             {busy ? "Completing…" : (billType === "gst" ? "Generate tax invoice" : "Generate final estimate")} <span className="text-[10px] opacity-70">Ctrl+↵</span>
           </button>
         </div>

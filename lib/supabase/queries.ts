@@ -2,6 +2,7 @@
 import "server-only";
 import { supabaseServer } from "./server";
 import type { PricingFormula } from "../pricing";
+import { resolvePrices as posPrices, overridesOf as posOverrides } from "../pricing";
 
 /**
  * Sanitise a user search term before putting it in a PostgREST `.or(...ilike...)` filter.
@@ -1809,6 +1810,43 @@ export async function allRows<T = any>(makeQuery: () => any, pageSize = 1000): P
     if ((data as T[]).length < pageSize) break;
   }
   return out;
+}
+
+/** Lean POS catalogue: every product + colour SKU, paged past the 1000-row PostgREST cap.
+ *  Skips reviews/images so the billing screen loads in one cheap round-trip during rush hour. */
+export type PosSellable = { sku: string; name: string; price: number; wholesale: number; mrp: number; category: string; qty: number };
+export async function getPosCatalog(): Promise<PosSellable[]> {
+  const sb = supabaseServer();
+  const formula = await getPricingFormula();
+  const RICH_P = "id,sku,name,qty,base_wholesale,wholesale_override,retail_override,mrp_override,category:categories(name)";
+  const BASIC_P = "id,sku,name,qty,base_wholesale,category:categories(name)";
+  const RICH_V = "sku,color,qty,product_id,wholesale_override,retail_override,mrp_override";
+  const BASIC_V = "sku,color,qty,product_id";
+  let products = await allRows<any>(() => sb.from("products").select(RICH_P).order("sku"));
+  if (!products.length) products = await allRows<any>(() => sb.from("products").select(BASIC_P).order("sku"));
+  let variants = await allRows<any>(() => sb.from("variants").select(RICH_V).order("sku"));
+  if (!variants.length) variants = await allRows<any>(() => sb.from("variants").select(BASIC_V).order("sku"));
+  const varsByProduct = new Map<string, any[]>();
+  for (const v of variants) {
+    if (!v?.sku || !v.product_id) continue;
+    const a = varsByProduct.get(v.product_id) ?? [];
+    a.push(v); varsByProduct.set(v.product_id, a);
+  }
+  const list: PosSellable[] = [];
+  for (const p of products) {
+    const vs = varsByProduct.get(p.id) ?? [];
+    const cat = p.category?.name ?? "";
+    if (vs.length) {
+      for (const v of vs) {
+        const ps = posPrices(p.base_wholesale, formula, posOverrides(v), posOverrides(p));
+        list.push({ sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, category: cat, qty: v.qty ?? 0 });
+      }
+    } else {
+      const ps = posPrices(p.base_wholesale, formula, posOverrides(p));
+      list.push({ sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, category: cat, qty: p.qty ?? 0 });
+    }
+  }
+  return list;
 }
 
 export async function getAbandonedCarts() {

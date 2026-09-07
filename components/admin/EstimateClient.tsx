@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing";
 import { QtyField } from "@/components/admin/QtyField";
-import { skuCandidatesFromScan } from "@/lib/scan";
+import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
+import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
 type Cust = { id: string; name: string; phone: string; type: string; gstin: string };
@@ -29,7 +30,13 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const [msg, setMsg] = useState("");
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const lastScanRef = useRef({ code: "", at: 0 });
 
+  const skuIndex = useMemo(() => {
+    const m = new Map<string, P>();
+    for (const p of products) m.set(p.sku.toLowerCase(), p);
+    return m;
+  }, [products]);
   const matches = useMemo(() => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 6) : []), [q, products]);
   const custMatches = useMemo(() => {
     const s = custQ.trim().toLowerCase();
@@ -53,20 +60,31 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   /** Scanner payloads support product-page URLs and legacy space-separated SKU labels. */
   /** Enter/scan: add the exact SKU match, else the first search result, else look the SKU up on the
    *  server (covers colour variants and freshly-added items) — so a real code always adds. */
-  async function submitSearch() {
-    const codes = skuCandidatesFromScan(q);
+  async function submitSearch(raw?: string) {
+    const source = (raw ?? searchRef.current?.value ?? q).trim();
+    if (!source) return;
+    const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const exact = codes.map((candidate) => products.find((x) => x.sku.toLowerCase() === candidate.toLowerCase())).find(Boolean);
+    const exact = codes.map((c) => skuIndex.get(c.toLowerCase())).find(Boolean);
     if (exact) { add(exact); setScanMsg({ text: `Added ${exact.name}`, ok: true }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
     for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
-    const p = found ?? matches[0];
+    const p = found ?? (looksLikeSkuScan(source) ? undefined : matches[0]);
     if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}`, ok: true }); }
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
+  function ingestScan(raw: string) {
+    const payload = raw.trim();
+    if (!payload) return;
+    const now = Date.now();
+    if (payload === lastScanRef.current.code && now - lastScanRef.current.at < 140) return;
+    lastScanRef.current = { code: payload, at: now };
+    void submitSearch(payload);
+  }
+  useWedgeScanner(ingestScan, searchRef);
   const setOverride = (sku: string, v: string) => setLines((p) => p.map((l) => (l.sku === sku ? { ...l, override: v } : l)));
   function pickCustomer(c: Cust) { setName(c.name); setPhone(c.phone); setCustType(c.type === "wholesale" ? "wholesale" : "retail"); setCustQ(""); setCustOpen(false); }
   function walkIn(type: "retail" | "wholesale") { setName(type === "wholesale" ? "Cash (W)" : "Cash (R)"); setPhone(""); setCustType(type); }
@@ -90,7 +108,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-card mb-4">
+    <div className="bg-white rounded-2xl p-4 shadow-card mb-4" data-no-autorefresh>
       <h2 className="font-medium text-ink mb-2">New estimate / quotation</h2>
 
       {/* Customer first — drives the R/W price, same as billing. Compact one-row header. */}
@@ -130,7 +148,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
       <div className="relative mb-2">
         <input ref={searchRef} className={input} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitSearch(); } }} />
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ingestScan(searchRef.current?.value ?? q); } }} />
         {matches.length > 0 && (
           <div className="absolute z-10 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
             {matches.map((p) => <button key={p.sku} onClick={() => add(p)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-mist flex justify-between"><span>{p.name} <span className="text-muted">· {p.sku}</span></span><span>{formatPaise(baseUnit(p))}</span></button>)}

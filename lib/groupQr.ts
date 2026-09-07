@@ -1,6 +1,8 @@
+import { normalizeScanPayload } from "./scan";
+
 /** Normalize QR payloads printed for inventory groups (raw code or `/g/<code>` URL). */
 export function groupCodeFromScan(raw: string): string | null {
-  const value = (raw ?? "").trim();
+  const value = normalizeScanPayload(raw ?? "");
   const match = value.match(/\/g\/([A-Za-z0-9%._-]+)/i);
   if (match) {
     try { return decodeURIComponent(match[1]).toUpperCase(); }

@@ -47,7 +47,7 @@ export function PrivacyShield({ children, className = "", lang = "en" }: { child
         </div>
       )}
       <button onClick={toggle} title={`${hidden ? t(lang, "privacyShow") : t(lang, "privacyHide")} (Ctrl/⌘ + Shift + H)`}
-        className="no-print fixed bottom-24 right-5 z-[56] px-4 py-2.5 rounded-full bg-ink text-white text-sm shadow-luxe hover:bg-ink/90 transition-colors flex items-center gap-1.5">
+        className="no-print fixed bottom-5 left-4 lg:left-[16.5rem] z-[56] px-4 py-2.5 rounded-full bg-ink text-white text-sm shadow-luxe hover:bg-ink/90 transition-colors flex items-center gap-1.5">
         {hidden ? ` ${t(lang, "privacyShow")}` : ` ${t(lang, "privacyHide")}`}
         <kbd className="text-[9px] font-sans opacity-60 border border-white/30 rounded px-1 leading-none py-0.5">⌃⇧H</kbd>
       </button>
