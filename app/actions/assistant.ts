@@ -1,5 +1,5 @@
 "use server";
-import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";
+import { aiChat, anyAiConfigured } from "@/lib/ai/providers";
 import { getStorefront } from "@/lib/supabase/queries";
 import { liveOffer } from "@/lib/offers";
 import { formatPaise } from "@/lib/pricing";
@@ -20,10 +20,10 @@ export async function askAssistantAction(message: string): Promise<{ ok: boolean
     lines.join("\n");
 
   try {
-    let reply: string;
-    if (groqConfigured()) reply = await groqChat({ system, user: msg });
-    else if (openaiConfigured()) reply = await openaiChat({ system, user: msg });
-    else return { ok: true, reply: "I'd love to help you find the perfect piece! Browse our Necklaces, Earrings, Bracelets, Anklets and Rings, or tell me your budget and occasion. (The live AI assistant switches on once the store connects its AI key.)" };
+    if (!anyAiConfigured()) {
+      return { ok: true, reply: "I'd love to help you find the perfect piece! Browse our Necklaces, Earrings, Bracelets, Anklets and Rings, or tell me your budget and occasion. (The live AI assistant switches on once the store connects its AI key.)" };
+    }
+    const { text: reply } = await aiChat("fast", { system, user: msg });
     return { ok: true, reply: reply.trim() };
   } catch {
     return { ok: true, reply: "I'm having a tiny hiccup right now — please browse the collection or message us on WhatsApp and we'll help you right away!" };

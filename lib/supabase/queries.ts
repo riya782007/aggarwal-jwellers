@@ -1327,6 +1327,7 @@ export type DashboardData = {
   dead: number; low: number; inactive: number; healthy: number;
   deadList: { sku: string; name: string; qty: number }[];
   lowList: { sku: string; name: string; qty: number }[];
+  inactiveList: { sku: string; name: string; qty: number }[];
 };
 
 export async function getDashboardData(fromISO: string, toISO: string, rule: InventoryRule = DEFAULT_RULE): Promise<DashboardData> {
@@ -1334,7 +1335,7 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   const now = new Date();
   const [ordersRes, prodRes, catRes, dealersRes, apprRes] = await Promise.all([
     sb.from("orders").select("total,channel,payment_mode,pay_cash,pay_bank,created_at,status,bill_type,gst_mode,return_amount,payment_confirmed_at").gte("created_at", fromISO).lte("created_at", toISO),
-    sb.from("products").select("sku,name,qty,last_movement_at,created_at,category:categories(name)"),
+    allRows<any>(() => sb.from("products").select("sku,name,qty,last_movement_at,created_at,category:categories(name)").order("sku")),
     sb.from("categories").select("id"),
     // Dealers live in customers (type=wholesale) since the trade portal — the legacy
     // `retailers` table is empty on this build, so counting it always showed 0.
@@ -1343,7 +1344,7 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   ]);
   // Cancelled/void/refunded bills must not inflate revenue, order counts or collections.
   const orders = ((ordersRes.data as any[]) ?? []).filter((o: any) => isCountableSale(o));
-  const products = (prodRes.data as any[]) ?? [];
+  const products = Array.isArray(prodRes) ? prodRes : [];
 
   // GST-aware grand (net of returns) — same figure the bill prints and Udhaar counts.
   const revenue = orders.reduce((s, o: any) => s + orderGrandPaise(o), 0);
@@ -1353,9 +1354,9 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
   const bankCollected = orders.reduce((s, o: any) => s + (o.pay_bank ?? 0), 0);
 
   const classed = products.map((p: any) => ({ ...p, cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now) }));
-  const dead = classed.filter((p) => p.cls === "dead");
-  const low = classed.filter((p) => p.cls === "low");
-  const inactive = classed.filter((p) => p.cls === "inactive");
+  const dead = classed.filter((p) => p.cls === "dead").sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0));
+  const low = classed.filter((p) => p.cls === "low").sort((a, b) => (a.qty ?? 0) - (b.qty ?? 0));
+  const inactive = classed.filter((p) => p.cls === "inactive").sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0));
   const healthy = classed.filter((p) => p.cls === "healthy");
   const newProducts = products.filter((p: any) => p.created_at >= fromISO && p.created_at <= toISO).length;
 
@@ -1366,8 +1367,9 @@ export async function getDashboardData(fromISO: string, toISO: string, rule: Inv
     pendingApprovals: (apprRes.data ?? []).filter((a: any) => a.status === "pending").length,
     totalProducts: products.length, newProducts, categories: (catRes.data ?? []).length,
     dead: dead.length, low: low.length, inactive: inactive.length, healthy: healthy.length,
-    deadList: dead.slice(0, 8).map((p) => ({ sku: p.sku, name: p.name, qty: p.qty })),
-    lowList: low.slice(0, 8).map((p) => ({ sku: p.sku, name: p.name, qty: p.qty })),
+    deadList: dead.slice(0, 40).map((p) => ({ sku: p.sku, name: p.name, qty: p.qty })),
+    lowList: low.slice(0, 40).map((p) => ({ sku: p.sku, name: p.name, qty: p.qty })),
+    inactiveList: inactive.slice(0, 40).map((p) => ({ sku: p.sku, name: p.name, qty: p.qty })),
   };
 }
 
@@ -1375,9 +1377,9 @@ export type ClassifiedRow = { id: string; sku: string; name: string; category: s
 
 export async function getInventoryClassified(rule: InventoryRule = DEFAULT_RULE): Promise<ClassifiedRow[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug)").order("sku");
+  const data = await allRows<any>(() => sb.from("products").select("id,sku,name,qty,status,last_movement_at,category:categories(name,slug)").order("sku"));
   const now = new Date();
-  return ((data as any[]) ?? []).map((p) => ({
+  return data.map((p) => ({
     id: p.id, sku: p.sku, name: p.name, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
     status: p.status, qty: p.qty, lastMovementAt: p.last_movement_at,
     cls: classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, rule, now),
@@ -1869,9 +1871,9 @@ import { classify as _classify, DEFAULT_RULE as _RULE } from "../inventory";
 export type ReorderCandidate = { sku: string; name: string; category: string; qty: number; base_wholesale: number; daysSince: number | null; cls: string };
 export async function getReorderCandidates(): Promise<ReorderCandidate[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("sku,name,qty,base_wholesale,last_movement_at,category:categories(name)");
+  const data = await allRows<any>(() => sb.from("products").select("sku,name,qty,base_wholesale,last_movement_at,category:categories(name)").order("sku"));
   const now = new Date();
-  return ((data as any[]) ?? []).map((p) => {
+  return data.map((p) => {
     const cls = _classify({ qty: p.qty, lastMovementAt: p.last_movement_at }, _RULE, now);
     const daysSince = p.last_movement_at ? Math.floor((now.getTime() - new Date(p.last_movement_at).getTime()) / 86400000) : null;
     return { sku: p.sku, name: p.name, category: p.category?.name ?? "—", qty: p.qty, base_wholesale: p.base_wholesale, daysSince, cls };

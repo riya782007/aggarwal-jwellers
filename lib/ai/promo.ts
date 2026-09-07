@@ -5,7 +5,7 @@
  * `refinedPrompt` (done in the server action). Server-only.
  */
 import "server-only";
-import { openaiChat } from "./providers";
+import { aiChat } from "./providers";
 
 export type PromoBrief = { title: string; refinedPrompt: string; categorySlug: string | null };
 
@@ -38,7 +38,7 @@ export async function refinePromoPrompt(input: {
     `   Do NOT invent a fake third-party logo; you MAY include the wordmark "Aggarwal Jewellers" subtly. Spell every word exactly. Keep on-image text minimal and correctly spelled.`,
   ].filter(Boolean).join("\n");
 
-  const raw = await openaiChat({ system: REFINE_SYSTEM, user, json: true, timeoutMs: 30_000 });
+  const { text: raw } = await aiChat("reasoning", { system: REFINE_SYSTEM, user, json: true, timeoutMs: 30_000 });
   const j = JSON.parse(raw);
   return {
     title: String(j.title ?? "Festive Campaign").slice(0, 80),
