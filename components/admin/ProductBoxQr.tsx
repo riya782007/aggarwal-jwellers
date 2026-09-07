@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
+import { formatBoxLabelLine } from "@/lib/boxLabel";
 
 type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number };
 
@@ -59,9 +60,9 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     const labels = Array.from({ length: n }, () => ({
       name: box.name, sku: box.sku, qrValue: box.code,
       priceLine: code || undefined,
-      // Print the individually tracked SKU prominently; retain the group code so staff can
-      // identify the QR that expands this pack at POS. The QR payload remains the group code.
-      boxLine: `GRP ${box.code} · BOX ${box.packQty}`,
+      // Piece SKU is the visible SKU. Group code is printed once (it already starts with GRP-).
+      // QR payload stays the group code so POS pack-scan is unchanged.
+      boxLine: formatBoxLabelLine(box.code, box.packQty),
       showName: true, showSku: true,
     }));
     try {
