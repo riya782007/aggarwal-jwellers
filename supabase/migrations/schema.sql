@@ -4010,6 +4010,7 @@ begin
     insert into public.order_items(order_id, product_id, variant_id, qty, unit_price, line_total)
     values (v_order, li.product_id, li.variant_id, li.qty, li.unit_price, li.line_total);
     v_total := v_total + li.line_total;
+    if coalesce(li.qty, 0) = 0 then continue; end if;
     if li.variant_id is not null then
       update public.variants set qty = greatest(0, qty - li.qty) where id = li.variant_id;
       update public.products
@@ -4169,8 +4170,12 @@ begin
     else
       update public.products set qty = greatest(0, qty - v_qty), last_movement_at = now() where id = prod.id;
     end if;
-    insert into public.stock_adjustments(product_id, variant_id, sku, delta, source, kind)
-    values (prod.id, var.id, coalesce(var.sku, prod.sku), -v_deducted, 'order ' || v_order, 'sale');
+    -- Backorders deduct 0 stock. A zero delta violates stock_adjustments_delta_nonzero and
+    -- aborted the whole POS bill ("invoice also not saving") — skip the ledger row when nothing moved.
+    if v_deducted <> 0 then
+      insert into public.stock_adjustments(product_id, variant_id, sku, delta, source, kind)
+      values (prod.id, var.id, coalesce(var.sku, prod.sku), -v_deducted, 'order ' || v_order, 'sale');
+    end if;
   end loop;
 
   update public.orders

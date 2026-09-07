@@ -71,26 +71,28 @@ export default async function Invoice({ params }: { params: { id: string } }) {
   const docTitle = isCash ? "FINAL ESTIMATE" : isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
   const invNo = order.invoice_no || ((isCash ? "FE-" : "INV-") + String(order.id).slice(0, 8).toUpperCase());
   const date = new Date(order.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const wholesaleBill = order.channel === "wholesale" || /^cash \(w\)$/i.test(String(order.customer_name ?? "").trim());
+  const densePrint = wholesaleBill || displayItems.length >= 12;
   const qtyTotal = items.reduce((s: number, it: any) => s + it.qty, 0);
   const session = getSession();
   const PAY_STYLE: Record<string, string> = { Paid: "bg-emerald-mist text-emerald-dark", Partial: "bg-gold/15 text-gold-dark", Unpaid: "bg-rose/10 text-rose" };
 
-  const th = "py-2 px-2 text-xs font-semibold text-ink/70";
-  const td = "py-2 px-2 align-top";
+  const th = densePrint ? "py-0.5 px-1.5 text-[10px] font-semibold text-ink/70" : "py-2 px-2 text-xs font-semibold text-ink/70";
+  const td = densePrint ? "py-0.5 px-1.5 align-top leading-tight" : "py-2 px-2 align-top";
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       {/* Print bills on A4 (the owner's sheet) at a readable size — legible without glasses. The
           items table repeats its header on every page and never splits a row, so a long bill flows
           cleanly across sheets. Scoped to this route so the barcode sheet is unaffected. */}
-      <style dangerouslySetInnerHTML={{ __html: "@media print{@page{size:A4;margin:12mm}.print-area{font-size:13px}.print-area .font-display{font-size:1.7rem}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}}" }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 no-print">
           <Link href="/admin/billing" className="text-sm text-emerald nav-link"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />New sale</Link>
           <PrintButton />
         </div>
 
-        <div className="print-area bg-white rounded-2xl shadow-card p-5 sm:p-8 text-[13px]" id="invoice">
+        <div className={`print-area bg-white rounded-2xl shadow-card ${densePrint ? "p-3 sm:p-4 text-[11px] invoice-dense" : "p-5 sm:p-8 text-[13px]"}`} id="invoice">
           {/* Title bar */}
           <div className="text-center pb-3 mb-3 border-b-2 border-ink/80 relative">
             <p className="text-[15px] font-bold tracking-wide text-ink">{docTitle}</p>
@@ -103,8 +105,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
               page, its bill-meta and customer sit SIDE-BY-SIDE in one tight row (no font change) —
               instead of two stacked full-width panels. The GST invoice keeps its full seller layout. */}
           {isCash ? (
-            <div className="grid grid-cols-2 border border-sand rounded-lg overflow-hidden text-xs">
-              <div className="p-2.5 space-y-0.5 border-r border-sand">
+            <div className={`grid grid-cols-2 border border-sand rounded-lg overflow-hidden text-xs ${densePrint ? "print-chrome" : ""}`}>
+              <div className={`${densePrint ? "p-1.5" : "p-2.5"} space-y-0.5 border-r border-sand`}>
                 <div className="flex justify-between gap-2"><span className="text-muted">Invoice No.</span><span className="font-medium text-ink">{invNo}</span></div>
                 <div className="flex justify-between gap-2"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
                 <div className="flex justify-between gap-2"><span className="text-muted">Payment mode</span><span className="text-ink">{String(order.payment_mode || "—").toUpperCase()}</span></div>
@@ -150,7 +152,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
           )}
 
           {/* Items */}
-          <table className="w-full mt-4 border border-sand">
+          <table className={`w-full ${densePrint ? "mt-2" : "mt-4"} border border-sand`}>
             <thead className="bg-cream border-b border-sand">
               <tr className="text-left">
                 <th className={th}>#</th>
@@ -173,7 +175,7 @@ export default async function Invoice({ params }: { params: { id: string } }) {
                 return (
                   <tr key={i} className="border-b border-sand/60">
                     <td className={`${td} text-muted`}>{i + 1}</td>
-                    <td className={`${td} text-ink`}>{it.product?.name}{it.variant?.color ? ` – ${it.variant.color}` : ""} <span className="font-mono font-semibold text-ink bg-cream border border-sand rounded px-1.5 py-0.5 text-[11px] whitespace-nowrap">{it.variant?.sku ?? it.product?.sku}</span></td>
+                    <td className={`${td} text-ink`}>{it.product?.name}{it.variant?.color ? ` – ${it.variant.color}` : ""} <span className={`font-mono font-semibold text-ink bg-cream border border-sand rounded px-1 py-0.5 whitespace-nowrap ${densePrint ? "text-[9px]" : "text-[11px]"}`}>{it.variant?.sku ?? it.product?.sku}</span></td>
                     {!isCash && <td className={`${td} text-center text-muted`}>{HSN_JEWELLERY}</td>}
                     <td className={`${td} text-right`}>{it.qty}{it.product?.unit && it.product.unit !== "pc" ? <span className="text-[10px] text-muted"> {it.product.unit}</span> : null}</td>
                     {isCash ? (
