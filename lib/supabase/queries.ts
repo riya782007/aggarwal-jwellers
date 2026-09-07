@@ -796,6 +796,8 @@ export async function getCashBankLedger(opts: { from?: string; to?: string } = {
 }
 
 /** Self-growing master lists for variant attributes (colour / size / polish). */
+const DEFAULT_SIZE_OPTIONS = ["2.2"];
+
 export async function getVariantOptions(): Promise<{ color: string[]; size: string[]; polish: string[] }> {
   const sb = supabaseServer();
   const { data } = await sb.from("variant_options").select("kind,value,sort").order("sort").order("value");
@@ -803,6 +805,9 @@ export async function getVariantOptions(): Promise<{ color: string[]; size: stri
   for (const r of (data as any[]) ?? []) {
     const k = (r as any).kind as "color" | "size" | "polish";
     if (out[k]) out[k].push((r as any).value);
+  }
+  for (const size of DEFAULT_SIZE_OPTIONS) {
+    if (!out.size.some((value) => value.toLowerCase() === size.toLowerCase())) out.size.push(size);
   }
   return out;
 }
@@ -1714,7 +1719,19 @@ export async function getPurchaseById(id: string) {
 export async function searchProducts(q: string) {
   const { products, formula } = await getStorefront();
   const s = q.trim().toLowerCase();
-  const results = s ? products.filter((p) => (p.name + " " + p.category.name + " " + p.sku).toLowerCase().includes(s)) : [];
+  if (!s) return { formula, results: [] as typeof products };
+  const tokens = s.split(/\s+/).filter(Boolean);
+  const results = products.filter((p: any) => {
+    const gc = p.generated_content ?? {};
+    const hay = [
+      p.name, p.sku, p.category?.name,
+      gc.title,
+      Array.isArray(gc.tags) ? gc.tags.join(" ") : "",
+      Array.isArray(gc.keywords) ? gc.keywords.join(" ") : "",
+      gc.seo?.metaTitle, gc.seo?.metaDescription,
+    ].join(" ").toLowerCase();
+    return tokens.every((t) => hay.includes(t));
+  });
   return { formula, results };
 }
 
