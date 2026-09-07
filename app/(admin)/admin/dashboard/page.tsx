@@ -9,6 +9,8 @@ import { AnimatedNumber } from "@/components/admin/AnimatedNumber";
 import { BarChart } from "@/components/admin/BarChart";
 import { Donut } from "@/components/admin/Donut";
 import { ExpandableReport } from "@/components/admin/ExpandableReport";
+import { StockWatchTile } from "@/components/admin/StockWatchTile";
+import { aiProvidersStatus } from "@/lib/ai/listingAgent";
 
 const CH_LABEL: Record<string, string> = { retail: "Online retail", wholesale: "Wholesale", pos: "Counter (POS)" };
 const PRESETS = [{ key: "today", label: "today" as const }, { key: "week", label: "thisWeek" as const }, { key: "month", label: "thisMonth" as const }];
@@ -53,6 +55,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
   const [d, a, report, creditors, reorder] = await Promise.all([getDashboardData(from, to), getDashboardAnalytics(from, to), getChannelReport(from, to), getCreditors(), getReorderCandidates()]);
   const udhaarTotal = creditors.reduce((s, r) => s + r.outstanding, 0);
   const lang = getLang();
+  const ai = aiProvidersStatus();
+  const aiReady = ai.openai || ai.gemini || ai.groq;
   const label = custom
     ? `${new Date(from).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(to).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
     : t(lang, PRESETS.find((p) => p.key === preset)?.label ?? "thisMonth");
@@ -62,6 +66,16 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
 
   return (
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
+      {aiReady ? (
+        <p className="mb-3 text-xs text-emerald-dark bg-emerald-mist/70 rounded-xl px-3 py-2">
+          AI connected — DIVA, product pages, photos, reorder and review replies can use
+          {[ai.gemini && " Gemini", ai.openai && " OpenAI", ai.groq && " Groq"].filter(Boolean).join(" ·")}.
+        </p>
+      ) : (
+        <p className="mb-3 text-xs text-gold-dark bg-gold/15 rounded-xl px-3 py-2">
+          AI keys not detected. Add <b>GEMINI_API_KEY</b> and/or <b>OPENAI_API_KEY</b> (optional <b>GROQ_API_KEY</b>) in Vercel so DIVA, photos, listings and reorder stay fast when one provider is busy.
+        </p>
+      )}
       {searchParams.denied && (
         <div className="mb-4 rounded-xl bg-rose/10 text-rose px-4 py-2.5 text-sm">Your role doesn't have access to <b>{searchParams.denied}</b>. Ask the owner if you need it.</div>
       )}
@@ -136,12 +150,15 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
         <Tile label="Total Products" sub={`${d.newProducts} new`}><AnimatedNumber value={d.totalProducts} /></Tile>
         <Tile label="Categories"><AnimatedNumber value={d.categories} /></Tile>
-        <Tile label="Dead Stock" accent={d.dead ? "text-rose" : undefined} sub="no movement · capital tied up"><AnimatedNumber value={d.dead} /></Tile>
-        <Tile label="Low Stock" accent={d.low ? "text-gold-dark" : undefined} sub="at/under reorder level"><AnimatedNumber value={d.low} /></Tile>
-        <Tile label="Inactive" accent={d.inactive ? "text-muted" : undefined} sub="never sold"><AnimatedNumber value={d.inactive} /></Tile>
+        <StockWatchTile title="Dead Stock" count={d.dead} sub="not selling · capital tied up"
+          items={d.deadList} href="/admin/inventory?cls=dead" accent={d.dead ? "text-rose" : undefined} bar={d.dead ? "bg-rose" : "bg-sand"} />
+        <StockWatchTile title="Low Stock" count={d.low} sub="at/under reorder level" restock
+          items={d.lowList} href="/admin/inventory?cls=low" accent={d.low ? "text-gold-dark" : undefined} bar={d.low ? "bg-gold-dark" : "bg-sand"} />
+        <StockWatchTile title="Inactive" count={d.inactive} sub="never sold"
+          items={d.inactiveList} href="/admin/inventory?cls=inactive" accent={d.inactive ? "text-muted" : undefined} bar="bg-sand" />
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
@@ -162,8 +179,11 @@ export default async function Dashboard({ searchParams }: { searchParams: { pres
         <div className="bg-white rounded-2xl p-5 shadow-card">
           <h2 className="font-medium text-rose mb-4"><Icon g="🔴" className="inline-block align-middle w-[1em] h-[1em]" />Dead stock — act now</h2>
           <ul className="text-sm divide-y divide-sand/60">
-            {d.deadList.length === 0 ? <li className="py-2 text-muted">None <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></li> : d.deadList.map((p) => (
-              <li key={p.sku} className="flex justify-between py-2"><span>{p.name}</span><span className="text-muted">{p.qty} pcs</span></li>
+            {d.deadList.length === 0 ? <li className="py-2 text-muted">None <Icon g="🎉" className="inline-block align-middle w-[1em] h-[1em]" /></li> : d.deadList.slice(0, 8).map((p) => (
+              <li key={p.sku} className="flex justify-between py-2 gap-2">
+                <Link href={`/admin/catalogue/${encodeURIComponent(p.sku)}`} className="truncate hover:text-emerald">{p.name} <span className="text-muted font-mono text-[11px]">· {p.sku}</span></Link>
+                <span className="text-muted shrink-0">{p.qty} pcs</span>
+              </li>
             ))}
           </ul>
         </div>

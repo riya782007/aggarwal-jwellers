@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { getReorderCandidates } from "@/lib/supabase/queries";
-import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";
+import { aiChat, anyAiConfigured } from "@/lib/ai/providers";
 
 export type Rec = { sku: string; name: string; action: "reorder" | "clear"; qty: number; urgency: "high" | "medium" | "low"; rationale: string };
 
@@ -21,10 +21,8 @@ export async function generateReorderPlanAction(): Promise<{ ok: boolean; provid
   const system = `You are an inventory planner for "Aggarwal Jewellers", an artificial-jewellery store. For each item below, decide: action ("reorder" for fast-movers running low, "clear" for stale dead stock), qty (integer reorder quantity; 0 if clearing), urgency ("high"|"medium"|"low"), and rationale (<=14 words). Return STRICT JSON: {"recommendations":[{"sku","action","qty","urgency","rationale"}]}. Items:\n${list}`;
 
   try {
-    let raw: string;
-    if (groqConfigured()) { raw = await groqChat({ system, user: "Plan the reorders. JSON only.", json: true }); }
-    else if (openaiConfigured()) { raw = await openaiChat({ system, user: "Plan the reorders. JSON only.", json: true }); }
-    else throw new Error("no-ai");
+    if (!anyAiConfigured()) throw new Error("no-ai");
+    const { text: raw, provider } = await aiChat("context", { system, user: "Plan the reorders. JSON only.", json: true });
     const parsed = JSON.parse(raw);
     const byName = new Map(cands.map((c) => [c.sku, c.name]));
     const recs: Rec[] = (parsed.recommendations ?? []).filter((r: any) => byName.has(r.sku)).map((r: any) => ({
@@ -32,7 +30,7 @@ export async function generateReorderPlanAction(): Promise<{ ok: boolean; provid
       qty: Math.max(0, parseInt(r.qty, 10) || 0), urgency: ["high", "medium", "low"].includes(r.urgency) ? r.urgency : "medium",
       rationale: String(r.rationale ?? "").slice(0, 120) || "Recommended action.",
     }));
-    if (recs.length) return { ok: true, provider: groqConfigured() ? "groq" : "openai", recs };
+    if (recs.length) return { ok: true, provider, recs };
     throw new Error("empty");
   } catch {
     return { ok: true, provider: "rules", recs: cands.map(heuristic) };

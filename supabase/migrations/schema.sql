@@ -4244,3 +4244,19 @@ end; $function$;
 -- Customer profile form persists these optional contact fields.
 alter table public.customers add column if not exists email text;
 alter table public.customers add column if not exists notes text;
+
+-- ------------------------------------------------------------ 0077_stock_adjustments_skip_zero.sql
+create or replace function public.trg_stock_adjustments_skip_zero()
+returns trigger language plpgsql as $$
+begin
+  if new.delta is null or new.delta = 0 then
+    return null;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists stock_adjustments_skip_zero on public.stock_adjustments;
+create trigger stock_adjustments_skip_zero
+  before insert on public.stock_adjustments
+  for each row execute procedure public.trg_stock_adjustments_skip_zero();
+

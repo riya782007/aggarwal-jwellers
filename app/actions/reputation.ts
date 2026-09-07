@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
-import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";
+import { aiChat, anyAiConfigured } from "@/lib/ai/providers";
 
 export async function draftReviewReplyAction(reviewId: string): Promise<{ ok: boolean; reply: string }> {
   if (!(await requirePerm("reviews.respond"))) return { ok: false, reply: "" };
@@ -14,9 +14,12 @@ export async function draftReviewReplyAction(reviewId: string): Promise<{ ok: bo
   const user = `Product: ${review.product?.name}. Rating: ${review.rating}/5. Review: "${review.body}". Reviewer: ${review.author_name}. Write the reply only.`;
   try {
     let reply: string;
-    if (groqConfigured()) reply = await groqChat({ system, user });
-    else if (openaiConfigured()) reply = await openaiChat({ system, user });
-    else reply = `Thank you so much, ${String(review.author_name).split(" ")[0]}! We're so glad you love it — your support means the world to Aggarwal Jewellers. `;
+    if (anyAiConfigured()) {
+      const { text } = await aiChat("fast", { system, user });
+      reply = text;
+    } else {
+      reply = `Thank you so much, ${String(review.author_name).split(" ")[0]}! We're so glad you love it — your support means the world to Aggarwal Jewellers. `;
+    }
     return { ok: true, reply: reply.trim() };
   } catch {
     return { ok: true, reply: `Thank you, ${String(review.author_name).split(" ")[0]}! We truly appreciate your review and hope to delight you again soon. ` };

@@ -427,7 +427,7 @@ export async function aiParseRowsAction(rawText: string): Promise<{ rows: Parsed
   const text = (rawText ?? "").trim().slice(0, 8000);
   let rows: ParsedRow[] = [];
   let usedAi = false;
-  if (text && (groqConfigured() || openaiConfigured())) {
+  if (text && anyAiConfigured()) {
     const system = `You convert a messy product list into clean JSON for a jewellery store. Output STRICT JSON:
 {"rows":[{
   "name":string,
@@ -449,7 +449,7 @@ export async function aiParseRowsAction(rawText: string): Promise<{ rows: Parsed
 }]}.
 The input may be CSV, tab-separated, or freeform, with columns in any order or different header names: price/cost/wholesale -> base_price (rupees, number); quantity/stock/pcs -> qty (int); colours/variants -> colors[]; sku/code/item code -> sku (verbatim if given else ""). When the row mentions sizes (S/M/L, 2.4, 2.6 etc.) or polishes (Antique, Oxidised, Matte etc.) or per-variant prices, populate "variants" instead of plain "colors" and set type="configurable". A row with >1 colour OR any variants[] entry must be "configurable". Ignore header rows, currency symbols, and totals. Return ONLY JSON.`;
     try {
-      const out = groqConfigured() ? await groqChat({ system, user: text, json: true }) : await openaiChat({ system, user: text, json: true });
+      const { text: out } = await aiChat("context", { system, user: text, json: true });
       const parsed = JSON.parse(out);
       rows = (parsed.rows ?? []).map((r: any) => {
         // Pillar 10 — capture full variants when the AI emits them. Each entry can carry
@@ -830,7 +830,7 @@ export async function savePricingFormulaAction(formData: FormData): Promise<void
   revalidatePath("/admin/catalogue");
 }
 
-import { groqChat, openaiChat, groqConfigured, openaiConfigured } from "@/lib/ai/providers";
+import { anyAiConfigured, aiChat } from "@/lib/ai/providers";
 
 /** AI-processed bulk import: reads a messy CSV/spreadsheet/freeform list, maps columns
  * intelligently to {name, base_price, qty, type, colors}, then inserts. Falls back to
@@ -843,10 +843,10 @@ export async function aiBulkUploadAction(categoryId: string, rawText: string): P
   let usedAi = false;
 
   const text = (rawText ?? "").trim().slice(0, 8000);
-  if (text && (groqConfigured() || openaiConfigured())) {
+  if (text && anyAiConfigured()) {
     const system = `You convert a messy product list into clean JSON for a jewellery store. Output STRICT JSON: {"rows":[{"name":string,"base_price":number,"qty":number,"type":"simple"|"configurable","colors":string[]}]}. The input may be CSV, tab-separated, or freeform, with columns in any order or with different header names (price/cost/wholesale -> base_price in rupees as a number; quantity/stock/pcs -> qty integer; colours/variants -> colors array; if multiple colours are present set type to "configurable" else "simple"). Ignore header rows and currency symbols. Infer sensibly. Return ONLY JSON.`;
     try {
-      const out = groqConfigured() ? await groqChat({ system, user: text, json: true }) : await openaiChat({ system, user: text, json: true });
+      const { text: out } = await aiChat("context", { system, user: text, json: true });
       const parsed = JSON.parse(out);
       rows = (parsed.rows ?? []).map((r: any) => ({
         name: String(r.name ?? "").trim(),
