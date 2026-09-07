@@ -68,10 +68,22 @@ export async function deleteCategoryAction(id: string): Promise<{ ok: boolean; m
 }
 
 async function nextSku(sb: ReturnType<typeof supabaseServer>): Promise<number> {
-  const { data } = await sb.from("products").select("sku");
-  const max = Math.max(999, ...((data ?? []).map((r: any) => parseInt(String(r.sku).replace(/\D/g, ""), 10) || 0)));
-  return max + 1;
+  // Supabase returns at most 1,000 rows per query. Paginate so a mature catalogue cannot
+  // reuse AJ1000 when the highest existing auto-SKU is beyond the first page.
+  let max = 999;
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from("products").select("sku").range(from, from + 999);
+    if (error) throw error;
+    const rows = (data as any[]) ?? [];
+    for (const row of rows) {
+      const match = /^AJ(\d+)$/i.exec(String(row.sku ?? "").trim());
+      if (match) max = Math.max(max, Number(match[1]));
+    }
+    if (rows.length < 1000) return max + 1;
+  }
 }
+
+const isProductSkuConflict = (message?: string) => /duplicate key.*products_sku_key|products_sku_key/i.test(message ?? "");
 
 /** A single owner-defined variant row from the Upload form.
  * Any of colour / size / polish is enough — at least one must be present for the row to count.
@@ -913,7 +925,7 @@ export async function createProductFullAction(
   // ---- SKU ----
   const skuNum = await nextSku(sb);
   const manual = payload.manualSku?.trim().toUpperCase().replace(/\s+/g, "-");
-  const sku = manual || `AJ${skuNum}`;
+  let sku = manual || `AJ${skuNum}`;
   if (manual) {
     // Unique across BOTH products and variants (a scanned code resolves to exactly one item).
     const { data: dup } = await sb.from("products").select("id").ilike("sku", manual).maybeSingle();
@@ -954,16 +966,32 @@ export async function createProductFullAction(
   const status = payload.mode === "publish" && anyChannel ? "published" : "draft";
 
   // ---- parent product ----
-  const { data: prod, error } = await sb.from("products").insert({
-    category_id: payload.categoryId, subcategory_id: payload.subcategoryId || null, style_id: payload.styleId || null, sku, name, type: payload.type,
-    base_wholesale: Math.round(base * 100), qty: productQty, status,
-    retail_override: toPaise(payload.retailOverrideRupees), mrp_override: toPaise(payload.mrpOverrideRupees),
-    retail_only: payload.retailPublish && !payload.wholesalePublish,
-    wholesale_only: payload.wholesalePublish && !payload.retailPublish,
-    last_movement_at: new Date().toISOString(),
-  }).select("id").single();
-  if (error || !prod) return { ok: false, error: error?.message ?? "Could not create product." };
-  const productId = (prod as any).id as string;
+  // A manual SKU was checked above and must never be substituted. For an auto SKU, retry only
+  // the database's unique-key race: another user/process can create the same next AJ number
+  // after our read and before this insert.
+  let productSku = sku;
+  let prod: any = null;
+  let createError: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const created = await sb.from("products").insert({
+      category_id: payload.categoryId, subcategory_id: payload.subcategoryId || null, style_id: payload.styleId || null, sku: productSku, name, type: payload.type,
+      base_wholesale: Math.round(base * 100), qty: productQty, status,
+      retail_override: toPaise(payload.retailOverrideRupees), mrp_override: toPaise(payload.mrpOverrideRupees),
+      retail_only: payload.retailPublish && !payload.wholesalePublish,
+      wholesale_only: payload.wholesalePublish && !payload.retailPublish,
+      last_movement_at: new Date().toISOString(),
+    }).select("id").single();
+    if (created.data) { prod = created.data; break; }
+    createError = created.error;
+    if (manual || !isProductSkuConflict(created.error?.message)) break;
+    productSku = `AJ${await nextSku(sb)}`;
+  }
+  if (!prod) return { ok: false, error: createError?.message ?? "Could not create product." };
+  const productId = prod.id as string;
+  sku = productSku;
+  // Generated variant codes include the parent SKU, so refresh them if an auto-SKU retry
+  // selected a new parent number after a concurrent insert.
+  for (const v of resolved) if (!v.sku?.trim()) v.skuFinal = autoVar({ color: v.color, size: v.size, polish: v.polish });
 
   // ---- variants + opening stock ----
   const opening: any[] = [];
