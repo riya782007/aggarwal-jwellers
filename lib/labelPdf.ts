@@ -10,6 +10,7 @@
  * Points: PDF unit is 1/72 inch. 1in = 72pt, so 4in = 288pt, 2in = 144pt, 1in tall = 72pt.
  */
 import { qrMatrix } from "@/lib/qr";
+import { THERMAL_LABEL, thermalTextBox } from "./boxLabel";
 
 export type PdfLabel = {
   name?: string;
@@ -17,11 +18,13 @@ export type PdfLabel = {
   qrValue: string;
   /** Coded price e.g. A75007100051 — staff-readable, not plain ₹ */
   priceLine?: string;
-  /** e.g. BOX OF 6 — drawn under the price code when present */
+  /** e.g. GRP-JS3JA8 · BOX 6 — drawn under the price code; clipped to this sticker */
   boxLine?: string;
   showName: boolean;
   showSku: boolean;
 };
+
+export { formatBoxLabelLine, thermalTextBox, THERMAL_LABEL } from "./boxLabel";
 
 // jsPDF is loaded on demand (only when the owner prints/saves) so it adds no weight to the main
 // bundle. It's SELF-HOSTED from /public — a same-origin script — so it works even when the shop's
@@ -51,7 +54,7 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
   if (labels.length === 0) return;
   const jsPDF = await loadJsPdf();
 
-  const PW = 288, PH = 72, HALF = 144; // 4in × 1in page; each label 2in × 1in
+  const PW = THERMAL_LABEL.pageW, PH = THERMAL_LABEL.pageH;
   const doc = new jsPDF({ unit: "pt", format: [PW, PH], orientation: "landscape", compress: true });
 
   for (let i = 0; i < labels.length; i += 2) {
@@ -59,13 +62,13 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
     for (let j = 0; j < 2; j++) {
       const lab = labels[i + j];
       if (!lab) continue;
-      const xoff = j * HALF;
-      const PAD = 6;
+      const { xoff, tx, maxW } = thermalTextBox(j);
+      const PAD = THERMAL_LABEL.pad;
+      const QR = THERMAL_LABEL.qr;
 
       // QR — LEFT of the label, vertically centred; white around it is the quiet zone.
       const m = qrMatrix(lab.qrValue);
       const N = m.length;
-      const QR = 54;                       // ~19mm — big and very scannable
       const ms = QR / N;
       const qx = xoff + PAD;
       const qy = (PH - QR) / 2;            // centred in the 72pt-tall label
@@ -77,33 +80,46 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       }
 
       // Text block — RIGHT of the QR, left-aligned, stacked name → SKU → price code.
-      const tx = xoff + PAD + QR + 8;
-      const maxW = xoff + HALF - PAD - tx;  // remaining width for text
+      // Every string is clipped to maxW so it cannot paint into the next 2in sticker.
       doc.setTextColor(0, 0, 0);
-      let y = 22;
+      const fit = (s: string) => {
+        const lines = doc.splitTextToSize(String(s ?? ""), Math.max(1, maxW)) as string[];
+        return lines[0] ?? "";
+      };
+      const isBox = Boolean(lab.boxLine);
+      // Piece labels keep the original 22pt start. Box labels start higher so name + SKU +
+      // price + pack line all sit inside this 1in sticker.
+      let y = isBox ? 14 : 22;
+      const maxBaseline = THERMAL_LABEL.maxBaseline;
+
       if (lab.showName && lab.name) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
-        const lines = (doc.splitTextToSize(lab.name, maxW) as string[]).slice(0, 2);
-        for (const ln of lines) { doc.text(ln, tx, y); y += 8; }
-        y += 3;
+        const lines = (doc.splitTextToSize(lab.name, Math.max(1, maxW)) as string[]).slice(0, isBox ? 1 : 2);
+        for (const ln of lines) {
+          if (y > maxBaseline) break;
+          doc.text(ln, tx, y);
+          y += 8;
+        }
+        y += isBox ? 2 : 3;
       }
       if (lab.showSku) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6);
-        doc.text("SKU " + lab.sku, tx, y);
-        y += 10;
+        if (y <= maxBaseline) doc.text(fit("SKU " + lab.sku), tx, y);
+        y += isBox ? 9 : 10;
       }
       if (lab.priceLine) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9); // price code — staff decode at a glance
-        doc.text(lab.priceLine, tx, y);
-        y += 10;
+        if (y <= maxBaseline) doc.text(fit(lab.priceLine), tx, y);
+        y += isBox ? 9 : 10;
       }
       if (lab.boxLine) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.text(lab.boxLine, tx, y);
+        doc.setFontSize(5.5);
+        y = Math.min(y, maxBaseline);
+        doc.text(fit(lab.boxLine), tx, y);
       }
     }
   }
