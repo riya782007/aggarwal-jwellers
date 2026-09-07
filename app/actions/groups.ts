@@ -12,6 +12,7 @@ import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { logActivity } from "@/lib/audit";
 import { groupCodeFromScan } from "@/lib/groupQr";
+import { escapeIlikeExact } from "@/lib/scan";
 
 const genCode = () => `GRP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
@@ -25,11 +26,12 @@ export async function createBoxGroupAction(input: { sku: string; packQty: number
   const sb = supabaseServer();
 
   // Resolve the SKU to a product (simple) or a variant (+ its parent product).
+  const exact = escapeIlikeExact(sku);
   let productId: string | null = null, variantId: string | null = null, name = "";
-  const { data: prod } = await sb.from("products").select("id,name").ilike("sku", sku).maybeSingle();
+  const { data: prod } = await sb.from("products").select("id,name").ilike("sku", exact).maybeSingle();
   if (prod) { productId = (prod as any).id; name = (prod as any).name; }
   else {
-    const { data: v } = await sb.from("variants").select("id,product_id,color, product:products(name)").ilike("sku", sku).maybeSingle();
+    const { data: v } = await sb.from("variants").select("id,product_id,color, product:products(name)").ilike("sku", exact).maybeSingle();
     if (v) { variantId = (v as any).id; productId = (v as any).product_id; name = `${(v as any).product?.name ?? ""}${(v as any).color ? " · " + (v as any).color : ""}`; }
   }
   if (!productId) return { ok: false, error: `No product or variant with SKU ${sku}.` };
@@ -64,7 +66,8 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
     const code = groupCodeFromScan(raw) ?? (raw ?? "").trim().toUpperCase();
     if (!code) return { ok: false, error: "empty code" };
     const sb = supabaseServer();
-    const { data: g } = await sb.from("inventory_groups").select("*").eq("code", code).maybeSingle();
+    const exact = escapeIlikeExact(code);
+    const { data: g } = await sb.from("inventory_groups").select("*").ilike("code", exact).maybeSingle();
     if (!g || (g as any).status !== "active") return { ok: false, error: "Box QR not recognised." };
     const formula = await getPricingFormula();
 

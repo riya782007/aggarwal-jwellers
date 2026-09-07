@@ -4,6 +4,8 @@ import { groupCodeFromScan, groupUnitsToAdd } from "../lib/groupQr";
 describe("group QR scans", () => {
   it("normalizes raw and legacy URL QR payloads", () => {
     expect(groupCodeFromScan("grp-ab12cd")).toBe("GRP-AB12CD");
+    expect(groupCodeFromScan("*GRP-AB12CD*")).toBe("GRP-AB12CD");
+    expect(groupCodeFromScan("grpab12cd")).toBe("GRP-AB12CD");
     expect(groupCodeFromScan("https://aggarwaljewellers.in/g/grp-ab12cd?source=label")).toBe("GRP-AB12CD");
     expect(groupCodeFromScan("https://aggarwaljewellers.in/p/AJ1004")).toBeNull();
   });
@@ -12,5 +14,6 @@ describe("group QR scans", () => {
     expect(groupUnitsToAdd(6, 10, 0)).toBe(6);
     expect(groupUnitsToAdd(6, 10, 6)).toBe(4);
     expect(groupUnitsToAdd(6, 6, 6)).toBe(0);
+    expect(groupUnitsToAdd(6, 0, 0, true)).toBe(6);
   });
 });

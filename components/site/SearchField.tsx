@@ -101,12 +101,12 @@ export function SearchField({ initial = "" }: { initial?: string }) {
           onChange={(e) => setTerm(e.target.value)}
           onFocus={() => hits.length && setOpen(true)}
           onKeyDown={onKeyDown}
-          type="search"
+          type="text"
           autoComplete="off"
           autoFocus
           enterKeyHint="search"
           placeholder='Search "Jhumka", "Kundan Set", "Kada"…'
-          className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
+          className="flex-1 min-h-[28px] bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
           aria-label="Search jewellery"
           aria-autocomplete="list"
           aria-expanded={open}

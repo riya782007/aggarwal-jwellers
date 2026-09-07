@@ -3,7 +3,6 @@ import { searchProducts } from "@/lib/supabase/queries";
 import { ProductCard } from "@/components/site/ProductCard";
 import { Reveal } from "@/components/site/Reveal";
 import { Back } from "@/components/site/Back";
-import { SearchField } from "@/components/site/SearchField";
 
 export const metadata = { title: "Search", robots: { index: false } };
 
@@ -17,7 +16,20 @@ export default async function Search({ searchParams }: { searchParams: { q?: str
     <div className="max-w-7xl mx-auto px-5 py-8">
       <div className="mb-4"><Back label="Back" /></div>
       <h1 className="font-display text-4xl text-ink">Search</h1>
-      <div className="mt-4 mb-3"><SearchField initial={q} /></div>
+      <form action="/search" method="get" className="mt-4 mb-3 flex items-center gap-2 max-w-xl rounded-full border border-sand bg-white px-4 py-2.5 shadow-sm">
+        <input
+          name="q"
+          type="text"
+          defaultValue={q}
+          placeholder='Search "Jhumka", "Kundan Set", "Kada"…'
+          enterKeyHint="search"
+          autoComplete="off"
+          autoFocus
+          aria-label="Search jewellery"
+          className="flex-1 min-h-[28px] bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
+        />
+        <button type="submit" className="shrink-0 rounded-full bg-emerald text-white text-sm font-medium px-4 py-1.5">Search</button>
+      </form>
       <p className="text-muted mb-6">{q ? `${results.length} result${results.length === 1 ? "" : "s"} for "${q}"` : "Type a design, category, colour, or SKU to find it."}</p>
       {results.length === 0 && q && <p className="text-muted">No matches. Try a category like “necklace” or “kundan”.</p>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5">

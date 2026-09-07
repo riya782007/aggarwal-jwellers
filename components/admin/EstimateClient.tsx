@@ -1,11 +1,13 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatPaise } from "@/lib/pricing";
 import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing";
+import { resolveBoxScanAction } from "@/app/actions/groups";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
+import { groupCodeFromScan, groupUnitsToAdd } from "@/lib/groupQr";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
@@ -31,6 +33,10 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const lastScanRef = useRef({ code: "", at: 0 });
+  const linesRef = useRef<Line[]>([]);
+  const scanBusyRef = useRef(false);
+  const scanQueueRef = useRef<string[]>([]);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
 
   const skuIndex = useMemo(() => {
     const m = new Map<string, P>();
@@ -56,13 +62,37 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const total = lines.reduce((s, l) => s + effUnit(l) * l.qty, 0) + chargesTotal;
 
   const add = (p: P) => { setLines((prev) => (prev.find((l) => l.sku === p.sku) ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)) : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }])); setQ(""); };
+  function addQty(p: P, n: number) {
+    const addN = Math.max(1, Math.floor(n));
+    setLines((prev) => {
+      const next = prev.find((l) => l.sku === p.sku)
+        ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + addN } : l))
+        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: addN, override: "" }];
+      linesRef.current = next;
+      return next;
+    });
+    setQ("");
+  }
 
-  /** Scanner payloads support product-page URLs and legacy space-separated SKU labels. */
-  /** Enter/scan: add the exact SKU match, else the first search result, else look the SKU up on the
-   *  server (covers colour variants and freshly-added items) — so a real code always adds. */
+  /** Scanner: box/group QRs expand to pack qty; piece SKUs and /p/ URLs add one. */
   async function submitSearch(raw?: string) {
     const source = (raw ?? searchRef.current?.value ?? q).trim();
     if (!source) return;
+    const groupCode = groupCodeFromScan(source);
+    if (groupCode) {
+      setScanMsg({ text: "Box…", ok: true });
+      const r = await resolveBoxScanAction(groupCode);
+      if (r.ok && r.item && r.packQty) {
+        const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
+        const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill);
+        if (addN <= 0) setScanMsg({ text: `${r.item.name}: no stock remaining for this quote`, ok: false });
+        else {
+          addQty({ sku: r.item.sku, name: r.item.name, price: r.item.price, wholesale: r.item.wholesale }, addN);
+          setScanMsg({ text: `Box · ${r.item.name} ×${addN}`, ok: true });
+        }
+      } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      setQ(""); searchRef.current?.focus(); return;
+    }
     const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
@@ -76,13 +106,20 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
     else setScanMsg({ text: `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
-  function ingestScan(raw: string) {
+  async function ingestScan(raw: string) {
     const payload = raw.trim();
     if (!payload) return;
     const now = Date.now();
     if (payload === lastScanRef.current.code && now - lastScanRef.current.at < 140) return;
     lastScanRef.current = { code: payload, at: now };
-    void submitSearch(payload);
+    scanQueueRef.current.push(payload);
+    if (scanBusyRef.current) return;
+    scanBusyRef.current = true;
+    while (scanQueueRef.current.length) {
+      const next = scanQueueRef.current.shift();
+      if (next) await submitSearch(next);
+    }
+    scanBusyRef.current = false;
   }
   useWedgeScanner(ingestScan, searchRef);
   const setOverride = (sku: string, v: string) => setLines((p) => p.map((l) => (l.sku === sku ? { ...l, override: v } : l)));

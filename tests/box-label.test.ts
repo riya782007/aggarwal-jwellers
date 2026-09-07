@@ -12,7 +12,8 @@ describe("formatBoxLabelLine", () => {
   });
 
   it("strips an accidental extra GRP prefix", () => {
-    expect(formatBoxLabelLine("GRP GRP-JS3JA8", 1)).toBe("GRP-JS3JA8 · BOX 1");
+    expect(formatBoxLabelLine("GRP GRP-JS3JA8", 6)).toBe("GRP-JS3JA8 · BOX 6");
+    expect(formatBoxLabelLine("GRP GRP-JS3JA8", 6)).not.toMatch(/GRP\s+GRP/i);
     expect(formatBoxLabelLine("GRP-GRP-JS3JA8", 1)).toBe("GRP-JS3JA8 · BOX 1");
   });
 

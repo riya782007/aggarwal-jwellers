@@ -181,7 +181,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       const r = await resolveBoxScanAction(groupCode);
       if (r.ok && r.item && r.packQty) {
         const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
-        const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill);
+        const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill, allowBackorder);
         const available = Math.max(0, r.item.qty - alreadyInBill);
         if (addN <= 0) setScanMsg({ text: `${r.item.name}: no stock remaining for this bill`, ok: false });
         else {
