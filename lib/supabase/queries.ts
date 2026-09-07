@@ -1714,7 +1714,19 @@ export async function getPurchaseById(id: string) {
 export async function searchProducts(q: string) {
   const { products, formula } = await getStorefront();
   const s = q.trim().toLowerCase();
-  const results = s ? products.filter((p) => (p.name + " " + p.category.name + " " + p.sku).toLowerCase().includes(s)) : [];
+  if (!s) return { formula, results: [] as typeof products };
+  const tokens = s.split(/\s+/).filter(Boolean);
+  const results = products.filter((p: any) => {
+    const gc = p.generated_content ?? {};
+    const hay = [
+      p.name, p.sku, p.category?.name,
+      gc.title,
+      Array.isArray(gc.tags) ? gc.tags.join(" ") : "",
+      Array.isArray(gc.keywords) ? gc.keywords.join(" ") : "",
+      gc.seo?.metaTitle, gc.seo?.metaDescription,
+    ].join(" ").toLowerCase();
+    return tokens.every((t) => hay.includes(t));
+  });
   return { formula, results };
 }
 
