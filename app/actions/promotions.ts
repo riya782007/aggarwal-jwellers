@@ -1,7 +1,8 @@
 "use server";
 /**
  * AI promotional-poster campaigns.
- * 1. refinePromoAction — OpenAI turns the owner's rough idea into a detailed poster prompt
+ * 1. refinePromoAction — AI (OpenAI → Gemini → Groq) turns the owner's rough idea into a detailed poster prompt
+ * (grounded in the live catalogue) + a suggested category.
  * (grounded in the live catalogue) + a suggested category.
  * 2. generatePromoAction — Gemini (Nano Banana) renders the poster from the refined prompt,
  * stores it, and saves a DRAFT campaign.
@@ -14,7 +15,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { logActivity } from "@/lib/audit";
 import { refinePromoPrompt } from "@/lib/ai/promo";
-import { openaiConfigured } from "@/lib/ai/providers";
+import { anyAiConfigured } from "@/lib/ai/providers";
 import { generateImage, geminiConfigured } from "@/lib/ai/gemini";
 
 const BUCKET = "product-media";
@@ -23,7 +24,7 @@ export async function refinePromoAction(input: { idea: string }): Promise<{ ok: 
   if (!(await requirePerm("marketing.manage"))) return { ok: false, error: "You don't have permission for promotions." };
   const idea = (input.idea ?? "").trim();
   if (!idea) return { ok: false, error: "Type your promotion idea first." };
-  if (!openaiConfigured()) return { ok: false, error: "Add OPENAI_API_KEY to refine prompts with ChatGPT." };
+  if (!anyAiConfigured()) return { ok: false, error: "Add GEMINI_API_KEY and/or OPENAI_API_KEY (optional GROQ_API_KEY) to refine promo prompts." };
   const sb = supabaseServer();
   const [{ data: cats }, { data: prods }] = await Promise.all([
     sb.from("categories").select("name,slug").order("name"),
