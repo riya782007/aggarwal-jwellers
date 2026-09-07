@@ -4234,3 +4234,8 @@ begin
 end; $function$;
 
 
+
+-- ------------------------------------------------------------ 0057_customer_contact_fields.sql
+-- Customer profile form persists these optional contact fields.
+alter table public.customers add column if not exists email text;
+alter table public.customers add column if not exists notes text;

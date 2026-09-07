@@ -43,8 +43,11 @@ export async function upsertCustomerAction(formData: FormData): Promise<void> {
     if (existing) targetId = existing.id;
   }
 
-  if (targetId) await sb.from("customers").update(row).eq("id", targetId);
-  else await sb.from("customers").insert(row);
+  const { error } = targetId
+    ? await sb.from("customers").update(row).eq("id", targetId)
+    : await sb.from("customers").insert(row);
+  if (error) redirect(`/admin/customers?err=${encodeURIComponent(error.message)}`);
+
   revalidatePath("/admin/customers");
   if (targetId) revalidatePath(`/admin/customer/${targetId}`);
   // Return to a fresh form with a clear confirmation after an add, including a de-duplicated add.
