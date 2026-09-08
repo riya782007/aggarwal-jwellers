@@ -15,3 +15,6 @@ Newvora-Form-*.md
 
 # Private handoff/context doc — never commit to the public repo
 MASTER_CONTEXT_HANDOFF.md
+.vercel
+.env*
+.env.netlify

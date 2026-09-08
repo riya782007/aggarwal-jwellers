@@ -1,0 +1,12 @@
+# Netlify build configuration — migrated from Vercel (Sept 2026).
+# Next.js 14.2.5 App Router + Supabase. middleware.ts runs as a Netlify Edge Function.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
