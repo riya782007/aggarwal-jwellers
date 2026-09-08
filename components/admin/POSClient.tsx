@@ -146,9 +146,11 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const setPayLine = (i: number, patch: Partial<PayLine>) => setPayLines((p) => p.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   function addLine(p: P) {
     setLines((prev) => {
-      const next = prev.find((l) => l.sku === p.sku)
-        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)
-        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }];
+      const existing = prev.find((l) => l.sku === p.sku);
+      // The most recently scanned item stays in view for long bills; repeated scans also move its row back to the top.
+      const next = existing
+        ? [{ ...existing, qty: existing.qty + 1 }, ...prev.filter((l) => l.sku !== p.sku)]
+        : [{ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }, ...prev];
       linesRef.current = next;
       return next;
     });
@@ -158,9 +160,10 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   function addLineQty(p: P, n: number) {
     const add = Math.max(1, Math.floor(n));
     setLines((prev) => {
-      const next = prev.find((l) => l.sku === p.sku)
-        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + add } : l)
-        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }];
+      const existing = prev.find((l) => l.sku === p.sku);
+      const next = existing
+        ? [{ ...existing, qty: existing.qty + add }, ...prev.filter((l) => l.sku !== p.sku)]
+        : [{ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }, ...prev];
       linesRef.current = next;
       return next;
     });
@@ -367,6 +370,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
             </div>
           )}
         </div>
+      </div>
+
+      {/* Live bill strip stays beside the scanner, even while a long item table is scrolled. */}
+      <div className="sticky top-2 z-10 -mx-1 rounded-xl border border-emerald/20 bg-white/95 px-4 py-2 shadow-card backdrop-blur flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
+        <div className="flex items-baseline gap-2"><span className="text-sm font-semibold text-ink">{lines.length} product{lines.length === 1 ? "" : "s"}</span><span className="text-xs text-muted">{lines.reduce((sum, line) => sum + line.qty, 0)} total pcs</span></div>
+        <div className="flex items-baseline gap-2"><span className="text-xs text-muted">Payable</span><span className="text-xl font-semibold text-ink">{formatPaise(grandTotal)}</span></div>
       </div>
 
       {/* ================= PRODUCT TABLE (center, largest) ================= */}
