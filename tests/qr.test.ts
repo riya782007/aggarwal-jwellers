@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { qrMatrix, qrPath } from "../lib/qr";
+import { QR_QUIET_ZONE_MODULES, qrMatrix, qrPath } from "../lib/qr";
 
 /** Structural invariants of the QR symbol — the full decode path was additionally
  *  verified against an independent reader (jsQR) during development. */
 describe("qr encoder", () => {
+  it("uses the QR-standard four-module quiet zone for every renderer", () => {
+    expect(QR_QUIET_ZONE_MODULES).toBe(4);
+  });
+
   it("picks version 1 (21×21) for a short SKU", () => {
     const m = qrMatrix("AJ1004");
     expect(m.length).toBe(21);

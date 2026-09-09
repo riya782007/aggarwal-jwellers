@@ -51,6 +51,7 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
   // QR is the default label — phone cameras and 2D scanners read it natively and the error
   // correction survives smudged stickers. Code-128 stays available for legacy 1D scanners.
   const [labelType, setLabelType] = useState<"qr" | "code128">("qr");
+  const [printBusy, setPrintBusy] = useState(false);
   // Q27 defaults: name + the combined price code A·7{wholesale}7·{retail}·51 = "name and 2 prices".
   const [opts, setOpts] = useState({ sku: true, name: true, price: true, special: false, wholesale: true, currency: false });
   // PRIVACY: the QR encodes ONLY the internal item code — NOT a web link. A customer or reseller who
@@ -123,6 +124,17 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
     name: r.name, sku: r.sku, qrValue: qrValue(r.sku), priceLine: priceLine(r),
     showName: opts.name, showSku: opts.sku,
   }));
+  async function printThermal(action: "print" | "download") {
+    if (printBusy) return;
+    setPrintBusy(true);
+    try {
+      await makeLabelsPdf(pdfLabels(), action);
+    } catch (e: any) {
+      alert(e?.message || `Couldn't ${action === "print" ? "generate the labels" : "generate the PDF"}.`);
+    } finally {
+      setPrintBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -234,12 +246,12 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
                   {/* Thermal roll → print via the exact-size PDF (opens + pops the print dialog in one
                       click; pick "Actual size" in the dialog). Save PDF is there if they want the file. */}
                   <button
-                    onClick={() => makeLabelsPdf(pdfLabels(), "print").catch((e) => alert(e?.message || "Couldn't generate the labels."))}
-                    className="btn-primary px-6 py-2.5 text-sm font-medium"
-                  ><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print {labels.length}label{labels.length === 1 ? "" : "s"}</button>
+                    onClick={() => printThermal("print")} disabled={printBusy}
+                    className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-50"
+                  ><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />{printBusy ? "Preparing…" : `Print ${labels.length} label${labels.length === 1 ? "" : "s"}`}</button>
                   <button
-                    onClick={() => makeLabelsPdf(pdfLabels(), "download").catch((e) => alert(e?.message || "Couldn't generate the PDF."))}
-                    className="px-4 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald/10"
+                    onClick={() => printThermal("download")} disabled={printBusy}
+                    className="px-4 py-2.5 text-sm font-medium rounded-full border border-emerald text-emerald hover:bg-emerald/10 disabled:opacity-50"
                     title="Save the exact-size PDF to print later."
                   ><Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />Save PDF</button>
                 </>

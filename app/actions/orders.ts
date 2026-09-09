@@ -85,7 +85,7 @@ export async function posSaleAction(input: {
   // the legacy pay_cash / pay_bank / payment_method fields so existing reports keep working.
   payments?: { methodId: string; amount: number }[]; // amount in rupees
   mergeVariants?: boolean; // print the bill with a product's colour variants merged into one line
-}): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string }> {
+}): Promise<{ ok: boolean; orderId?: string; total?: number; error?: string; warning?: string }> {
   if (!(await requirePerm("billing.sell"))) return { ok: false, error: "Your role can't ring up POS sales." };
   if (!input.items?.length) return { ok: false, error: "Add at least one item" };
   for (const it of input.items) if (!Number.isFinite(it.qty) || it.qty < 1) return { ok: false, error: "Every line needs a quantity of 1 or more" };
@@ -244,6 +244,7 @@ export async function posSaleAction(input: {
     pay_bank: payBank,
     merge_variants: !!input.mergeVariants,
   };
+  const warnings: string[] = [];
   {
     const { error: updErr } = await sb.from("orders").update(fullPatch).eq("id", orderId);
     if (updErr) {
@@ -252,7 +253,11 @@ export async function posSaleAction(input: {
         bill_type: billType, customer_id: customerId, total,
         amount_paid: amountPaid, payment_mode: payMode, pay_cash: payCash, pay_bank: payBank,
       }).eq("id", orderId);
-      if (coreErr) console.error("POS essential money update ALSO failed:", coreErr.message);
+      if (coreErr) {
+        console.error("POS essential money update ALSO failed:", coreErr.message);
+        return { ok: false, orderId, total, error: "Sale was recorded, but its essential invoice data was not saved. Open the invoice and have an administrator correct it before taking another payment." };
+      }
+      warnings.push("Some optional invoice details were not saved.");
     }
   }
 
@@ -283,7 +288,11 @@ export async function posSaleAction(input: {
     }
   }
 
-  await sb.rpc("assign_invoice_no", { p_order: orderId });
+  const { error: invoiceErr } = await sb.rpc("assign_invoice_no", { p_order: orderId });
+  if (invoiceErr) {
+    console.error("POS invoice-number assignment failed:", invoiceErr.message);
+    warnings.push("The sale was saved, but its invoice number was not assigned.");
+  }
 
   // Backorder flag — best-effort so it can never break a sale. When the owner billed
   // beyond available stock (ticked "bill anyway as a backorder"), mark the order so it
@@ -293,5 +302,5 @@ export async function posSaleAction(input: {
     if (boErr) console.warn("backorder flag not set — apply migration 0020_order_backorder.sql:", boErr.message);
   }
 
-  return { ok: true, orderId, total };
+  return { ok: true, orderId, total, ...(warnings.length ? { warning: warnings.join(" ") } : {}) };
 }

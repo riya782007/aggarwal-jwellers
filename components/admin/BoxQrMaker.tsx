@@ -75,12 +75,16 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   // after the PDF opened, so one Print (or a mis-click on Print all) hid the box for good with no
   // way back, and the labels list emptied itself. Use Delete to clear a row deliberately.
   async function print(box: Box) {
+    if (busy) return;
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
+    setBusy(true);
     try {
       await makeLabelsPdf(labelsFor(box, n), "print");
       setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"} for ${box.label}. The box stays in this list — reprint any time.`, ok: true });
     } catch (e: any) {
       setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -260,9 +264,9 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
                   <td className={`py-2 pr-3 text-center ${b.stock < b.packQty ? "text-gold-dark" : "text-emerald-dark"}`}>{b.stock}</td>
                   <td className="py-2 pr-3 font-mono text-xs">{b.code}</td>
                   <td className="py-2 text-right whitespace-nowrap">
-                    <label className="text-[10px] text-muted mr-1">Labels<input value={counts[b.id] ?? String(boxesInStock(b))} onChange={(e) => setCounts((c) => ({ ...c, [b.id]: e.target.value }))} inputMode="numeric" title="Stickers to print (default = boxes in stock)" className="w-14 text-center rounded-lg border border-sand px-2 py-1 text-xs ml-1" /></label>
-                    <button type="button" onClick={() => print(b)} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print</button>
-                    <button type="button" onClick={() => remove(b)} disabled={deletingId === b.id} className="text-xs px-2 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 ml-2 disabled:opacity-50">
+                    <label className="text-[10px] text-muted mr-1">Labels<input disabled={busy} value={counts[b.id] ?? String(boxesInStock(b))} onChange={(e) => setCounts((c) => ({ ...c, [b.id]: e.target.value }))} inputMode="numeric" title="Stickers to print (default = boxes in stock)" className="w-14 text-center rounded-lg border border-sand px-2 py-1 text-xs ml-1" /></label>
+                    <button type="button" onClick={() => print(b)} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark ml-1 disabled:opacity-50"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />{busy ? "Preparing…" : "Print"}</button>
+                    <button type="button" onClick={() => remove(b)} disabled={busy || deletingId === b.id} className="text-xs px-2 py-1.5 rounded-lg bg-rose/10 text-rose hover:bg-rose/20 ml-2 disabled:opacity-50">
                       {deletingId === b.id ? "…" : "Delete"}
                     </button>
                   </td>

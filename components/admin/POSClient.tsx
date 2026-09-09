@@ -214,11 +214,16 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
-    for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
-    const allowNameFallback = !looksLikeSkuScan(source);
+    let lookupError: string | undefined;
+    for (const candidate of codes) {
+      const result = await resolveSellableSku(candidate);
+      if (result.item) { found = result.item; break; }
+      lookupError ||= result.error;
+    }
+    const allowNameFallback = !looksLikeSkuScan(source) && !lookupError;
     const p = found ?? (allowNameFallback ? matches[0] : undefined);
     if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
-    else setScanMsg({ text: `No product “${code}”`, ok: false });
+    else setScanMsg({ text: lookupError ?? `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
 
@@ -251,6 +256,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       return;
     }
     busyRef.current = true; setBusy(true); setErr("");
+    try {
     const validPays = payLines.filter((l) => l.methodId && (Number(l.amount) || 0) > 0).map((l) => ({ methodId: l.methodId, amount: Number(l.amount) || 0 }));
     const res = await posSaleAction({
       items: lines.map((l) => {
@@ -268,9 +274,21 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       packingRupees: Number(packing) || 0, courierRupees: Number(courier) || 0, adjustmentRupees: Number(adjustment) || 0,
       mergeVariants,
     });
-    busyRef.current = false; setBusy(false);
-    if (!res.ok) { setErr(res.error ?? "Failed"); return; }
-    router.push(`/admin/invoice/${res.orderId}`);
+    if (!res.ok) {
+      if (res.orderId) {
+        router.push(`/admin/invoice/${res.orderId}?save=attention`);
+        return;
+      }
+      setErr(res.error ?? "Failed");
+      return;
+    }
+    router.push(`/admin/invoice/${res.orderId}${res.warning ? "?save=warning" : ""}`);
+    } catch {
+      setErr("Billing request could not be completed. Check whether a sale was created before trying again.");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
   completeRef.current = complete;
 

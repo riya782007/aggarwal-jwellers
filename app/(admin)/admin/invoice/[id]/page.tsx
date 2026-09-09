@@ -15,7 +15,7 @@ import { isDeadOrder } from "@/lib/business";
 
 export const metadata = { title: "Invoice" };
 
-export default async function Invoice({ params }: { params: { id: string } }) {
+export default async function Invoice({ params, searchParams }: { params: { id: string }; searchParams?: { save?: string } }) {
   const data = await getOrder(params.id);
   if (!data) notFound();
   const { order } = data;
@@ -87,6 +87,8 @@ export default async function Invoice({ params }: { params: { id: string } }) {
           cleanly across sheets. Scoped to this route so the barcode sheet is unaffected. */}
       <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
       <div className="max-w-4xl mx-auto">
+        {searchParams?.save === "attention" && <div className="mb-4 rounded-xl border border-rose/40 bg-rose/10 px-4 py-3 text-sm text-rose no-print">This sale was created, but essential invoice data was not saved. Do not collect another payment; have an administrator review this invoice first.</div>}
+        {searchParams?.save === "warning" && <div className="mb-4 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold-dark no-print">The sale was saved with an administrative warning. Review the invoice details before filing it.</div>}
         <div className="flex items-center justify-between mb-4 no-print">
           <Link href="/admin/billing" className="text-sm text-emerald nav-link"><Icon g="←" className="inline-block align-middle w-[1em] h-[1em]" />New sale</Link>
           <PrintButton />
