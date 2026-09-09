@@ -3,6 +3,7 @@ import "server-only";
 import { supabaseServer } from "./server";
 import type { PricingFormula } from "../pricing";
 import { resolvePrices as posPrices, overridesOf as posOverrides } from "../pricing";
+import { allRows } from "../pagination";
 
 /**
  * Sanitise a user search term before putting it in a PostgREST `.or(...ilike...)` filter.
@@ -876,17 +877,17 @@ export async function getLabelItems(): Promise<LabelItem[]> {
   // a migration didn't add), the WHOLE query returns null → the labels page shows an empty product
   // list. So, exactly like getProductBySku, fall back to a minimal always-valid select. Prices then
   // come purely from base_wholesale + the pricing formula (overrides simply treated as absent).
-  const rich = await sb
-    .from("products")
-    .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override, variants(sku,color,size,polish,qty,wholesale_override,retail_override,mrp_override)")
-    .order("sku");
-  let data = rich.data as any[] | null;
-  if (rich.error || !data) {
-    const basic = await sb
-      .from("products")
-      .select("sku,name,base_wholesale,qty, variants(sku,color,size,qty)")
-      .order("sku");
-    data = (basic.data as any[]) ?? [];
+  //
+  // Paged with allRows() past PostgREST's 1000-row cap (0049), exactly like getPosCatalog. A
+  // plain select silently returns only the FIRST 1000 rows — no error, no warning — and this
+  // list is ordered by `sku`, so once the catalogue passed 1000 products every newly added SKU
+  // sorted past the cap and simply could not be printed. allRows() yields [] on error, so an
+  // empty result falls through to the basic select the same way an explicit error used to.
+  const RICH_LABEL = "sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override, variants(sku,color,size,polish,qty,wholesale_override,retail_override,mrp_override)";
+  const BASIC_LABEL = "sku,name,base_wholesale,qty, variants(sku,color,size,qty)";
+  let data = await allRows<any>(() => sb.from("products").select(RICH_LABEL).order("sku"));
+  if (!data.length) {
+    data = await allRows<any>(() => sb.from("products").select(BASIC_LABEL).order("sku"));
   }
   const out: LabelItem[] = [];
   for (const p of (data as any[]) ?? []) {
@@ -1690,16 +1691,18 @@ export async function getSuppliers() {
   const { data } = await sb.from("suppliers").select("id,name,city").order("city");
   return (data as any[]) ?? [];
 }
+/** Every product for the estimate editor's picker — paged past the 1000-row cap (0049), or the
+ *  newest SKUs (which sort last) would be missing from estimates. */
 export async function getProductsLite() {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("id,name,sku").order("sku");
-  return (data as any[]) ?? [];
+  return await allRows<any>(() => sb.from("products").select("id,name,sku").order("sku"));
 }
 
-/** Products plus their variants — for purchase entry where stock can land on a specific variant. */
+/** Products plus their variants — for purchase entry where stock can land on a specific variant.
+ *  Paged past the 1000-row cap (0049) so newly added SKUs can still receive purchased stock. */
 export async function getProductsForPurchase() {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("id,name,sku, variants(id,sku,color,size,polish)").order("sku");
+  const data = await allRows<any>(() => sb.from("products").select("id,name,sku, variants(id,sku,color,size,polish)").order("sku"));
   return ((data as any[]) ?? []).map((p) => ({
     id: p.id, name: p.name, sku: p.sku,
     variants: ((p.variants as any[]) ?? []).map((v) => ({
@@ -1809,17 +1812,10 @@ export async function getRetailers() {
   const { data } = await sb.from("retailers").select("id,name,city,approved").order("name");
   return (data as any[]) ?? [];
 }
-/** Page through PostgREST's 1000-row cap (0049) — use for any product/order-wide read. */
-export async function allRows<T = any>(makeQuery: () => any, pageSize = 1000): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
-    if (error || !data?.length) break;
-    out.push(...(data as T[]));
-    if ((data as T[]).length < pageSize) break;
-  }
-  return out;
-}
+/** Page through PostgREST's 1000-row cap (0049) — use for any product/order-wide read.
+ *  Implementation lives in lib/pagination.ts so it can be unit tested (this module is
+ *  server-only); re-exported here because that is where every caller imports it from. */
+export { allRows };
 
 /** Lean POS catalogue: every product + colour SKU, paged past the 1000-row PostgREST cap.
  *  Skips reviews/images so the billing screen loads in one cheap round-trip during rush hour. */
