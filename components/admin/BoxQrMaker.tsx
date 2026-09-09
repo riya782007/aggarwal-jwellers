@@ -2,12 +2,13 @@
 import { Icon } from "@/components/ui/Icon";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
+import { createBoxGroupAction, deleteBoxGroupAction, restoreHiddenBoxQrsAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
 import { formatBoxLabelLine } from "@/lib/boxLabel";
+import { priceCodeFromPaise } from "@/lib/priceCode";
 
 type Pick = { sku: string; name: string; qty?: number };
-type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number };
+type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number; hidden?: boolean };
 
 /**
  * Box / group QR maker. Pick ONE piece SKU + how many sit in the box → creates a group and prints box
@@ -26,13 +27,17 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
   const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
   const input = "w-full rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
 
+  // `hidden` comes from the DB (rows cleared with Delete, or buried by migration 0078).
+  // `hiddenIds` is the optimistic client-side hide while a Delete is in flight.
   const visibleGroups = useMemo(
-    () => groups.filter((b) => !hiddenIds.has(b.id)),
+    () => groups.filter((b) => !b.hidden && !hiddenIds.has(b.id)),
     [groups, hiddenIds],
   );
+  const hiddenGroups = useMemo(() => groups.filter((b) => b.hidden), [groups]);
 
   const matches = useMemo(
     () => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 8) : []),
@@ -50,24 +55,13 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
 
-  // After print: hide from this list only. QR stays active so POS still scans printed stickers.
-  /** Same coded price scheme as piece labels: A + 7{wholesale}7 + {retail} + 51 */
-  function priceCode(box: Box): string {
-    const intOf = (paise?: number) => {
-      if (paise == null || !Number.isFinite(paise) || paise <= 0) return "";
-      return String(Math.round(paise / 100));
-    };
-    const w = intOf(box.wholesale);
-    const r = intOf(box.price);
-    const mid = w ? `7${w}7` : "";
-    if (!mid && !r) return "";
-    return `A${mid}${r}51`;
-  }
+  /** Same coded price scheme as piece labels: A + 7{wholesale}7 + {retail} + 51 (lib/priceCode). */
+  const priceCode = (box: Box) => priceCodeFromPaise(box.wholesale, box.price);
 
-  async function print(box: Box) {
-    const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
+  /** Build the sticker payload for one box row — shared by Print and Print all. */
+  function labelsFor(box: Box, n: number) {
     const code = priceCode(box);
-    const labels = Array.from({ length: n }, () => ({
+    return Array.from({ length: n }, () => ({
       name: box.name, sku: box.sku, qrValue: box.code,
       priceLine: code || undefined,
       // Piece SKU is the visible SKU. Group code is printed once (it already starts with GRP-).
@@ -75,55 +69,53 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
       boxLine: formatBoxLabelLine(box.code, box.packQty),
       showName: true, showSku: true,
     }));
+  }
+
+  // Printing PRINTS — it no longer removes the row. It used to call deleteBoxGroupAction straight
+  // after the PDF opened, so one Print (or a mis-click on Print all) hid the box for good with no
+  // way back, and the labels list emptied itself. Use Delete to clear a row deliberately.
+  async function print(box: Box) {
+    const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
     try {
-      await makeLabelsPdf(labels, "print");
-      setHiddenIds((prev) => new Set(prev).add(box.id));
-      setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"} for ${box.label}. Removing from list…`, ok: true });
-      const r = await deleteBoxGroupAction(box.id);
-      if (r.ok) {
-        setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"} for ${box.label}. Removed from this list.`, ok: true });
-        router.refresh();
-      } else {
-        setMsg({ text: `Printed, but could not clear from list: ${r.error ?? "unknown error"}`, ok: false });
-      }
+      await makeLabelsPdf(labelsFor(box, n), "print");
+      setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"} for ${box.label}. The box stays in this list — reprint any time.`, ok: true });
     } catch (e: any) {
-      alert(e?.message || "Couldn't generate the labels.");
+      setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
     }
   }
 
-  /** Print every visible box QR in one PDF, respecting each row's label count. */
+  /** Print every listed box QR in one PDF, respecting each row's label count. Rows stay listed. */
   async function printAll() {
     const snapshot = [...visibleGroups];
     if (snapshot.length === 0) return;
     setBusy(true); setMsg(null);
-    const labels = snapshot.flatMap((box) => {
-      const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
-      const code = priceCode(box);
-      return Array.from({ length: n }, () => ({
-        name: box.name, sku: box.sku, qrValue: box.code,
-        priceLine: code || undefined,
-        boxLine: formatBoxLabelLine(box.code, box.packQty),
-        showName: true, showSku: true,
-      }));
-    });
+    const labels = snapshot.flatMap((box) =>
+      labelsFor(box, Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1))),
+    );
     try {
       await makeLabelsPdf(labels, "print");
-      setHiddenIds((prev) => new Set([...prev, ...snapshot.map((box) => box.id)]));
-      let failed = 0;
-      for (const box of snapshot) {
-        const r = await deleteBoxGroupAction(box.id);
-        if (!r.ok) {
-          failed++;
-          setHiddenIds((prev) => { const next = new Set(prev); next.delete(box.id); return next; });
-        }
-      }
-      router.refresh();
-      setMsg({
-        text: failed ? `Printed ${labels.length} labels; ${failed} box row${failed === 1 ? "" : "s"} could not be cleared.` : `Printed ${labels.length} labels. Removed all printed boxes from the list.`,
-        ok: failed === 0,
-      });
+      setMsg({ text: `Printed ${labels.length} label${labels.length === 1 ? "" : "s"} across ${snapshot.length} box${snapshot.length === 1 ? "" : "es"}. All boxes stay in this list.`, ok: true });
     } catch (e: any) {
       setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Put a hidden box QR (or all of them) back on the list. */
+  async function restore(box?: Box) {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await restoreHiddenBoxQrsAction(box?.id);
+      if (r.ok) {
+        setMsg({ text: box ? `${box.label} is back on the list.` : `Restored ${r.restored} hidden box QR${r.restored === 1 ? "" : "s"}.`, ok: true });
+        setShowHidden(false);
+        router.refresh();
+      } else {
+        setMsg({ text: r.error ?? "Could not restore the box QR.", ok: false });
+      }
+    } catch (e: any) {
+      setMsg({ text: e?.message || "Could not restore the box QR.", ok: false });
     } finally {
       setBusy(false);
     }
@@ -211,6 +203,36 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
         <button onClick={create} disabled={busy} className="btn-primary px-5 py-2 text-sm font-medium disabled:opacity-50">{busy ? "Creating…" : "Create box QR"}</button>
         {msg && <span className={`text-xs ${msg.ok ? "text-emerald-dark" : "text-rose"}`}>{msg.text}</span>}
       </div>
+
+      {hiddenGroups.length > 0 && (
+        <div className="mt-4 rounded-xl border border-gold/40 bg-gold/5 px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-ink">
+              <b>{hiddenGroups.length}</b> box QR{hiddenGroups.length === 1 ? " is" : "s are"} hidden from this list. Their printed stickers still scan at the counter.
+            </p>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setShowHidden((v) => !v)} className="text-xs px-3 py-1.5 rounded-lg border border-sand bg-white hover:bg-cream/60">
+                {showHidden ? "Hide" : "Show"} hidden
+              </button>
+              <button type="button" onClick={() => restore()} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-emerald text-white hover:bg-emerald-dark disabled:opacity-50">
+                Restore all
+              </button>
+            </div>
+          </div>
+          {showHidden && (
+            <ul className="mt-2 pt-2 border-t border-gold/30 space-y-1">
+              {hiddenGroups.map((b) => (
+                <li key={b.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-ink truncate">{b.label} <span className="font-mono text-muted">{b.code}</span> · ×{b.packQty}</span>
+                  <button type="button" onClick={() => restore(b)} disabled={busy} className="shrink-0 px-2.5 py-1 rounded-lg border border-emerald text-emerald hover:bg-emerald/10 disabled:opacity-50">
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {visibleGroups.length > 0 && (
         <div className="mt-5 pt-4 border-t border-sand overflow-x-auto">

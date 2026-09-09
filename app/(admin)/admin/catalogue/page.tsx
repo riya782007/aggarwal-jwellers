@@ -109,6 +109,9 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
                     qty: p.qty ?? 0, priceLabel: formatPaise(o.price), offerPct: o.offerPct, hasOffer: o.hasOffer,
                     hasAi: !!(p.generated_content && p.generated_content.title), variants: p.variants ?? [],
                     adminTags: p.admin_tags ?? [], wholesaleLabel: formatPaise(wholesaleRate),
+                    // Raw paise so the row's "Print labels" prints the same A·7w7·r·51 code as
+                    // the labels page (the *Label strings above are already formatted for display).
+                    pricePaise: o.price, wholesalePaise: wholesaleRate,
                   }}
                   canEdit={canEdit} canAi={canAi} canDelete={canDelete} canPublish={canPublish}
                   genContent={genContent}

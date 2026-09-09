@@ -7,8 +7,9 @@ import { restoreArchivedBoxQrsForPosAction } from "@/app/actions/groups";
 export const metadata = { title: "Owner Console · QR & Barcode Labels" };
 
 export default async function Barcodes({ searchParams }: { searchParams: { sku?: string; skus?: string } }) {
-  // One-shot recovery: older print/delete archived box QRs and broke POS scanning of stickers
-  // already on physical boxes. Restore them to active (hidden from this list) so POS works again.
+  // Recovery for the old archive-on-print flow, which broke POS scanning of stickers already on
+  // physical boxes. Flips them back to active so POS works again. It no longer hides them from
+  // this list — that, plus migration 0078's bulk update, is what emptied the page with no way back.
   try { await restoreArchivedBoxQrsForPosAction(); } catch { /* non-fatal */ }
 
   // Products AND every colour/size variant — each with its own SKU + price (Pillar 11).
@@ -23,7 +24,7 @@ export default async function Barcodes({ searchParams }: { searchParams: { sku?:
     <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
       <div className="no-print">
         <h1 className="font-display text-4xl text-ink mb-1">QR & Barcode Labels</h1>
-        <p className="text-sm text-muted mb-6">Generate scannable <b>QR</b> labels (default — phone cameras and 2D scanners read them, and they survive smudging) or classic Code-128 barcodes for any product or colour variant. Search a SKU and print a sheet for your tag gun or label printer. The number of labels for each item is <b>pre-filled from its current stock</b> — just print. You can still edit any count if you need more or fewer. Box rows leave this list after print or Delete; printed stickers stay valid at POS.</p>
+        <p className="text-sm text-muted mb-6">Generate scannable <b>QR</b> labels (default — phone cameras and 2D scanners read them, and they survive smudging) or classic Code-128 barcodes for any product or colour variant. Search a SKU and print a sheet for your tag gun or label printer. The number of labels for each item is <b>pre-filled from its current stock</b> — just print. You can still edit any count if you need more or fewer. <b>Printing never removes a box row</b> — reprint any time. Rows leave the list only when you press Delete, and Restore brings them back; printed stickers always stay valid at POS.</p>
       </div>
       <BoxQrMaker products={list.map((p) => ({ sku: p.sku, name: p.name, qty: p.qty }))} groups={boxGroups} />
       <BarcodeSheet products={list} initialSkus={initialSkus} />

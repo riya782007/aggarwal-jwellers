@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { createBoxGroupAction, deleteBoxGroupAction } from "@/app/actions/groups";
 import { makeLabelsPdf } from "@/lib/labelPdf";
 import { formatBoxLabelLine } from "@/lib/boxLabel";
+import { priceCodeFromPaise } from "@/lib/priceCode";
 
-type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number };
+type Box = { id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price?: number; wholesale?: number; hidden?: boolean };
 
 /**
  * Packaging / box QR for an EXISTING product. Mark that this design comes in a box of N and generate
@@ -26,8 +27,10 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
   // One box QR = one sticker per physical box → default the count to boxes-in-stock.
   const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
   const input = "rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
+  // `hidden` is the DB flag (row cleared from the labels list); `hiddenIds` is the optimistic
+  // client-side hide while a Delete is in flight. Restoring a hidden box lives on /admin/barcodes.
   const visibleGroups = useMemo(
-    () => groups.filter((b) => !hiddenIds.has(b.id)),
+    () => groups.filter((b) => !b.hidden && !hiddenIds.has(b.id)),
     [groups, hiddenIds],
   );
 
@@ -41,19 +44,11 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
 
-  // Print then hide from this list only — POS keeps resolving the printed QR.
-  function priceCode(box: Box): string {
-    const intOf = (paise?: number) => {
-      if (paise == null || !Number.isFinite(paise) || paise <= 0) return "";
-      return String(Math.round(paise / 100));
-    };
-    const w = intOf(box.wholesale);
-    const r = intOf(box.price);
-    const mid = w ? `7${w}7` : "";
-    if (!mid && !r) return "";
-    return `A${mid}${r}51`;
-  }
+  /** Same coded price scheme as piece labels: A + 7{wholesale}7 + {retail} + 51 (lib/priceCode). */
+  const priceCode = (box: Box) => priceCodeFromPaise(box.wholesale, box.price);
 
+  // Printing PRINTS — it no longer removes the row (that used to hide the box for good the first
+  // time anyone printed it). Use Delete to clear a row deliberately.
   async function print(box: Box) {
     const n = Math.max(1, Math.floor(Number(counts[box.id] ?? boxesInStock(box)) || 1));
     const code = priceCode(box);
@@ -67,16 +62,9 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     }));
     try {
       await makeLabelsPdf(labels, "print");
-      setHiddenIds((prev) => new Set(prev).add(box.id));
-      const r = await deleteBoxGroupAction(box.id);
-      if (r.ok) {
-        setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"}. Removed from list.`, ok: true });
-        router.refresh();
-      } else {
-        setMsg({ text: `Printed, but could not clear: ${r.error ?? "unknown"}`, ok: false });
-      }
+      setMsg({ text: `Printed ${n} label${n === 1 ? "" : "s"}. The box stays listed — reprint any time.`, ok: true });
     } catch (e: any) {
-      alert(e?.message || "Couldn't generate the labels.");
+      setMsg({ text: e?.message || "Couldn't generate the labels.", ok: false });
     }
   }
 

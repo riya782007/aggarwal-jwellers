@@ -5,6 +5,7 @@ import { Barcode } from "@/components/admin/Barcode";
 import { QrCode } from "@/components/admin/QrCode";
 import { QtyField } from "@/components/admin/QtyField";
 import { makeLabelsPdf } from "@/lib/labelPdf";
+import { formatPriceCode } from "@/lib/priceCode";
 
 type P = {
   sku: string; name: string;
@@ -112,22 +113,11 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
   const input = "w-full rounded-xl border border-sand px-4 py-2.5 text-sm bg-white outline-none focus:border-emerald";
   const cell = "w-24 rounded-lg border border-sand px-2 py-1 text-sm text-right outline-none focus:border-emerald";
 
-  // Owner's price-code scheme (client spec, 16 Jul):
-  //   A  +  7{wholesale}7  +  {retail}  +  51
-  // Starts with "A", wholesale sits between the two 7s, retail follows, always ends "51".
-  // e.g. wholesale 500, retail 1000 -> "A75007100051". Staff decode at a glance; a customer
-  // glancing at the tag can't read either true price. Decimals the owner typed are dropped.
-  const intOf = (v: string) => (v ?? "").trim().split(".")[0].replace(/[^\d]/g, "");
-  const codeWholesale = (v: string) => {
-    const n = intOf(v);
-    return n && Number(n) > 0 ? `7${n}7` : "";
-  };
-  const priceLine = (r: Row) => {
-    const w = opts.wholesale ? codeWholesale(r.wholesale) : "";
-    const p = opts.price ? intOf(r.price) : "";
-    if (!w && !p) return "";
-    return `A${w}${p}51`;
-  };
+  // Owner's price-code scheme (client spec, 16 Jul) — see lib/priceCode.ts, which every label
+  // surface shares so a sticker printed here, from a box QR, or from the catalogue always matches.
+  // The checkboxes decide which halves are included; the format itself lives in one place.
+  const priceLine = (r: Row) =>
+    formatPriceCode(opts.wholesale ? r.wholesale : "", opts.price ? r.price : "");
   // Shape the current print queue for the exact-size PDF (thermal one-click print / save).
   const pdfLabels = () => labels.map((r) => ({
     name: r.name, sku: r.sku, qrValue: qrValue(r.sku), priceLine: priceLine(r),
