@@ -176,7 +176,7 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
   );
 
   return (
-    <div>
+    <div className="pb-28">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-sm text-muted">Signed in as</p>
@@ -209,7 +209,6 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
         </div>
       ) : (
         <>
-          {/* Filters + quick order */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search designs…" className="rounded-full border border-sand px-4 py-2 text-sm outline-none focus:border-emerald flex-1 min-w-[150px]" />
             <select value={cat} onChange={(e) => setCat(e.target.value)} className="rounded-full border border-sand px-4 py-2 text-sm bg-white outline-none focus:border-emerald">
@@ -296,8 +295,8 @@ export function WholesaleCatalog({ products, customerName, minOrder = 1000000, h
             })}
           </div>
 
-          {/* Sticky order bar with ₹3,000 minimum progress */}
-          <div className="sticky bottom-4 mt-4 bg-ink text-cream rounded-2xl shadow-luxe px-5 py-4">
+          {/* Sticky order bar — product count + total stay on screen while scrolling the catalogue */}
+          <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:w-[min(36rem,calc(100vw-4rem))] z-30 bg-ink text-cream rounded-2xl shadow-luxe px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <span className="text-cream/70 text-sm">{itemCount} pcs · {lines.length} design{lines.length === 1 ? "" : "s"}</span>

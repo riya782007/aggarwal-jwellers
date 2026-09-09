@@ -7,7 +7,7 @@ import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing"
 import { resolveBoxScanAction } from "@/app/actions/groups";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
-import { groupCodeFromScan, groupUnitsToAdd } from "@/lib/groupQr";
+import { groupCodeFromScan } from "@/lib/groupQr";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
@@ -61,13 +61,24 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const chargesTotal = Math.max(0, toPaise(packing)) + Math.max(0, toPaise(courier)) + toPaise(adjustment);
   const total = lines.reduce((s, l) => s + effUnit(l) * l.qty, 0) + chargesTotal;
 
-  const add = (p: P) => { setLines((prev) => (prev.find((l) => l.sku === p.sku) ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)) : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }])); setQ(""); };
+  const add = (p: P) => {
+    setLines((prev) => {
+      const i = prev.findIndex((l) => l.sku === p.sku);
+      const next = i < 0
+        ? [{ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: 1, override: "" }, ...prev]
+        : [{ ...prev[i], qty: prev[i].qty + 1 }, ...prev.filter((_, idx) => idx !== i)];
+      linesRef.current = next;
+      return next;
+    });
+    setQ("");
+  };
   function addQty(p: P, n: number) {
     const addN = Math.max(1, Math.floor(n));
     setLines((prev) => {
-      const next = prev.find((l) => l.sku === p.sku)
-        ? prev.map((l) => (l.sku === p.sku ? { ...l, qty: l.qty + addN } : l))
-        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: addN, override: "" }];
+      const i = prev.findIndex((l) => l.sku === p.sku);
+      const next = i < 0
+        ? [{ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, qty: addN, override: "" }, ...prev]
+        : [{ ...prev[i], qty: prev[i].qty + addN }, ...prev.filter((_, idx) => idx !== i)];
       linesRef.current = next;
       return next;
     });
@@ -83,13 +94,9 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
       setScanMsg({ text: "Box…", ok: true });
       const r = await resolveBoxScanAction(groupCode);
       if (r.ok && r.item && r.packQty) {
-        const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
-        const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill);
-        if (addN <= 0) setScanMsg({ text: `${r.item.name}: no stock remaining for this quote`, ok: false });
-        else {
-          addQty({ sku: r.item.sku, name: r.item.name, price: r.item.price, wholesale: r.item.wholesale }, addN);
-          setScanMsg({ text: `Box · ${r.item.name} ×${addN}`, ok: true });
-        }
+        const addN = Math.max(1, Math.floor(Number(r.packQty) || 1));
+        addQty({ sku: r.item.sku, name: r.item.name, price: r.item.price, wholesale: r.item.wholesale }, addN);
+        setScanMsg({ text: `Box · ${r.item.name} ×${addN}`, ok: true });
       } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
       setQ(""); searchRef.current?.focus(); return;
     }
@@ -115,11 +122,14 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
     scanQueueRef.current.push(payload);
     if (scanBusyRef.current) return;
     scanBusyRef.current = true;
-    while (scanQueueRef.current.length) {
-      const next = scanQueueRef.current.shift();
-      if (next) await submitSearch(next);
+    try {
+      while (scanQueueRef.current.length) {
+        const next = scanQueueRef.current.shift();
+        if (next) await submitSearch(next);
+      }
+    } finally {
+      scanBusyRef.current = false;
     }
-    scanBusyRef.current = false;
   }
   useWedgeScanner(ingestScan, searchRef);
   const setOverride = (sku: string, v: string) => setLines((p) => p.map((l) => (l.sku === sku ? { ...l, override: v } : l)));
@@ -218,7 +228,8 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
           <label className="text-[11px] text-muted">Adjust ± ₹<input value={adjustment} onChange={(e) => setAdjustment(e.target.value)} inputMode="decimal" placeholder="0" className={`${input} mt-0.5`} /></label>
         </div>
       )}
-      <div className="flex items-center justify-end gap-3 mt-3">
+      <div className="sticky bottom-2 z-20 flex items-center justify-end gap-3 mt-3 bg-white/95 backdrop-blur rounded-xl px-3 py-2 border border-sand shadow-card">
+        <span className="mr-auto text-sm text-muted">{lines.length} product{lines.length === 1 ? "" : "s"} · {lines.reduce((s, l) => s + l.qty, 0)} pc{lines.reduce((s, l) => s + l.qty, 0) === 1 ? "" : "s"}</span>
         <span className="text-lg font-semibold text-ink whitespace-nowrap">{formatPaise(total)}</span>
         <button onClick={save} disabled={busy || !lines.length} className="btn-primary px-5 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : "Save estimate"}</button>
       </div>

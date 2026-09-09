@@ -140,15 +140,27 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const GST_RATE = 3;
   const gstOnBill = billType === "gst" ? Math.round((total * GST_RATE) / 100) : 0;
   const grandTotal = total + gstOnBill;
+  const pcsCount = lines.reduce((s, l) => s + l.qty, 0);
   const received = payLines.reduce((s, l) => s + (Number(l.amount) || 0) * 100, 0);
   const remaining = grandTotal - received;
   const addPayLine = () => setPayLines((p) => [...p, { methodId: methods[0]?.id ?? "", amount: "" }]);
   const setPayLine = (i: number, patch: Partial<PayLine>) => setPayLines((p) => p.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  /** New and re-scanned lines jump to the top of the bill so the counter sees what just landed. */
+  function bumpLine(prev: Line[], sku: string, create: () => Line, bump: (row: Line) => Line): Line[] {
+    const i = prev.findIndex((l) => l.sku === sku);
+    if (i < 0) return [create(), ...prev];
+    const next = [...prev];
+    const [row] = next.splice(i, 1);
+    return [bump(row), ...next];
+  }
   function addLine(p: P) {
     setLines((prev) => {
-      const next = prev.find((l) => l.sku === p.sku)
-        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + 1 } : l)
-        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }];
+      const next = bumpLine(
+        prev,
+        p.sku,
+        () => ({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }),
+        (row) => ({ ...row, qty: row.qty + 1 }),
+      );
       linesRef.current = next;
       return next;
     });
@@ -158,9 +170,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   function addLineQty(p: P, n: number) {
     const add = Math.max(1, Math.floor(n));
     setLines((prev) => {
-      const next = prev.find((l) => l.sku === p.sku)
-        ? prev.map((l) => l.sku === p.sku ? { ...l, qty: l.qty + add } : l)
-        : [...prev, { sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }];
+      const next = bumpLine(
+        prev,
+        p.sku,
+        () => ({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }),
+        (row) => ({ ...row, qty: row.qty + add }),
+      );
       linesRef.current = next;
       return next;
     });
@@ -216,11 +231,14 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     scanQueueRef.current.push(payload);
     if (scanBusyRef.current) return;
     scanBusyRef.current = true;
-    while (scanQueueRef.current.length) {
-      const next = scanQueueRef.current.shift();
-      if (next) await submitSearch(next);
+    try {
+      while (scanQueueRef.current.length) {
+        const next = scanQueueRef.current.shift();
+        if (next) await submitSearch(next);
+      }
+    } finally {
+      scanBusyRef.current = false;
     }
-    scanBusyRef.current = false;
   }
   useWedgeScanner(ingestScan, searchRef);
 
@@ -455,16 +473,14 @@ export function POSClient({ products, customers = [], methods = [], employees = 
               {billType === "gst" && <label className="text-[11px] text-muted sm:col-span-4">Buyer address<textarea rows={2} value={addr} onChange={(e) => setAddr(e.target.value)} className={`${inp} w-full mt-0.5`} /></label>}
             </div>
           )}
-          {lines.some((l) => l.qty > l.stock) && (
-            <label className="mt-3 flex items-start gap-2 rounded-xl border border-gold/60 bg-gold/10 px-3 py-2 text-xs text-ink cursor-pointer">
-              <input type="checkbox" checked={allowBackorder} onChange={(e) => setAllowBackorder(e.target.checked)} className="mt-0.5" />
-              <span>Some lines exceed stock. Tick to <b>bill as backorder</b> — otherwise blocked to prevent overselling.</span>
-            </label>
-          )}
+          <label className="mt-3 flex items-start gap-2 rounded-xl border border-gold/60 bg-gold/10 px-3 py-2 text-xs text-ink cursor-pointer">
+            <input type="checkbox" checked={allowBackorder} onChange={(e) => setAllowBackorder(e.target.checked)} className="mt-0.5" />
+            <span>Allow backorder — bill even if a scan or box is out of stock. Unticked, oversell is blocked.</span>
+          </label>
         </div>
 
-        {/* Totals + payment — sticky, always visible */}
-        <div className="bg-white rounded-2xl shadow-card p-4 lg:sticky lg:top-3 space-y-1.5 relative z-10 mb-16">
+        {/* Totals + payment — sticky while scrolling the bill */}
+        <div className="bg-white rounded-2xl shadow-card p-4 sticky top-3 space-y-1.5 relative z-10 mb-24">
           <div className="flex justify-between text-sm"><span className="text-muted">Total MRP</span><span className="text-ink/80">{formatPaise(mrpTotal)}</span></div>
           {discountTotal > 0 && <div className="flex justify-between text-sm"><span className="text-muted">Discount</span><span className="text-emerald-dark">− {formatPaise(discountTotal)}</span></div>}
           <div className="flex justify-between text-sm"><span className="text-muted">Net (items)</span><span className="text-ink/80">{formatPaise(itemsTotal)}</span></div>
@@ -515,6 +531,20 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           </button>
         </div>
       </div>
+
+      {lines.length > 0 && (
+        <div className="no-print pointer-events-none fixed bottom-16 left-4 right-16 lg:left-[17rem] z-40">
+          <div className="pointer-events-auto bg-ink text-cream rounded-2xl shadow-luxe px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm">
+              <span className="text-cream/70">{lines.length} product{lines.length === 1 ? "" : "s"} · {pcsCount} pc{pcsCount === 1 ? "" : "s"}</span>
+              <span className="ml-3 text-lg font-semibold text-ivory">{formatPaise(grandTotal)}</span>
+            </p>
+            <button type="button" onClick={complete} disabled={busy || lines.length === 0} className="btn-gold px-4 py-2 text-sm font-medium disabled:opacity-50">
+              {busy ? "Saving…" : "Complete"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
