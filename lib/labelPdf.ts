@@ -10,7 +10,7 @@
  * Points: PDF unit is 1/72 inch. 1in = 72pt, so 4in = 288pt, 2in = 144pt, 1in tall = 72pt.
  */
 import { QR_QUIET_ZONE_MODULES, qrMatrix } from "@/lib/qr";
-import { THERMAL_LABEL, thermalTextBox } from "./boxLabel";
+import { THERMAL_LABEL, thermalTextBox, qrLayout } from "./boxLabel";
 
 export type PdfLabel = {
   name?: string;
@@ -24,7 +24,7 @@ export type PdfLabel = {
   showSku: boolean;
 };
 
-export { formatBoxLabelLine, thermalTextBox, THERMAL_LABEL } from "./boxLabel";
+export { formatBoxLabelLine, thermalTextBox, THERMAL_LABEL, qrLayout, QR_SIZING } from "./boxLabel";
 
 // jsPDF is loaded on demand (only when the owner prints/saves) so it adds no weight to the main
 // bundle. It's SELF-HOSTED from /public — a same-origin script — so it works even when the shop's
@@ -62,19 +62,34 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
     for (let j = 0; j < 2; j++) {
       const lab = labels[i + j];
       if (!lab) continue;
-      const { xoff, tx, maxW } = thermalTextBox(j);
       const PAD = THERMAL_LABEL.pad;
-      const QR = THERMAL_LABEL.qr;
 
-      // QR — LEFT of the label, vertically centred; white around it is the quiet zone.
-      const m = qrMatrix(lab.qrValue);
+      // Build the QR first: how many modules it needs decides both the module size and how much
+      // width is left for the text. A payload the encoder cannot represent names the offending
+      // SKU, instead of failing the whole batch with "Couldn't generate the labels".
+      let m: boolean[][];
+      try {
+        m = qrMatrix(lab.qrValue);
+      } catch (e: any) {
+        throw new Error(`Cannot make a QR for SKU ${lab.sku}: ${e?.message || "payload too long"}. Shorten the code and try again.`);
+      }
       const N = m.length;
-      // Reserve the QR standard's four clear modules on every edge inside the fixed 54pt
-      // label square. The old renderer painted dark modules straight to the square edge,
-      // so thermal-print bleed or neighbouring text could make a valid QR unreadable.
-      const ms = QR / (N + QR_QUIET_ZONE_MODULES * 2);
+
+      // Module size is FIXED (see QR_SIZING). Previously the QR was squeezed into one 54pt box,
+      // so a longer SKU produced smaller, denser modules — the same sticker size but a harder
+      // scan. Now the module stays constant and the square grows instead.
+      const { ok, modulePt: ms, boxPt } = qrLayout(N);
+      if (!ok) {
+        throw new Error(
+          `SKU ${lab.sku} needs a QR too dense to scan reliably on a 2in label. Shorten the SKU (or the box code) and print again.`,
+        );
+      }
+      const { xoff, tx, maxW } = thermalTextBox(j, boxPt);
+
+      // QR — LEFT of the label, vertically centred; white around it is the quiet zone (4 modules
+      // every edge, per the spec, so thermal bleed or neighbouring text cannot eat the pattern).
       const qx = xoff + PAD + QR_QUIET_ZONE_MODULES * ms;
-      const qy = (PH - QR) / 2 + QR_QUIET_ZONE_MODULES * ms;
+      const qy = (PH - boxPt) / 2 + QR_QUIET_ZONE_MODULES * ms;
       doc.setFillColor(0, 0, 0);
       for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {
