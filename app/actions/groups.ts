@@ -147,38 +147,61 @@ export async function deleteBoxGroupAction(
 }
 
 /**
- * One-shot recovery: previously we archived on print/delete, which broke POS scanning
- * of stickers already stuck on boxes. Restore those to active + hidden_from_list so
- * POS works again and they stay off the barcodes list.
+ * Recovery for the old archive-on-print flow: it set status='archived', which broke POS scanning
+ * of stickers already stuck on boxes. Flip those back to active so the counter works again.
+ *
+ * This deliberately does NOT touch hidden_from_list any more. It used to also set
+ * hidden_from_list=true, which — together with migration 0078's bulk update of the same shape —
+ * buried every recovered box QR in an invisible state the owner had no way to undo, so
+ * /admin/barcodes showed an empty list. Visibility is now the owner's call via
+ * restoreHiddenBoxQrsAction / the "Show hidden" toggle on the labels page.
  */
 export async function restoreArchivedBoxQrsForPosAction(): Promise<{ ok: boolean; restored: number; error?: string }> {
   if (!(await requirePerm("catalog.create"))) {
     return { ok: false, restored: 0, error: "not permitted" };
   }
   const sb = supabaseServer();
-  // Prefer setting hidden_from_list if the column exists.
   const { data, error } = await sb
     .from("inventory_groups")
-    .update({ status: "active", hidden_from_list: true })
+    .update({ status: "active" })
     .eq("status", "archived")
     .select("id");
-  if (!error) {
-    const n = (data as any[] | null)?.length ?? 0;
-    if (n) await logActivity({ action: "box_qr_pos_restore", ref: "bulk", detail: `restored ${n} archived box QRs for POS` });
-    revalidatePath("/admin/barcodes");
-    return { ok: true, restored: n };
+  if (error) return { ok: false, restored: 0, error: error.message };
+  const n = (data as any[] | null)?.length ?? 0;
+  if (n) await logActivity({ action: "box_qr_pos_restore", ref: "bulk", detail: `restored ${n} archived box QRs for POS` });
+  revalidatePath("/admin/barcodes");
+  return { ok: true, restored: n };
+}
+
+/**
+ * Put a hidden box QR back on the labels list. The inverse of deleteBoxGroupAction, so a row
+ * removed from the list (or buried by migration 0078) is always recoverable in one click.
+ * Pass no id to restore every hidden row at once.
+ */
+export async function restoreHiddenBoxQrsAction(
+  boxId?: string,
+): Promise<{ ok: boolean; restored: number; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) {
+    return { ok: false, restored: 0, error: "Your role can't manage box QRs (needs catalogue-create)." };
   }
-  // Column missing: just flip status back to active (they will show in the list until hide column exists).
-  if (/hidden_from_list|column|schema cache/i.test(error.message)) {
-    const { data: d2, error: e2 } = await sb
-      .from("inventory_groups")
-      .update({ status: "active" })
-      .eq("status", "archived")
-      .select("id");
-    if (e2) return { ok: false, restored: 0, error: e2.message };
-    const n = (d2 as any[] | null)?.length ?? 0;
-    revalidatePath("/admin/barcodes");
-    return { ok: true, restored: n };
+  const sb = supabaseServer();
+  const id = (boxId ?? "").trim();
+  let q = sb.from("inventory_groups").update({ hidden_from_list: false, status: "active" });
+  q = id ? q.eq("id", id) : q.eq("hidden_from_list", true);
+  const { data, error } = await q.select("id");
+
+  if (error) {
+    // Column not migrated yet → nothing is hidden in the first place, so this is already a no-op.
+    if (/hidden_from_list|column|schema cache/i.test(error.message)) {
+      revalidatePath("/admin/barcodes");
+      return { ok: true, restored: 0 };
+    }
+    return { ok: false, restored: 0, error: error.message || "Could not restore the box QR." };
   }
-  return { ok: false, restored: 0, error: error.message };
+
+  const n = (data as any[] | null)?.length ?? 0;
+  if (n) await logActivity({ action: "box_qr_restored_to_list", ref: id || "bulk", detail: `restored ${n} box QR(s) to the labels list` });
+  revalidatePath("/admin/barcodes");
+  revalidatePath("/admin");
+  return { ok: true, restored: n };
 }

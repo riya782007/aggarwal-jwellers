@@ -911,8 +911,14 @@ export async function getLabelItems(): Promise<LabelItem[]> {
 }
 
 /** Box/group QRs for the label module — each with its target piece SKU, name, LIVE stock and
- *  resolved prices so box stickers print the same staff price code as piece labels (A7w7r51). */
-export async function getBoxGroups(): Promise<{ id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price: number; wholesale: number }[]> {
+ *  resolved prices so box stickers print the same staff price code as piece labels (A7w7r51).
+ *
+ *  Returns EVERY active group, each tagged with `hidden` (the hidden_from_list flag). The list is
+ *  deliberately NOT filtered here: migration 0078 bulk-set hidden_from_list=true on every row that
+ *  had ever been archived, which silently emptied /admin/barcodes with no way to get the rows back.
+ *  The UI now shows unhidden rows by default and offers "Show hidden" + Restore, so a box QR can
+ *  never disappear permanently again. Rows with a missing hidden_from_list column read as false. */
+export async function getBoxGroups(): Promise<{ id: string; code: string; label: string; packQty: number; sku: string; name: string; stock: number; price: number; wholesale: number; hidden: boolean }[]> {
   const sb = supabaseServer();
   const formula = await getPricingFormula();
   // Rich select carries price overrides + hidden_from_list. PostgREST is all-or-nothing: if the
@@ -921,7 +927,7 @@ export async function getBoxGroups(): Promise<{ id: string; code: string; label:
   const RICH = "id,code,label,pack_qty,status,hidden_from_list, product:products(sku,name,qty,base_wholesale,wholesale_override,retail_override,mrp_override), variant:variants(sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override))";
   const BASIC = "id,code,label,pack_qty,status, product:products(sku,name,qty,base_wholesale), variant:variants(sku,color,qty, product:products(name,base_wholesale))";
   let data: any[] | null = null;
-  const rich = await sb.from("inventory_groups").select(RICH).eq("status", "active").or("hidden_from_list.eq.false,hidden_from_list.is.null").order("created_at", { ascending: false });
+  const rich = await sb.from("inventory_groups").select(RICH).eq("status", "active").order("created_at", { ascending: false });
   if (!rich.error && rich.data) {
     data = rich.data as any[];
   } else {
@@ -930,13 +936,14 @@ export async function getBoxGroups(): Promise<{ id: string; code: string; label:
   }
   return (data ?? []).map((g) => {
     const v = g.variant, p = g.product;
+    const hidden = g.hidden_from_list === true;
     if (v) {
       const prod = v.product ?? {};
       const prices = _resolvePrices(Number(prod.base_wholesale ?? 0), formula, overridesOf(v), overridesOf(prod));
-      return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: v.sku, name: `${prod.name ?? ""}${v.color ? " · " + v.color : ""}`, stock: v.qty ?? 0, price: prices.retailPrice, wholesale: prices.wholesaleRate };
+      return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: v.sku, name: `${prod.name ?? ""}${v.color ? " · " + v.color : ""}`, stock: v.qty ?? 0, price: prices.retailPrice, wholesale: prices.wholesaleRate, hidden };
     }
     const prices = _resolvePrices(Number(p?.base_wholesale ?? 0), formula, overridesOf(p));
-    return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: p?.sku ?? "", name: p?.name ?? "", stock: p?.qty ?? 0, price: prices.retailPrice, wholesale: prices.wholesaleRate };
+    return { id: g.id, code: g.code, label: g.label ?? "", packQty: g.pack_qty, sku: p?.sku ?? "", name: p?.name ?? "", stock: p?.qty ?? 0, price: prices.retailPrice, wholesale: prices.wholesaleRate, hidden };
   });
 }
 

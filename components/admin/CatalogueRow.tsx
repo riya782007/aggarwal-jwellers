@@ -6,6 +6,7 @@ import { CatalogueRowActions } from "@/components/admin/CatalogueRowActions";
 import { GeneratePhotoButton } from "@/components/admin/GeneratePhotoButton";
 import { DeleteProductButton } from "@/components/admin/DeleteProductButton";
 import { ProductTags } from "@/components/admin/ProductTags";
+import { PrintLabelsButton } from "@/components/admin/PrintLabelsButton";
 
 type V = { sku: string; color: string | null; qty: number };
 export type CatalogueRowProduct = {
@@ -13,6 +14,8 @@ export type CatalogueRowProduct = {
   image: string | null; categoryName: string; categorySlug: string;
   qty: number; priceLabel: string; offerPct: number; hasOffer: boolean;
   hasAi: boolean; variants: V[]; adminTags: string[]; wholesaleLabel: string;
+  /** Raw paise behind priceLabel / wholesaleLabel — the printed price code needs numbers. */
+  pricePaise?: number; wholesalePaise?: number;
 };
 
 function stockTone(qty: number) {
@@ -135,6 +138,14 @@ export function CatalogueRow({
               <div className="flex flex-wrap items-start gap-2">
                 {canEdit && <Link href={`/admin/catalogue/${p.sku}`} className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs font-medium hover:bg-ink/10 inline-flex items-center gap-1"><Icon g="✎" className="w-3 h-3" />Edit</Link>}
                 <Link href={`/admin/product/${p.sku}`} className="px-3 py-1.5 rounded-full bg-ink/5 text-ink text-xs hover:bg-ink/10">360°</Link>
+                <PrintLabelsButton
+                  sku={p.sku}
+                  name={p.name}
+                  qty={p.qty}
+                  pricePaise={p.pricePaise}
+                  wholesalePaise={p.wholesalePaise}
+                  hasVariants={p.variants.length > 0}
+                />
                 <Link href={`/shop/${p.categorySlug}/${p.sku}`} target="_blank" className="px-3 py-1.5 rounded-full bg-emerald-mist text-emerald-dark text-xs hover:bg-emerald-mist/70">View store <Icon g="↗" className="inline-block align-middle w-[1em] h-[1em]" /></Link>
                 {canAi && (
                   <form action={genContent}>
