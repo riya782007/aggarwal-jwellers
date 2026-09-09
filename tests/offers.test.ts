@@ -22,8 +22,9 @@ describe("deriveOffer", () => {
 describe("liveOffer", () => {
   it("derives an offer from base wholesale + formula", () => {
     const o = liveOffer(15000, DEFAULT_FORMULA); // ₹150 base
-    expect(o.price).toBe(22500); // retail 150×1.5=225 → nearest ×5 → ₹225
-    expect(o.mrp).toBe(60000);   // mrp 150×4=600 → nearest ×5 → ₹600
+    // Below the ₹1500 tier threshold, so retail is 1.6× (see retailMultiplierForBase).
+    expect(o.price).toBe(24000); // retail 150×1.6=240 → nearest ₹10 → ₹240
+    expect(o.mrp).toBe(60000);   // mrp 150×4=600 → ₹600
     expect(o.offerPct).toBeGreaterThan(0);
   });
 });
