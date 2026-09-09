@@ -9,7 +9,7 @@
  *
  * Points: PDF unit is 1/72 inch. 1in = 72pt, so 4in = 288pt, 2in = 144pt, 1in tall = 72pt.
  */
-import { qrMatrix } from "@/lib/qr";
+import { QR_QUIET_ZONE_MODULES, qrMatrix } from "@/lib/qr";
 import { THERMAL_LABEL, thermalTextBox } from "./boxLabel";
 
 export type PdfLabel = {
@@ -69,9 +69,12 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
       // QR — LEFT of the label, vertically centred; white around it is the quiet zone.
       const m = qrMatrix(lab.qrValue);
       const N = m.length;
-      const ms = QR / N;
-      const qx = xoff + PAD;
-      const qy = (PH - QR) / 2;            // centred in the 72pt-tall label
+      // Reserve the QR standard's four clear modules on every edge inside the fixed 54pt
+      // label square. The old renderer painted dark modules straight to the square edge,
+      // so thermal-print bleed or neighbouring text could make a valid QR unreadable.
+      const ms = QR / (N + QR_QUIET_ZONE_MODULES * 2);
+      const qx = xoff + PAD + QR_QUIET_ZONE_MODULES * ms;
+      const qy = (PH - QR) / 2 + QR_QUIET_ZONE_MODULES * ms;
       doc.setFillColor(0, 0, 0);
       for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {

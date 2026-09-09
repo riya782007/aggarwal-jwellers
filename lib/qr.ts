@@ -78,6 +78,9 @@ function formatBits(mask: number): number {
   return ((data << 10) | rem) ^ 0x5412;
 }
 
+/** Required white border around a QR symbol, in modules. */
+export const QR_QUIET_ZONE_MODULES = 4;
+
 /** Encode `text` (byte mode, ECC M). Returns the square module matrix (true = dark). */
 export function qrMatrix(text: string): boolean[][] {
   const bytes: number[] = [];

@@ -67,7 +67,11 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
     if (!code) return { ok: false, error: "empty code" };
     const sb = supabaseServer();
     const exact = escapeIlikeExact(code);
-    const { data: g } = await sb.from("inventory_groups").select("*").ilike("code", exact).maybeSingle();
+    const { data: g, error } = await sb.from("inventory_groups").select("*").ilike("code", exact).maybeSingle();
+    if (error) {
+      console.error("Box QR lookup failed:", error.message);
+      return { ok: false, error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+    }
     if (!g || (g as any).status !== "active") return { ok: false, error: "Box QR not recognised." };
     const formula = await getPricingFormula();
 
@@ -89,8 +93,9 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
     const ps = resolvePrices((prod as any).base_wholesale, formula, overridesOf(prod));
     return { ok: true, code, label: (g as any).label, packQty: (g as any).pack_qty,
       item: { sku: (prod as any).sku, name: (prod as any).name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (prod as any).qty ?? 0, category: "" } };
-  } catch {
-    return { ok: false, error: "lookup failed" };
+  } catch (err) {
+    console.error("Box QR lookup threw:", err);
+    return { ok: false, error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
   }
 }
 
