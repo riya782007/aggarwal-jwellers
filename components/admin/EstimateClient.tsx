@@ -107,10 +107,15 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
     if (exact) { add(exact); setScanMsg({ text: `Added ${exact.name}`, ok: true }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
-    for (const candidate of codes) { found = await resolveSellableSku(candidate); if (found) break; }
-    const p = found ?? (looksLikeSkuScan(source) ? undefined : matches[0]);
+    let lookupError: string | undefined;
+    for (const candidate of codes) {
+      const result = await resolveSellableSku(candidate);
+      if (result.item) { found = result.item; break; }
+      lookupError ||= result.error;
+    }
+    const p = found ?? (!lookupError && !looksLikeSkuScan(source) ? matches[0] : undefined);
     if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}`, ok: true }); }
-    else setScanMsg({ text: `No product “${code}”`, ok: false });
+    else setScanMsg({ text: lookupError ?? `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
   async function ingestScan(raw: string) {

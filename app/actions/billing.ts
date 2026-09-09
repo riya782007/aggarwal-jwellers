@@ -16,41 +16,50 @@ import { escapeIlikeExact, skuCandidatesFromScan } from "@/lib/scan";
  */
 export async function resolveSellableSku(
   skuRaw: string,
-): Promise<{ sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string } | null> {
+): Promise<{ item: { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string } | null; error?: string }> {
   try {
     const candidates = skuCandidatesFromScan(skuRaw);
-    if (!candidates.length) return null;
+    if (!candidates.length) return { item: null };
     const sb = supabaseServer();
     const formula = await getPricingFormula();
 
     for (const sku of candidates) {
       const exact = escapeIlikeExact(sku);
-      const { data: prod } = await sb
+      const { data: prod, error: productError } = await sb
         .from("products")
         .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
         .ilike("sku", exact).limit(1).maybeSingle();
+      if (productError) {
+        console.error("Product SKU lookup failed:", productError.message);
+        return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+      }
       if (prod) {
         const p: any = prod;
         const ps = resolvePrices(p.base_wholesale, formula, overridesOf(p));
-        return { sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: p.qty ?? 0, category: "" };
+        return { item: { sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: p.qty ?? 0, category: "" } };
       }
 
-      const { data: variant } = await sb
+      const { data: variant, error: variantError } = await sb
         .from("variants")
         .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(sku,name,base_wholesale,wholesale_override,retail_override,mrp_override)")
         .ilike("sku", exact).limit(1).maybeSingle();
+      if (variantError) {
+        console.error("Variant SKU lookup failed:", variantError.message);
+        return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+      }
       if (variant) {
         const v: any = variant;
         const p = v.product;
         if (!p) continue;
         const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
-        return { sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: v.qty ?? 0, category: "" };
+        return { item: { sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: v.qty ?? 0, category: "" } };
       }
     }
 
-    return null;
-  } catch {
-    return null;
+    return { item: null };
+  } catch (err) {
+    console.error("SKU lookup failed:", err);
+    return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
   }
 }
 
