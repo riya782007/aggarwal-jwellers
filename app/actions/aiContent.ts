@@ -9,6 +9,38 @@ import { requirePerm } from "@/lib/auth";
 export type ContentResult = { ok: boolean; sku: string; provider?: string; fallbackUsed?: boolean; title?: string; error?: string };
 
 /**
+ * First-name prefixes already used by catalogue titles, so a new listing never reuses one.
+ *
+ * Every generation path must pass these. The "Suggest title" buttons in the product editor did
+ * NOT, which is why one name ended up on 165 products: the writer was never told it was taken.
+ *
+ * Selects just the title (not the whole generated_content blob) and pages past PostgREST's
+ * 1000-row cap — an unpaged read silently stopped at the first 1000 products, so names used by
+ * the newest listings looked free and got handed out again.
+ */
+async function usedTitleNames(excludeProductId?: string): Promise<string[]> {
+  const sb = supabaseServer();
+  const names = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    let q = sb
+      .from("products")
+      .select("title:generated_content->>title")
+      .not("generated_content", "is", null)
+      .range(from, from + PAGE - 1);
+    if (excludeProductId) q = q.neq("id", excludeProductId);
+    const { data, error } = await q;
+    if (error || !data?.length) break;
+    for (const row of data as any[]) {
+      const first = String(row?.title ?? "").trim().split(/\s+/)[0];
+      if (/^[\p{L}][\p{L}'-]*$/u.test(first)) names.add(first);
+    }
+    if ((data as any[]).length < PAGE) break;
+  }
+  return [...names];
+}
+
+/**
  * Downloads the product's best available photo and returns it as base64 so the AI can
  * SEE the piece while writing the title & description. Prefers the owner's raw/source
  * photo, then the AI model shot, then any http image. Best-effort — returns undefined
@@ -39,10 +71,7 @@ export async function generateContentAction(sku: string, keywords?: string[]): P
   const colors = (p.variants ?? []).map((v) => v.color ?? "").filter(Boolean);
   const { imageBase64, imageMime } = await fetchProductImage(p);
   // Give the writer the existing title prefixes so each new listing receives a distinct house name.
-  const { data: existingContent } = await supabaseServer().from("products").select("generated_content").neq("id", p.id).not("generated_content", "is", null);
-  const reservedTitleNames = ((existingContent ?? []) as any[])
-    .map((row) => String(row.generated_content?.title ?? "").trim().split(/\s+/)[0])
-    .filter((value) => /^[\p{L}][\p{L}'-]*$/u.test(value));
+  const reservedTitleNames = await usedTitleNames(p.id);
   const { content, provider, fallbackUsed } = await generateProductContent({
     name: p.name, sku: p.sku, categoryName: p.category?.name, colors,
     keywords: (keywords ?? []).map((k) => k.trim()).filter(Boolean),
@@ -72,6 +101,9 @@ export async function suggestProductTitleAction(input: { name: string; category?
       name, sku: input.sku || name, categoryName: input.category, colors: [],
       keywords: (input.keywords ?? []).map((k) => k.trim()).filter(Boolean),
       imageBase64, imageMime,
+      // Without this the suggester had no idea which names were taken and kept proposing the
+      // same one — this button is where most repeated titles came from.
+      reservedTitleNames: await usedTitleNames(),
     });
     return { ok: true, title: content.title, description: content.description, provider, fallbackUsed, usedImage: !!imageBase64 };
   } catch (e) {
@@ -102,6 +134,7 @@ export async function suggestTitleOptionsAction(input: { name: string; category?
     const { titles } = await generateTitleOptions({
       name, sku: input.sku || name, categoryName: input.category, colors: [],
       keywords: (input.keywords ?? []).map((k) => k.trim()).filter(Boolean), imageBase64, imageMime,
+      reservedTitleNames: await usedTitleNames(),
     });
     return { ok: true, titles };
   } catch (e) {

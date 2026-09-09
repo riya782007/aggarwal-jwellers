@@ -6,7 +6,7 @@
 import "server-only";
 import { AiGateway, z } from "./gateway";
 import { geminiChat, groqChat, openaiChat, geminiTextConfigured, groqConfigured, openaiConfigured } from "./providers";
-import { templateContent, type GeneratedContent, type ProductLike } from "../content";
+import { templateContent, availableDivaNames, type GeneratedContent, type ProductLike } from "../content";
 
 const schema = z.object({
   title: z.string().min(2),
@@ -22,6 +22,12 @@ function prompt(p: ProductLike) {
   const kw = (p.keywords ?? []).filter(Boolean).join(", ");
   const hasImage = !!p.imageBase64;
   const reservedNames = [...new Set((p.reservedTitleNames ?? []).map((name) => name.trim()).filter(Boolean))];
+  // Hand the writer a rotating shortlist of names that are still FREE, seeded per product, rather
+  // than a fixed set of examples. Showing the same handful of example names every time is what
+  // anchored the model on one name; a forbidden list alone could not overcome that pull.
+  const nameChoices = availableDivaNames(reservedNames, 24, `${p.sku ?? ""}|${p.name ?? ""}`);
+  // Cap the forbidden list so a large catalogue cannot crowd out the rest of the prompt.
+  const forbidden = reservedNames.slice(0, 200).join(", ");
   return [
     `You are the senior product copywriter for "Aggarwal Jewellers", a Sadar Bazar (Delhi) jewellery house making bridal, AD (American Diamond), anti-tarnish and daily-wear artificial jewellery (retail + wholesale).`,
     `Write ONE product page as STRICT minified JSON with keys: title, description, specs (object label->value), tags (array), seo (object: metaTitle, metaDescription, keywords array).`,
@@ -39,12 +45,13 @@ function prompt(p: ProductLike) {
         : `• No extra specifications given — infer ONLY from the product name & category; do not invent components or materials.`,
     ``,
     `TITLE — MUST follow Aggarwal Jewellers's exact house style:  «{First name} {material/style descriptors} {jewellery type} with {included pieces}»`,
-    `  1. START with a single elegant UNIQUE Indian girl's first name (e.g. Dhyani, Khyati, Ananya, Rutvika, Nashvika, Drishika, Tanisha, Priyanshi, Nidhi, Gitanjali, Aaradhya, Myra, Vanya…). Choose one that suits the piece; do not always use the same one.${reservedNames.length ? ` These names are already used in the catalogue and are forbidden: ${reservedNames.join(", ")}.` : ""}`,
+    `  1. START with a single elegant Indian girl's first name, chosen from THIS list of names that are still FREE in the catalogue: ${nameChoices.join(", ")}.`,
+    `     Pick the ONE that best suits this piece — vary your choice, and never pick a name outside the list above.${reservedNames.length ? ` The following names are ALREADY USED and are strictly forbidden: ${forbidden}.` : ""}`,
     `  2. Then descriptors drawn ONLY from the name + specifications: material (Kundan, Uncut Kundan, Acrylic Kundan, Meenakari, Temple, Polki, Pearl, Moissanite, Turkish Stone, Crystal, Oxidised…), style/length (Semi Long, Long, Double Layer, Layered, Single Line, Choker…), design (Chandbali, Jhumka, Danglers…).`,
     `  3. Then the jewellery TYPE from the category (Necklace Set, Choker Set, Earrings, Ring, Bracelet…). If it ships with extra pieces, use "Set".`,
     `  4. If the specifications list included pieces (earrings, maang tikka, finger ring…), append "with {those pieces}" — e.g. "with Maang Tikka", "with Maang Tikka and Finger Ring".`,
     `  LENGTH: aim for 5-10 words with 2-4 descriptors — rich like Aggarwal Jewellers's live catalogue, not a bare 3-word title.`,
-    `  REAL live Aggarwal Jewellers titles to mirror in style & length: "Dhyani Semi Long Uncut Kundan Necklace Set with Maang Tikka", "Rutvika Double Layer Uncut Kundan Long Necklace Set with Maang Tikka", "Khyati Layered Kundan Necklace Set with Maang Tikka and Finger Ring", "Ananya Acrylic Kundan Chandbali Hanging Pearls", "Gitanjali Turkish Stone Single Line Choker", "Tanisha Moissanite Choker Set", "Rashika Meenakari Chandbali with Hanging Pearls", "Nidhi Kundan Chandbali with Hanging Jhumka", "Priyanshi Crystal Stone Danglers".`,
+    `  REAL live Aggarwal Jewellers titles to mirror for STRUCTURE, STYLE & LENGTH ONLY — the names are written as {Name} on purpose, because copying a name from an example is what made the catalogue repeat one name hundreds of times. Take the wording pattern from these, take the NAME from the free list above: "{Name} Semi Long Uncut Kundan Necklace Set with Maang Tikka", "{Name} Double Layer Uncut Kundan Long Necklace Set with Maang Tikka", "{Name} Layered Kundan Necklace Set with Maang Tikka and Finger Ring", "{Name} Acrylic Kundan Chandbali Hanging Pearls", "{Name} Turkish Stone Single Line Choker", "{Name} Moissanite Choker Set", "{Name} Meenakari Chandbali with Hanging Pearls", "{Name} Kundan Chandbali with Hanging Jhumka", "{Name} Crystal Stone Danglers".`,
     `  ABSOLUTELY DO NOT put a SKU, any product code, price, hyphen+code, or the word "Aggarwal Jewellers" in the title. Title Case, under ~70 characters.`,
     ``,
     `REGISTER — read the name + specifications and pick the RIGHT voice:`,
@@ -119,11 +126,15 @@ export async function generateTitleOptions(p: ProductLike, n = 4): Promise<{ tit
   const base = await generateProductContent(p);
   const first = base.content.title;
   const titles = new Set<string>([first]);
-  // Deterministic extra options: re-seed the name pool so each option leads differently.
-  const NAMES = ["Aaradhya", "Myra", "Vanya", "Khyati", "Ananya", "Drishika", "Tanisha", "Nidhi", "Gitanjali", "Rutvika"];
+  // Extra options re-seed the name only. This used to draw from a hardcoded list of ten names —
+  // which, with the same ten shown as prompt examples, is why 68% of catalogue titles started
+  // with one of them. Draw from names still FREE in the catalogue instead, and never re-offer
+  // the name the writer just used.
   const words = first.split(" ");
-  for (let i = 0; titles.size < n && i < NAMES.length; i++) {
-    if (/^[A-Z][a-z]+$/.test(words[0])) titles.add([NAMES[i], ...words.slice(1)].join(" "));
+  const taken = [...(p.reservedTitleNames ?? []), words[0] ?? ""];
+  const choices = availableDivaNames(taken, Math.max(n * 3, 12), `${p.sku ?? ""}|${p.name ?? ""}|options`);
+  for (let i = 0; titles.size < n && i < choices.length; i++) {
+    if (/^[A-Z][a-z]+$/.test(words[0])) titles.add([choices[i], ...words.slice(1)].join(" "));
   }
   return { titles: [...titles].slice(0, n), provider: base.provider };
 }

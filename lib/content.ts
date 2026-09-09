@@ -30,18 +30,54 @@ const LOCATION = ["Sadar Bazar", "Rui Mandi", "Delhi", "artificial jewellery who
 const OCCASIONS = ["wedding", "festive", "party wear", "daily wear", "gifting"];
 
 // Aggarwal Jewellers house style: every product title STARTS with a unique Indian girl's first name.
-// Used by the deterministic fallback (the AI picks its own from a wider set).
+// The pool must be much larger than the catalogue's rate of new listings, or names repeat: with a
+// 40-name pool and 1000+ products, the pigeonhole principle alone forces ~28 products per name.
 export const DIVA_NAMES = [
   "Ananya", "Dhyani", "Rutvika", "Khyati", "Nashvika", "Drishika", "Gitanjali", "Tanisha", "Rumatra",
   "Rashika", "Priyanshi", "Nidhi", "Aaradhya", "Ishika", "Myra", "Saanvi", "Vanya", "Aaravi", "Kiara",
   "Anvita", "Reyna", "Navya", "Prisha", "Aadhya", "Mahika", "Siya", "Tara", "Inaya", "Riya", "Avni",
   "Meher", "Kashvi", "Vaidehi", "Charvi", "Diya", "Hiya", "Zara", "Nitya", "Samaira", "Aisha",
+  "Ahana", "Amaira", "Anaya", "Anika", "Arshia", "Advika", "Bhavya", "Chhavi", "Darshika", "Devika",
+  "Eshani", "Elakshi", "Falguni", "Garima", "Gauri", "Hansika", "Harini", "Hemani", "Ira", "Ishani",
+  "Jhanvi", "Jiya", "Kavya", "Ketaki", "Krisha", "Lavanya", "Laasya", "Madhavi", "Mallika", "Manvi",
+  "Mrinalini", "Naisha", "Nandini", "Netra", "Oorja", "Pahal", "Palak", "Parinita", "Rachita",
+  "Radhika", "Raunak", "Rewa", "Ridhima", "Ruhani", "Sanvika", "Sarayu", "Shanaya", "Shreya",
+  "Simran", "Sonal", "Suhani", "Swara", "Tamanna", "Tanvi", "Trisha", "Urvi", "Vaishnavi", "Vamika",
+  "Vedika", "Vidhi", "Vrinda", "Yashika", "Yamini", "Zoya", "Aarohi", "Bhoomi", "Chitra", "Damini",
+  "Ekta", "Geetika", "Heer", "Indira", "Jasleen", "Kimaya", "Leher", "Mehak", "Nayantara", "Ojaswi",
+  "Pihu", "Rujuta", "Sharvi", "Tejal", "Upasana", "Varunika", "Yuvika",
 ];
-/** Deterministic, stable name pick for a product (so its fallback title doesn't change each render). */
-export function pickDivaName(seed: string): string {
+
+/** Case/space-insensitive key so "ananya", "Ananya " and "ANANYA" all count as the same name. */
+const nameKey = (s: string) => String(s ?? "").trim().toLowerCase();
+
+/**
+ * Names not yet used in the catalogue. This is what keeps titles varied: the writer is handed a
+ * shortlist of genuinely FREE names instead of a fixed set of examples it will copy. When every
+ * name is taken the full pool is returned rather than nothing, so a title is still produced.
+ */
+export function availableDivaNames(reserved?: string[], limit = 24, seed = ""): string[] {
+  const used = new Set((reserved ?? []).map(nameKey).filter(Boolean));
+  const free = DIVA_NAMES.filter((n) => !used.has(nameKey(n)));
+  const pool = free.length ? free : DIVA_NAMES.slice();
+  // Rotate by a seed hash so different products are offered different slices of the pool —
+  // otherwise every call shows the same first N names and the model anchors on them again.
+  let h = 0; const s = String(seed ?? "");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  const start = pool.length ? h % pool.length : 0;
+  const rotated = [...pool.slice(start), ...pool.slice(0, start)];
+  return rotated.slice(0, Math.max(1, limit));
+}
+
+/** Deterministic, stable name pick for a product (so its fallback title doesn't change each
+ *  render), skipping names already used elsewhere in the catalogue. */
+export function pickDivaName(seed: string, reserved?: string[]): string {
+  const used = new Set((reserved ?? []).map(nameKey).filter(Boolean));
+  const free = DIVA_NAMES.filter((n) => !used.has(nameKey(n)));
+  const pool = free.length ? free : DIVA_NAMES;
   let h = 0; const s = (seed || "").toString();
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return DIVA_NAMES[h % DIVA_NAMES.length];
+  return pool[h % pool.length];
 }
 
 /** Included accessory pieces detected from the owner's spec keywords (drives "with … " in title/desc). */
@@ -157,7 +193,9 @@ export function templateContent(p: ProductLike): GeneratedContent {
   const baseType = cat.replace(/s$/i, "");
   const type = isSet && !/set/i.test(baseType) ? `${baseType} Set` : (baseType || "Jewellery");
   const catL = type.toLowerCase();
-  const name = pickDivaName(p.sku || p.name);
+  // Skip names already used in the catalogue so the deterministic fallback varies too — it was
+  // hashing over a 40-name pool with no awareness of what was taken.
+  const name = pickDivaName(p.sku || p.name, p.reservedTitleNames);
   const withPieces = pieces.length ? ` with ${joinAnd(pieces)}` : "";
 
   // Prefer the owner's own spec keywords (cleanly parsed & ordered) — this is what he curated, so the
