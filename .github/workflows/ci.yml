@@ -1,0 +1,44 @@
+name: CI
+
+# Every pull request and every push to main gets typechecked, tested and built BEFORE it can
+# reach production. Until this existed nothing ran automatically, which is how a 1969-line
+# lib/supabase/queries.ts reached main as the single word "PLACEHOLDER" and deployed: `tsc`
+# would have rejected it in seconds, but nothing ever ran `tsc`.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch cancels the older run — keeps feedback fast on a busy day.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Catches a file replaced by a stub instantly: a truncated module breaks every import.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Includes tests/no-regressions.test.ts — fails if a tracked file vanished or lost its body.
+      - name: Tests
+        run: npm test
+
+      # Last gate: the app must actually build the way Vercel builds it.
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

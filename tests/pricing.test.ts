@@ -7,19 +7,33 @@ import {
 const F: PricingFormula = DEFAULT_FORMULA;
 
 describe("computePrices", () => {
-  it("computes wholesale/retail/mrp from base wholesale (₹150 base)", () => {
+  // These expectations follow the owner's TIERED retail rule (see retailMultiplierForBase):
+  // base wholesale below ₹1500 → 1.6×, ₹1500 and above → 1.5×, then rounded to the nearest ₹10.
+  // The tier supersedes formula.retailMultiplier for the retail price. Verified against live
+  // catalogue rows: a ₹175 base prices at ₹280, a ₹260 base at ₹420.
+  it("computes wholesale/retail/mrp from base wholesale (₹150 base, cheap tier)", () => {
     const p = computePrices(15000, F); // ₹150 in paise
     expect(p.wholesaleRate).toBe(15000); // 150 as-is (no markup)
-    // Retail ends in 0/5 → 150 * 1.5 = 225 → nearest ×5 → ₹225.
-    expect(p.retailPrice).toBe(22500);
-    // MRP ends in 0/5 → 150 * 4 = 600 → nearest ×5 → ₹600.
+    // Retail: 150 × 1.6 = 240 → nearest ₹10 → ₹240.
+    expect(p.retailPrice).toBe(24000);
+    // MRP: 150 × 4 = 600 → ₹600.
     expect(p.mrp).toBe(60000);
   });
 
-  it("matches the live catalogue example (₹250 base → ₹559 / ₹690)", () => {
+  it("matches the live catalogue example (₹250 base)", () => {
     const p = computePrices(25000, F);
-    expect(p.retailPrice).toBe(37500); // 250*1.5=375 → nearest ×5 → ₹375 — must equal what place_order bills
-    expect(p.mrp).toBe(100000);        // 250*4=1000 → ₹1000
+    // 250 × 1.6 = 400 → ₹400 — must equal what place_order bills.
+    expect(p.retailPrice).toBe(40000);
+    expect(p.mrp).toBe(100000); // 250*4=1000 → ₹1000
+  });
+
+  it("uses the cheaper 1.5× multiplier at and above the ₹1500 tier threshold", () => {
+    const below = computePrices(149900, F); // ₹1499 → 1.6×
+    const at = computePrices(150000, F);    // ₹1500 → 1.5×
+    expect(below.retailPrice).toBe(240000); // 1499 × 1.6 = 2398.4 → nearest ₹10 → ₹2400
+    expect(at.retailPrice).toBe(225000);    // 1500 × 1.5 = 2250 → ₹2250
+    // The tier makes a dearer piece cheaper at retail than the one just below the threshold.
+    expect(at.retailPrice).toBeLessThan(below.retailPrice);
   });
 
   it("rounds to the configured granularity (nearest rupee by default)", () => {
@@ -29,10 +43,15 @@ describe("computePrices", () => {
     expect(p.wholesaleRate % 100).toBe(0);
   });
 
-  it("recomputes when the formula changes (one formula re-prices)", () => {
-    const cheap = computePrices(15000, { ...F, retailMultiplier: 2.0 });
-    const rich = computePrices(15000, { ...F, retailMultiplier: 3.0 });
+  it("prices every piece off one formula, so retail always tracks the base wholesale", () => {
+    // formula.retailMultiplier no longer drives the retail tier — retailMultiplierForBase does —
+    // so this asserts what actually holds: a dearer base always yields a dearer retail price.
+    const cheap = computePrices(15000, F);
+    const rich = computePrices(45000, F);
     expect(rich.retailPrice).toBeGreaterThan(cheap.retailPrice);
+    // The MRP tier still follows the formula's mrpMultiplier.
+    expect(computePrices(15000, { ...F, mrpMultiplier: 6 }).mrp)
+      .toBeGreaterThan(computePrices(15000, { ...F, mrpMultiplier: 4 }).mrp);
   });
 });
 
