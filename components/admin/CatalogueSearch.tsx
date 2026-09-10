@@ -42,6 +42,11 @@ export function CatalogueSearch({
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Every lookup gets a number, and the in-flight one can be cancelled. Without this, a slow reply for
+  // an earlier term could land AFTER a newer one and overwrite the dropdown — which is what made the
+  // search feel like it "showed the wrong products" or jumped around while typing.
+  const seqRef = useRef(0);
+  const acRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -54,7 +59,11 @@ export function CatalogueSearch({
   useEffect(() => {
     if (tRef.current) clearTimeout(tRef.current);
     const q = term.trim();
-    if (q.length < 1) {
+    // Under two characters there is nothing worth asking for — one letter matches most of the
+    // catalogue, which was slow and useless.
+    if (q.length < 2) {
+      acRef.current?.abort();
+      seqRef.current += 1;
       setHits([]);
       setOpen(false);
       setBusy(false);
@@ -62,24 +71,29 @@ export function CatalogueSearch({
     }
     setBusy(true);
     tRef.current = setTimeout(async () => {
+      acRef.current?.abort();
+      const ac = new AbortController();
+      acRef.current = ac;
+      const mySeq = ++seqRef.current;
       try {
-        const r = await fetch(`/api/admin/catalogue-suggest?q=${encodeURIComponent(q)}`, { cache: "no-store" });
-        if (!r.ok) {
-          setHits([]);
-          setBusy(false);
-          return;
-        }
+        const r = await fetch(`/api/admin/catalogue-suggest?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: ac.signal });
+        // A reply for a term the user has already moved on from is thrown away.
+        if (mySeq !== seqRef.current) return;
+        if (!r.ok) { setHits([]); setBusy(false); return; }
         const d = await r.json();
+        if (mySeq !== seqRef.current) return;
         const list: Hit[] = d.hits ?? [];
         setHits(list);
         setOpen(list.length > 0);
         setActive(0);
-      } catch {
-        setHits([]);
+      } catch (e) {
+        // An aborted request is not an error — a newer lookup has already replaced it.
+        if ((e as any)?.name === "AbortError") return;
+        if (mySeq === seqRef.current) setHits([]);
       } finally {
-        setBusy(false);
+        if (mySeq === seqRef.current) setBusy(false);
       }
-    }, 160);
+    }, 220);
     return () => {
       if (tRef.current) clearTimeout(tRef.current);
     };
