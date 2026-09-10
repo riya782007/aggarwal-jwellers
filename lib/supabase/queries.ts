@@ -126,7 +126,17 @@ export async function getStyles(opts: { categoryId?: string } = {}): Promise<{ i
 }
 
 // ---------- efficient, paginated lists (for 10k+ SKUs) ----------
-export async function getProductsPage(opts: { page?: number; pageSize?: number; q?: string; category?: string; status?: string }) {
+/**
+ * Sept 2026 — "the catalogue isn't showing the products we added this morning."
+ *
+ * Nothing was missing: the list was ordered by SKU, 25 to a page. With 1,200+ products, a design saved
+ * this morning as (say) SAMMISET3 lands somewhere around page 40 — so staff added a product, opened
+ * Catalogue, looked at page 1, and could not find it. Every add felt like it had failed.
+ *
+ * The default is now NEWEST FIRST, which is what anyone who has just saved a product expects to see.
+ * Pass sort: "sku" for the old alphabetical order.
+ */
+export async function getProductsPage(opts: { page?: number; pageSize?: number; q?: string; category?: string; status?: string; sort?: "new" | "sku" }) {
   const sb = supabaseServer();
   const pageSize = opts.pageSize ?? 25;
   const page = Math.max(1, opts.page ?? 1);
@@ -138,7 +148,10 @@ export async function getProductsPage(opts: { page?: number; pageSize?: number; 
   }
   if (opts.status && opts.status !== "all") query = query.eq("status", opts.status);
   const fromIdx = (page - 1) * pageSize;
-  const { data, count } = await query.order("sku").range(fromIdx, fromIdx + pageSize - 1);
+  const ordered = (opts.sort ?? "new") === "sku"
+    ? query.order("sku")
+    : query.order("created_at", { ascending: false }).order("sku");
+  const { data, count } = await ordered.range(fromIdx, fromIdx + pageSize - 1);
   const rows = (data as any[]) ?? [];
   // Attach a thumbnail (first real photo) per product so the catalogue list shows real images and
   // can flag drafts that still need one. Fetched separately so a bad embed can't blank the list.

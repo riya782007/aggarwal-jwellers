@@ -16,13 +16,16 @@ import { CatalogueSearch } from "@/components/admin/CatalogueSearch";
 export const metadata = { title: "Owner Console · Catalogue" };
 const PAGE_SIZE = 25;
 
-export default async function AdminCatalogue({ searchParams }: { searchParams: { page?: string; q?: string; category?: string; status?: string } }) {
+export default async function AdminCatalogue({ searchParams }: { searchParams: { page?: string; q?: string; category?: string; status?: string; sort?: string } }) {
   const page = parseInt(searchParams.page ?? "1", 10) || 1;
   const q = searchParams.q ?? "";
   const category = searchParams.category ?? "all";
   const status = searchParams.status ?? "all";
+  // Newest first by default — staff who have just saved a product expect to see it at the top, not
+  // buried on page 40 of an alphabetical list. "SKU A–Z" is still one click away.
+  const sort: "new" | "sku" = searchParams.sort === "sku" ? "sku" : "new";
   const [{ rows, total }, formula, categories] = await Promise.all([
-    getProductsPage({ page, pageSize: PAGE_SIZE, q, category, status }),
+    getProductsPage({ page, pageSize: PAGE_SIZE, q, category, status, sort }),
     getPricingFormula(),
     getCategories(),
   ]);
@@ -77,6 +80,10 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
         <select name="status" defaultValue={status} className={sel}>
           <option value="all">All statuses</option><option value="published">Published</option><option value="draft">Draft</option><option value="flagged">Flagged</option>
         </select>
+        <select name="sort" defaultValue={sort} className={sel} title="Order of the list">
+          <option value="new">Newest first</option>
+          <option value="sku">SKU A–Z</option>
+        </select>
         <button type="submit" className="px-4 py-2 rounded-xl bg-ink text-white text-sm">Search</button>
         {(q || category !== "all" || status !== "all") && <Link href="/admin/catalogue" className="px-3 py-2 text-sm text-muted hover:text-ink self-center">Clear</Link>}
       </form>
@@ -121,7 +128,7 @@ export default async function AdminCatalogue({ searchParams }: { searchParams: {
           </tbody>
         </table>
       </div>
-      <Pager basePath="/admin/catalogue" params={{ q, category, status }} page={page} pageSize={PAGE_SIZE} total={total} />
+      <Pager basePath="/admin/catalogue" params={{ q, category, status, sort }} page={page} pageSize={PAGE_SIZE} total={total} />
     </main>
   );
 }
