@@ -47,6 +47,8 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
   const [rows, setRows] = useState<Row[]>([newRow(), newRow(), newRow()]);
   const [busy, setBusy] = useState(false);
   const [savedSummary, setSavedSummary] = useState<{ created: number; alreadyExisted: number; failed: number; remaining: number } | null>(null);
+  // Live position through the batch, so a 14-row save shows "Saving 6 of 14…" rather than a dead button.
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [labelSkus, setLabelSkus] = useState<string[]>([]); // created SKUs → one-click print in the Label module
 
   const subsForCat = subcategories.filter((s) => s.categoryId === catId);
@@ -107,39 +109,61 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
           qty: Math.max(0, Math.floor(Number(r.qty) || 0)) || 1, rawImageBase64, rawImageMime,
         });
       }
-      const res = await bulkCreateProductsAction({
-        common: { categoryId: catId, subcategoryId: subId || undefined, styleId: styleId || undefined, retailPublish, wholesalePublish, mode },
-        rows: payloadRows,
-      });
-      setBusy(false);
-      if (res.error && res.created === 0) { toast(res.error, "error"); return; }
-      // Map results back to rows. Three outcomes now, not two:
-      //   • saved (or already in the catalogue from an earlier press) → the row is done, drop it
-      //   • failed for a real reason                                  → keep it, with the reason
-      //   • never attempted (the server ran out of time)              → keep it UNTOUCHED, so pressing
-      //     Save again finishes the batch. Before this, unattempted rows silently vanished.
+      // ONE REQUEST PER ROW.
+      //
+      // A product takes several seconds to create (photo upload + product + channel settings + opening
+      // stock), and the host kills any single request at its timeout. Sending all rows in one request
+      // therefore could never work: either the request was killed mid-way (which is what silently saved
+      // 10 products while telling Jatin "0 added · 10 failed"), or it stopped early and only wrote the
+      // one or two rows that fit — 14 designs meant pressing Save 14 times.
+      //
+      // Giving each row its own request gives each row the FULL timeout, so a batch of any size
+      // completes from a single press. The rows are sent in order, one after another, and the counter
+      // below moves as each lands, so staff can see it working instead of staring at a frozen button.
+      const common = { categoryId: catId, subcategoryId: subId || undefined, styleId: styleId || undefined, retailPublish, wholesalePublish, mode };
       const failedByIdx = new Map<number, string>();
-      res.results.forEach((rr, k) => { if (!rr.ok) failedByIdx.set(k, rr.error ?? "Failed"); });
+      const createdSkus: string[] = [];
+      let created = 0;
+      let alreadyExisted = 0;
+
+      for (let k = 0; k < payloadRows.length; k++) {
+        setProgress({ done: k, total: payloadRows.length });
+        try {
+          const res = await bulkCreateProductsAction({ common, rows: [payloadRows[k]] });
+          const rr = res.results?.[0];
+          if (!rr) { failedByIdx.set(k, res.error ?? "Failed"); continue; }
+          if (rr.ok) {
+            if (rr.alreadyExisted) alreadyExisted++; else created++;
+            if (rr.sku) createdSkus.push(rr.sku);
+          } else {
+            failedByIdx.set(k, rr.error ?? "Failed");
+          }
+        } catch (e) {
+          // A row that could not be sent at all stays on screen with its reason; the run continues so
+          // one bad row never blocks the other thirteen.
+          failedByIdx.set(k, e instanceof Error ? e.message : "Could not reach the server");
+        }
+      }
+      setProgress(null);
+      setBusy(false);
+
+      // Rows that saved (or were already in the catalogue from an earlier press) are done and leave the
+      // form. Rows that genuinely failed stay put, with the reason, so nothing is ever silently lost.
       const survivors: Row[] = [];
       toCreate.forEach(({ r }, k) => {
-        if (k >= res.results.length) { survivors.push({ ...r, status: undefined, error: undefined }); return; }
         if (failedByIdx.has(k)) survivors.push({ ...r, status: "error", error: failedByIdx.get(k) });
       });
       const untouched = rows.filter((r) => rowError(r) === "empty");
       setRows(survivors.length || untouched.length ? [...survivors, ...untouched] : [newRow()]);
-      const alreadyExisted = res.alreadyExisted ?? 0;
-      const remaining = res.remaining ?? 0;
-      const failed = res.results.filter((rr) => !rr.ok).length;
-      setSavedSummary({ created: res.created, alreadyExisted, failed, remaining });
-      // Auto-queue every saved product for the Label module (same as single-add), so the owner can
-      // print all the new stickers in one click without hunting for each SKU.
-      const createdSkus = res.results.filter((rr) => rr.ok && rr.sku).map((rr) => rr.sku as string);
+      const failed = failedByIdx.size;
+      setSavedSummary({ created, alreadyExisted, failed, remaining: 0 });
+      // Every SKU from the WHOLE run is queued for the Label module — previously only the last request's
+      // SKUs were kept, so barcode/QR printing covered just the final product instead of all of them.
       setLabelSkus(createdSkus);
-      const bits = [`${res.created} product${res.created === 1 ? "" : "s"} added`];
+      const bits = [`${created} product${created === 1 ? "" : "s"} added`];
       if (alreadyExisted) bits.push(`${alreadyExisted} already saved earlier`);
       if (failed) bits.push(`${failed} failed`);
-      if (remaining) bits.push(`${remaining} left — press Save again`);
-      toast(bits.join(" · "), res.created + alreadyExisted ? "success" : "error");
+      toast(bits.join(" · "), created + alreadyExisted ? "success" : "error");
       router.refresh();
     } catch (e) {
       setBusy(false); toast(e instanceof Error ? e.message : "Something went wrong", "error");
@@ -280,7 +304,11 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
         )}
         <div className="ml-auto flex items-center gap-2">
           <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink">View catalogue →</Link>
-          <button onClick={saveAll} disabled={!canSave} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : `Save ${readyCount} product${readyCount === 1 ? "" : "s"}`}</button>
+          <button onClick={saveAll} disabled={!canSave} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-50">
+            {busy
+              ? (progress ? `Saving ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : "Saving…")
+              : `Save ${readyCount} product${readyCount === 1 ? "" : "s"}`}
+          </button>
         </div>
       </div>
     </div>
