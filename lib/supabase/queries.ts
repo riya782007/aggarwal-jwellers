@@ -249,12 +249,18 @@ export async function getCatalogProducts(opts: { category?: string; subcategory?
   const RICH = "id,sku,name,qty,base_wholesale,wholesale_only,retail_only,wholesale_override,retail_override,mrp_override,generated_content,thumbnail_path,category:categories(name,slug),subcategory:subcategories(name,slug),images:product_images(path,kind,sort),product_labels(label_id,labels(name))";
   const BASIC = "id,sku,name,qty,base_wholesale,wholesale_only,retail_only,wholesale_override,retail_override,mrp_override,generated_content,category:categories(name,slug)";
 
-  let { data, error } = await build(RICH);
-  if (error || data == null) {
+  // Paged with allRows() past PostgREST's 1000-row cap, exactly like getLabelItems and getStorefront.
+  //
+  // Sept 2026: this was a plain select, so it silently returned only the FIRST 1000 products — and it
+  // is ordered by `sku`. Once the catalogue passed 1000 designs, every newly added SKU sorted past the
+  // cap and simply never appeared in the shareable /catalog link the owner sends to customers. The
+  // products were saved and correct; the customer-facing list just stopped at 1000.
+  let data: any[] = await allRows<any>(() => build(RICH));
+  if (!data.length) {
     // Rich embed failed → fetch the proven-safe minimal set (core + category, exactly what the
     // working storefront query uses), then attach images in a SEPARATE query so that no single
     // embedded relation (subcategory / labels / images) can ever blank the whole catalogue.
-    ({ data } = await build(BASIC));
+    data = await allRows<any>(() => build(BASIC));
     const rows = (data as any[]) ?? [];
     const ids = rows.map((p) => (p as any).id);
     if (ids.length) {
@@ -989,7 +995,9 @@ export async function getProductBySku(sku: string): Promise<
 
 export async function getProductSkus(): Promise<{ sku: string; slug: string }[]> {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("sku, category:categories(slug)").eq("status", "published");
+  // Paged: this feeds the sitemap, so a plain select capped at 1000 meant every product past the
+  // thousandth was never submitted to search engines.
+  const data = await allRows<any>(() => sb.from("products").select("sku, category:categories(slug)").eq("status", "published").order("sku"));
   return (data ?? []).map((r: any) => ({ sku: r.sku, slug: r.category?.slug ?? "all" }));
 }
 
@@ -1877,7 +1885,8 @@ export async function getAbandonedCarts() {
 }
 export async function getSitemapData() {
   const sb = supabaseServer();
-  const { data } = await sb.from("products").select("sku, category:categories(slug)").eq("status", "published");
+  // Paged — see getProductSkus. Unpaged, the sitemap stopped at the thousandth product.
+  const data = await allRows<any>(() => sb.from("products").select("sku, category:categories(slug)").eq("status", "published").order("sku"));
   const { data: cats } = await sb.from("categories").select("slug");
   return { products: ((data as any[]) ?? []).map((p) => ({ sku: p.sku, slug: p.category?.slug ?? "all" })), categories: ((cats as any[]) ?? []).map((c) => c.slug) };
 }
@@ -1972,10 +1981,12 @@ export async function getProductsWithMedia() {
   // a hard delete). Filtering with NOT IN (archived,deleted) made Postgres fail casting those unknown
   // labels to the enum, so the whole query errored and the list came back EMPTY. Include every real
   // status (drafts included, so freshly-created pieces show up here to receive their first photo).
-  const { data, error } = await sb.from("products")
+  // Paged: unpaged this stopped at 1000 products ordered by SKU, so a design added today could not be
+  // found on the Product Photos screen at all — the one screen whose entire purpose is giving a NEW
+  // piece its first photo.
+  const data = await allRows<any>(() => sb.from("products")
     .select("id,sku,name,status,category:categories(name,slug), images:product_images(id,path,kind,sort)")
-    .in("status", ["draft", "published", "flagged"]).order("sku");
-  if (error) console.error("getProductsWithMedia:", error.message);
+    .in("status", ["draft", "published", "flagged"]).order("sku"));
   const base = ((data as any[]) ?? []).map((p) => ({
     id: p.id, sku: p.sku, name: p.name, status: p.status, category: p.category?.name ?? "—", categorySlug: p.category?.slug ?? "all",
     images: (p.images ?? []).filter((i: any) => typeof i.path === "string" && i.path.startsWith("http")).sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0)),
