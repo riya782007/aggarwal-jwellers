@@ -11,7 +11,17 @@ import { allRows } from "../pagination";
  * dots, asterisks) so a search string can never break or inject into the query.
  */
 function escLike(s: string): string {
-  return s.trim().replace(/[,()*%.]/g, " ").replace(/\s+/g, " ").trim();
+  // Sept 2026 — the dot used to be stripped here, and that made 101 products unfindable.
+  //
+  // This catalogue's codes contain full stops: BAJDJ.PIN13-HPR, the whole J.PIN series, and so on.
+  // Searching "BAJDJ.PIN13" became "BAJDJ PIN13", which matches nothing, so the Catalogue answered
+  // "No products match" for a product that was sitting right there. Same for any customer search on
+  // a name or GSTIN containing a dot.
+  //
+  // A dot inside the VALUE is safe for PostgREST: an or() term is split into column.operator.value on
+  // the first two dots only, so everything after them — dots included — is taken as the value. What
+  // genuinely must go is the comma and brackets (they end the or() list) and the % and * wildcards.
+  return s.trim().replace(/[,()*%]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export type DbCategory = { id: string; name: string; slug: string };
