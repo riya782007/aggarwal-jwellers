@@ -46,7 +46,7 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
   const [mode, setMode] = useState<"draft" | "publish">("draft");
   const [rows, setRows] = useState<Row[]>([newRow(), newRow(), newRow()]);
   const [busy, setBusy] = useState(false);
-  const [savedSummary, setSavedSummary] = useState<{ created: number; failed: number } | null>(null);
+  const [savedSummary, setSavedSummary] = useState<{ created: number; alreadyExisted: number; failed: number; remaining: number } | null>(null);
   const [labelSkus, setLabelSkus] = useState<string[]>([]); // created SKUs → one-click print in the Label module
 
   const subsForCat = subcategories.filter((s) => s.categoryId === catId);
@@ -113,19 +113,33 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
       });
       setBusy(false);
       if (res.error && res.created === 0) { toast(res.error, "error"); return; }
-      // Map results back to rows: drop the ones that succeeded, keep failures with their reason.
+      // Map results back to rows. Three outcomes now, not two:
+      //   • saved (or already in the catalogue from an earlier press) → the row is done, drop it
+      //   • failed for a real reason                                  → keep it, with the reason
+      //   • never attempted (the server ran out of time)              → keep it UNTOUCHED, so pressing
+      //     Save again finishes the batch. Before this, unattempted rows silently vanished.
       const failedByIdx = new Map<number, string>();
       res.results.forEach((rr, k) => { if (!rr.ok) failedByIdx.set(k, rr.error ?? "Failed"); });
       const survivors: Row[] = [];
-      toCreate.forEach(({ r }, k) => { if (failedByIdx.has(k)) survivors.push({ ...r, status: "error", error: failedByIdx.get(k) }); });
+      toCreate.forEach(({ r }, k) => {
+        if (k >= res.results.length) { survivors.push({ ...r, status: undefined, error: undefined }); return; }
+        if (failedByIdx.has(k)) survivors.push({ ...r, status: "error", error: failedByIdx.get(k) });
+      });
       const untouched = rows.filter((r) => rowError(r) === "empty");
       setRows(survivors.length || untouched.length ? [...survivors, ...untouched] : [newRow()]);
-      setSavedSummary({ created: res.created, failed: res.results.length - res.created });
-      // Auto-queue every created product for the Label module (same as single-add), so the owner can
+      const alreadyExisted = res.alreadyExisted ?? 0;
+      const remaining = res.remaining ?? 0;
+      const failed = res.results.filter((rr) => !rr.ok).length;
+      setSavedSummary({ created: res.created, alreadyExisted, failed, remaining });
+      // Auto-queue every saved product for the Label module (same as single-add), so the owner can
       // print all the new stickers in one click without hunting for each SKU.
       const createdSkus = res.results.filter((rr) => rr.ok && rr.sku).map((rr) => rr.sku as string);
       setLabelSkus(createdSkus);
-      toast(`${res.created} product${res.created === 1 ? "" : "s"} added${res.results.length - res.created ? ` · ${res.results.length - res.created} failed` : ""}`, res.created ? "success" : "error");
+      const bits = [`${res.created} product${res.created === 1 ? "" : "s"} added`];
+      if (alreadyExisted) bits.push(`${alreadyExisted} already saved earlier`);
+      if (failed) bits.push(`${failed} failed`);
+      if (remaining) bits.push(`${remaining} left — press Save again`);
+      toast(bits.join(" · "), res.created + alreadyExisted ? "success" : "error");
       router.refresh();
     } catch (e) {
       setBusy(false); toast(e instanceof Error ? e.message : "Something went wrong", "error");
@@ -133,7 +147,10 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
   }
 
   return (
-    <div className="space-y-5">
+    // pb-28: the last rows must be able to scroll clear of the sticky Save bar AND of the two things
+    // that float over every admin page — the "Hide screen" pill (bottom-left) and the host's
+    // "Powered by Netlify" badge (bottom-right). Staff reported both sitting on top of the buttons.
+    <div className="space-y-5 pb-28">
       {/* After a save — one click to print stickers for every product just added. */}
       {labelSkus.length > 0 && (
         <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
@@ -249,9 +266,18 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
       </section>
 
       {/* Save bar */}
-      <div className="sticky bottom-3 bg-white rounded-2xl border border-sand p-4 shadow-luxe flex flex-wrap items-center gap-3">
+      {/* bottom-20 (not bottom-3): the floating "Hide screen" pill and the host's "Powered by Netlify"
+          badge both sit ~1–4rem off the bottom corners and were covering this bar's text and buttons. */}
+      <div className="sticky bottom-20 z-20 bg-white rounded-2xl border border-sand p-4 shadow-luxe flex flex-wrap items-center gap-3">
         <span className="text-sm"><b className="text-emerald-dark">{readyCount}</b> product{readyCount === 1 ? "" : "s"} ready{errorCount > 0 && <> · <b className="text-rose">{errorCount}</b> with errors</>}</span>
-        {savedSummary && <span className="text-xs text-muted">Last save: {savedSummary.created} added{savedSummary.failed ? `, ${savedSummary.failed} failed` : ""}.</span>}
+        {savedSummary && (
+          <span className="text-xs text-muted">
+            Last save: {savedSummary.created} added
+            {savedSummary.alreadyExisted ? `, ${savedSummary.alreadyExisted} already saved earlier` : ""}
+            {savedSummary.failed ? `, ${savedSummary.failed} failed` : ""}
+            {savedSummary.remaining ? `, ${savedSummary.remaining} left — press Save again` : ""}.
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <Link href="/admin/catalogue" className="text-sm text-muted hover:text-ink">View catalogue →</Link>
           <button onClick={saveAll} disabled={!canSave} className="btn-primary px-6 py-2.5 text-sm font-medium disabled:opacity-50">{busy ? "Saving…" : `Save ${readyCount} product${readyCount === 1 ? "" : "s"}`}</button>

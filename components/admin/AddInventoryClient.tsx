@@ -352,7 +352,9 @@ export function AddInventoryClient({
   const attrLabel: Record<Attr, string> = { color: "colours", size: "sizes", polish: "polishes" };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto space-y-5">
+    // pb-28 gives the form room to scroll clear of the lifted Save bar and of the two controls that
+    // float over every admin page (the "Hide screen" pill, bottom-left; the host badge, bottom-right).
+    <div className="w-full max-w-[1200px] mx-auto space-y-5 pb-28">
       {/* After a save — jump straight to printing this product's barcode stickers (opens Labels with
           the SKU and its variants pre-queued, counts pre-filled from stock). No more hunting for it. */}
       {created && (
@@ -591,7 +593,11 @@ export function AddInventoryClient({
       </section>
 
       {/* ============ SAVE BAR ============ */}
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 bg-cream/80 backdrop-blur rounded-2xl border border-sand px-4 py-3">
+      {/* bottom-20 (not bottom-0): "Save draft" and "Save & continue" sit at the bottom-right, exactly
+          where the host's "Powered by Netlify" badge floats — staff reported it covering both buttons.
+          The "Hide screen" pill floats at the bottom-LEFT at the same height. Lifting the bar clears
+          both; the wrapper's pb-28 keeps the form scrollable past it. */}
+      <div className="sticky bottom-20 z-20 flex flex-wrap items-center justify-end gap-3 bg-cream/80 backdrop-blur rounded-2xl border border-sand px-4 py-3">
         <Link href="/admin/catalogue" className="px-4 py-2 rounded-xl text-sm text-muted hover:text-ink">Cancel</Link>
         <button type="button" onClick={() => save("draft")} disabled={busy} className="px-5 py-2 rounded-xl border border-ink text-ink text-sm font-medium hover:bg-ink hover:text-white disabled:opacity-50">{busy ? "Saving…" : "Save draft"}</button>
         <button type="button" onClick={() => save("publish")} disabled={busy} className="px-5 py-2 rounded-xl bg-emerald text-white text-sm font-medium hover:bg-emerald-dark disabled:opacity-50">{busy ? "Saving…" : "Save & continue"}</button>

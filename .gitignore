@@ -18,3 +18,7 @@ MASTER_CONTEXT_HANDOFF.md
 .vercel
 .env*
 .env.netlify
+
+# Local Netlify folder
+.netlify
+.env.fill

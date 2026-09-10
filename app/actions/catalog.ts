@@ -1059,7 +1059,47 @@ export async function createProductFullAction(
 // ---- Bulk add: many INDIVIDUAL products in one submit, sharing common fields ----
 export type BulkCommon = { categoryId: string; subcategoryId?: string; styleId?: string; retailPublish: boolean; wholesalePublish: boolean; mode: "draft" | "publish"; aiContent?: boolean };
 export type BulkRow = { name: string; manualSku?: string; wholesaleRupees: number; retailRupees?: number | null; mrpRupees?: number | null; qty: number; rawImageBase64?: string; rawImageMime?: string };
-export type BulkResult = { row: number; ok: boolean; name: string; sku?: string; productId?: string; error?: string };
+export type BulkResult = { row: number; ok: boolean; name: string; sku?: string; productId?: string; error?: string; alreadyExisted?: boolean };
+
+/**
+ * How long one bulk call may spend inserting before it hands control back.
+ *
+ * Sept 2026 — rows are created one at a time (~2s each against this database), so a 10-row batch ran
+ * for over 20 seconds and the host killed the request at its 10s limit. The rows KEPT being written,
+ * but the browser only ever saw a failure, so staff pressed Save again — and the second attempt
+ * reported "SKU … is already taken" for every row ("0 added · 10 failed") even though all 10 had in
+ * fact been saved by the first press. That is what cost Jatin 25 minutes on 10 Sept; the 10 products
+ * were in the catalogue the whole time.
+ *
+ * Two changes stop it recurring:
+ *   1. This budget — stop cleanly BEFORE the host kills us and report exactly what was written, so the
+ *      browser always learns the truth. Anything not attempted comes back as `remaining`.
+ *   2. Pressing Save again is now safe: a row whose SKU already belongs to this very same product is
+ *      reported as `alreadyExisted` (a success), not as a failure.
+ */
+const BULK_TIME_BUDGET_MS = 7_500;
+
+/** Not null when a create failed only because this exact product is already in the catalogue. */
+async function bulkRowAlreadySaved(
+  sku: string | undefined,
+  name: string,
+  categoryId: string,
+): Promise<{ id: string; sku: string } | null> {
+  const code = (sku ?? "").trim().toUpperCase();
+  if (!code) return null;
+  const { data } = await supabaseServer()
+    .from("products")
+    .select("id, sku, name, category_id")
+    .ilike("sku", code)
+    .maybeSingle();
+  const row = data as any;
+  if (!row) return null;
+  // Only treat it as "already saved" when it really IS this row. A SKU belonging to a different design
+  // is a genuine clash and must still be reported, or the row would be silently dropped.
+  const sameName = String(row.name ?? "").trim().toLowerCase() === name.trim().toLowerCase();
+  const sameCat = String(row.category_id ?? "") === String(categoryId);
+  return sameName && sameCat ? { id: row.id, sku: row.sku } : null;
+}
 
 /**
  * Create N INDIVIDUAL products from one batch: the common category/sub-category/collection + channels
@@ -1067,14 +1107,19 @@ export type BulkResult = { row: number; ok: boolean; name: string; sku?: string;
  * purely a faster data-entry path — it calls the SAME createProductFullAction as the single form once
  * per row, so there is ZERO separate product logic or schema. 5 rows ⇒ 5 products (never 1 × qty 5).
  */
-export async function bulkCreateProductsAction(input: { common: BulkCommon; rows: BulkRow[] }): Promise<{ ok: boolean; created: number; results: BulkResult[]; error?: string }> {
-  if (!(await requirePerm("catalog.create"))) return { ok: false, created: 0, results: [], error: "Your role can't add products." };
+export async function bulkCreateProductsAction(input: { common: BulkCommon; rows: BulkRow[] }): Promise<{ ok: boolean; created: number; alreadyExisted: number; remaining: number; results: BulkResult[]; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) return { ok: false, created: 0, alreadyExisted: 0, remaining: 0, results: [], error: "Your role can't add products." };
   const rows = input.rows ?? [];
-  if (!rows.length) return { ok: false, created: 0, results: [], error: "Add at least one product row." };
-  if (!input.common?.categoryId) return { ok: false, created: 0, results: [], error: "Pick a common category first." };
+  if (!rows.length) return { ok: false, created: 0, alreadyExisted: 0, remaining: 0, results: [], error: "Add at least one product row." };
+  if (!input.common?.categoryId) return { ok: false, created: 0, alreadyExisted: 0, remaining: 0, results: [], error: "Pick a common category first." };
   const results: BulkResult[] = [];
   let created = 0;
+  let alreadyExisted = 0;
+  const startedAt = Date.now();
+  let attempted = rows.length;
   for (let i = 0; i < rows.length; i++) {
+    // Always do at least one row, then stop while there is still time to answer the browser.
+    if (i > 0 && Date.now() - startedAt > BULK_TIME_BUDGET_MS) { attempted = i; break; }
     const r = rows[i];
     const payload: CreateProductPayload = {
       name: (r.name ?? "").trim(),
@@ -1095,10 +1140,23 @@ export async function bulkCreateProductsAction(input: { common: BulkCommon; rows
       mrpOverrideRupees: r.mrpRupees != null && Number(r.mrpRupees) > 0 ? Number(r.mrpRupees) : null,
     };
     const res = await createProductFullAction(payload);
-    results.push({ row: i, ok: res.ok, name: payload.name, sku: res.sku, productId: res.productId, error: res.error });
-    if (res.ok) created++;
+    if (res.ok) {
+      results.push({ row: i, ok: true, name: payload.name, sku: res.sku, productId: res.productId });
+      created++;
+      continue;
+    }
+    // A SKU clash on a re-press is not a failure — the product is already in the catalogue.
+    if (/already (taken|used)/i.test(res.error ?? "")) {
+      const existing = await bulkRowAlreadySaved(payload.manualSku, payload.name, payload.categoryId);
+      if (existing) {
+        results.push({ row: i, ok: true, alreadyExisted: true, name: payload.name, sku: existing.sku, productId: existing.id });
+        alreadyExisted++;
+        continue;
+      }
+    }
+    results.push({ row: i, ok: false, name: payload.name, sku: res.sku, productId: res.productId, error: res.error });
   }
-  return { ok: created > 0, created, results };
+  return { ok: created + alreadyExisted > 0, created, alreadyExisted, remaining: rows.length - attempted, results };
 }
 
 /**
