@@ -1,6 +1,6 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
@@ -50,6 +50,13 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
   // Live position through the batch, so a 14-row save shows "Saving 6 of 14…" rather than a dead button.
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [labelSkus, setLabelSkus] = useState<string[]>([]); // created SKUs → one-click print in the Label module
+  // The "Print labels" prompt renders at the TOP of the page, but Save lives at the BOTTOM — so
+  // after a save the prompt appeared off-screen above the counter's head and staff reported that
+  // the option to print labels had disappeared. Bring it into view the moment it exists.
+  const labelBoxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (labelSkus.length) labelBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [labelSkus]);
 
   const subsForCat = subcategories.filter((s) => s.categoryId === catId);
   const stylesForCat = styles.filter((s) => s.categoryId === catId);
@@ -177,7 +184,7 @@ export function BulkAddInventory({ categories, subcategories = [], styles = [] }
     <div className="space-y-5 pb-28">
       {/* After a save — one click to print stickers for every product just added. */}
       {labelSkus.length > 0 && (
-        <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div ref={labelBoxRef} className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3 scroll-mt-24">
           <p className="text-sm text-emerald-dark">Added {labelSkus.length} product{labelSkus.length === 1 ? "" : "s"}. Print their barcode stickers now?</p>
           <div className="flex items-center gap-2">
             <Link href={`/admin/barcodes?skus=${encodeURIComponent(labelSkus.join(","))}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print labels</Link>

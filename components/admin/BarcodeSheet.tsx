@@ -237,7 +237,21 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
           </div>
         </div>
 
-        <div className="flex items-center justify-between flex-wrap gap-3 mt-5">
+      </div>
+
+      {/* ── PRINT BAR ──────────────────────────────────────────────────────────────────────────
+          This used to be the last row INSIDE the builder card, which put it in the bottom-right
+          corner of the page — the exact spot two floating controls occupy: the host's
+          "Powered by Netlify" badge (bottom-right) and, until now, the "Hide screen" pill
+          (bottom-left). Once the counter scrolled to the end of the page the badge sat directly
+          on top of the Print button, so staff reported that "the option to print labels is gone".
+          It was never gone; it was underneath.
+
+          Now it is a sticky bar lifted 5rem off the bottom edge (bottom-20), the same lift used by
+          the Add Inventory and Bulk Add save bars. Two things follow: nothing that floats in the
+          bottom corners can cover it, and the Print button stays on screen the whole time you
+          scroll through the label preview below — no scrolling back down to find it. */}
+      <div className={`no-print mb-5 flex items-center justify-between flex-wrap gap-3 rounded-2xl border border-sand bg-white/95 backdrop-blur px-5 py-3 shadow-card${labels.length > 0 ? " sticky bottom-20 z-20" : ""}`}>
           <div className="text-sm text-muted">Total Barcodes <span className="text-ink font-semibold text-base">{labels.length}</span>{labels.length > 0 && <> · ~{Math.ceil(labels.length / per)} {(isThermal ? "strip" : "sheet")}{Math.ceil(labels.length / per) === 1 ? "" : "s"}</>}</div>
           {labels.length > 0 && (
             <div className="flex items-center gap-2">
@@ -256,11 +270,10 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
                   ><Icon g="⬇" className="inline-block align-middle w-[1em] h-[1em]" />Save PDF</button>
                 </>
               ) : (
-                <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print {labels.length}label{labels.length === 1 ? "" : "s"}</button>
+                <button onClick={() => window.print()} className="btn-primary px-6 py-2.5 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />Print {labels.length} label{labels.length === 1 ? "" : "s"}</button>
               )}
             </div>
           )}
-        </div>
       </div>
 
       {/* Printable label grid — density set by paper size via --bc-cols */}

@@ -111,6 +111,13 @@ export function AddInventoryClient({
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ sku: string; box?: boolean } | null>(null); // last saved product → offer to print its labels / box QR
+  // This prompt renders at the TOP of the form while Save sits in the bar at the BOTTOM, so after a
+  // save it appeared off-screen above the counter's head — which is why staff said the option to
+  // print labels had stopped appearing. Scroll it into view as soon as it exists.
+  const createdBoxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (created) createdBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [created]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "w-full rounded-xl border border-sand px-3.5 py-2.5 text-sm bg-white outline-none focus:border-emerald transition-colors";
@@ -358,7 +365,7 @@ export function AddInventoryClient({
       {/* After a save — jump straight to printing this product's barcode stickers (opens Labels with
           the SKU and its variants pre-queued, counts pre-filled from stock). No more hunting for it. */}
       {created && (
-        <div className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div ref={createdBoxRef} className="bg-emerald-mist border border-emerald/30 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3 scroll-mt-24">
           <p className="text-sm text-emerald-dark">Saved <b className="font-mono">{created.sku}</b>.{created.box ? " Its box QR is ready — print it from Labels." : " Print its barcode stickers now?"}</p>
           <div className="flex items-center gap-2">
             <Link href={created.box ? "/admin/barcodes" : `/admin/barcodes?sku=${encodeURIComponent(created.sku)}`} target="_blank" className="btn-primary px-5 py-2 text-sm font-medium"><Icon g="🖶" className="inline-block align-middle w-[1em] h-[1em]" />{created.box ? "Print box QR" : "Print labels"}</Link>

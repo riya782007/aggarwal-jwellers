@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction, setLangAction } from "@/app/actions/auth";
+import { PrivacyToggle } from "@/components/admin/PrivacyShield";
 import { t, LANGS, type Lang, type I18nKey } from "@/lib/i18n";
 
 type L = { href: string; label: I18nKey; icon: string; perm?: string };
@@ -104,6 +105,14 @@ function NavInner({ collapsed, onNavigate, perms, lang, badges = {} }: { collaps
           ))}
         </div>
       </div>
+      {/* Screen — "Hide screen" used to float over the bottom-left of every page, where it covered
+          page controls (on the Labels page, the Label Type selector). It belongs here: staff open
+          the menu to reach it, and it can no longer sit on top of anything. */}
+      <div className="mt-6">
+        {!collapsed && <p className="px-3 mb-1 text-[10px] uppercase tracking-widest text-cream/35">{t(lang, "navScreen")}</p>}
+        <PrivacyToggle collapsed={collapsed} lang={lang} onDone={onNavigate} />
+      </div>
+
       {/* Console language — English / हिन्दी. Saved on the role (staff) or owner settings. */}
       <div className="mt-6">
         {!collapsed && <p className="px-3 mb-1 text-[10px] uppercase tracking-widest text-cream/35">{t(lang, "language")}</p>}

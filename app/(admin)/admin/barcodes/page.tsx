@@ -21,7 +21,11 @@ export default async function Barcodes({ searchParams }: { searchParams: { sku?:
     ...((searchParams?.skus ?? "").split(",")),
   ].map((s) => s.trim()).filter(Boolean);
   return (
-    <main className="p-4 sm:p-6 bg-cream/40 min-h-screen">
+    // pb-28: the page must be able to scroll clear of anything that floats over the bottom of the
+    // viewport — the host's "Powered by Netlify" badge sits bottom-right, exactly where the Print
+    // button used to land, and staff read that as "the print option is gone". Same padding the
+    // Add Inventory and Bulk Add screens already carry, for the same reason.
+    <main className="p-4 sm:p-6 pb-28 bg-cream/40 min-h-screen">
       <div className="no-print">
         <h1 className="font-display text-4xl text-ink mb-1">QR & Barcode Labels</h1>
         <p className="text-sm text-muted mb-6">Generate scannable <b>QR</b> labels (default — phone cameras and 2D scanners read them, and they survive smudging) or classic Code-128 barcodes for any product or colour variant. Search a SKU and print a sheet for your tag gun or label printer. The number of labels for each item is <b>pre-filled from its current stock</b> — just print. You can still edit any count if you need more or fewer. <b>Printing never removes a box row</b> — reprint any time. Rows leave the list only when you press Delete, and Restore brings them back; printed stickers always stay valid at POS.</p>

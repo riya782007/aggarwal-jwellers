@@ -26,6 +26,8 @@ const STR = {
   navGrowth: { en: "Growth", hi: "ग्रोथ" },
   navControl: { en: "Control", hi: "नियंत्रण" },
   navStorefront: { en: "Storefront", hi: "स्टोरफ़्रंट" },
+  // Heading for "Hide screen", which moved out of the floating pill and into the menu (Sept 2026).
+  navScreen: { en: "Screen", hi: "स्क्रीन" },
   // ---- nav: links ----
   dashboard: { en: "Dashboard", hi: "होम / डैशबोर्ड" },
   analytics: { en: "Analytics & SEO", hi: "एनालिटिक्स और SEO" },
