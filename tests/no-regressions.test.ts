@@ -123,6 +123,7 @@ describe("features that were lost and restored stay present", () => {
   // assertion means the next agent that removes one gets a red test naming the feature.
   const CONTRACTS: Array<[string, string, RegExp]> = [
     ["box QR resolves at the POS", "app/actions/groups.ts", /export async function resolveBoxScanAction/],
+    ["legacy BOX:sku:qty stickers parse at POS", "lib/groupQr.ts", /kind: "box"/],
     ["hidden box QRs can be restored", "app/actions/groups.ts", /export async function restoreHiddenBoxQrsAction/],
     ["thermal label PDF export", "lib/labelPdf.ts", /export async function makeLabelsPdf/],
     ["staff price code on labels", "lib/priceCode.ts", /export function formatPriceCode/],

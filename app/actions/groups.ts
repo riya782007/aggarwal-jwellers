@@ -11,8 +11,50 @@ import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { logActivity } from "@/lib/audit";
-import { groupCodeFromScan } from "@/lib/groupQr";
+import { parseGroupScan } from "@/lib/groupQr";
 import { escapeIlikeExact } from "@/lib/scan";
+
+type PieceRow = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string };
+
+async function lookupPieceBySku(sku: string): Promise<PieceRow | null> {
+  const sb = supabaseServer();
+  const formula = await getPricingFormula();
+  const exact = escapeIlikeExact(sku);
+  const { data: prod } = await sb.from("products")
+    .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
+    .ilike("sku", exact).limit(1).maybeSingle();
+  if (prod) {
+    const ps = resolvePrices((prod as any).base_wholesale, formula, overridesOf(prod));
+    return { sku: (prod as any).sku, name: (prod as any).name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (prod as any).qty ?? 0, category: "" };
+  }
+  const { data: v } = await sb.from("variants")
+    .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override)")
+    .ilike("sku", exact).limit(1).maybeSingle();
+  if (!v || !(v as any).product) return null;
+  const p = (v as any).product;
+  const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
+  return { sku: (v as any).sku, name: `${p.name}${(v as any).color ? " · " + (v as any).color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (v as any).qty ?? 0, category: "" };
+}
+
+async function pieceFromGroup(g: any): Promise<PieceRow | null> {
+  const formula = await getPricingFormula();
+  const sb = supabaseServer();
+  if (g.variant_id) {
+    const { data: v } = await sb.from("variants")
+      .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override)")
+      .eq("id", g.variant_id).maybeSingle();
+    if (!v || !(v as any).product) return null;
+    const p = (v as any).product;
+    const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
+    return { sku: (v as any).sku, name: `${p.name}${(v as any).color ? " · " + (v as any).color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (v as any).qty ?? 0, category: "" };
+  }
+  const { data: prod } = await sb.from("products")
+    .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
+    .eq("id", g.product_id).maybeSingle();
+  if (!prod) return null;
+  const ps = resolvePrices((prod as any).base_wholesale, formula, overridesOf(prod));
+  return { sku: (prod as any).sku, name: (prod as any).name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (prod as any).qty ?? 0, category: "" };
+}
 
 const genCode = () => `GRP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
@@ -60,39 +102,66 @@ export type BoxScanResult = {
   error?: string;
 };
 
-/** POS: resolve a scanned box code → the target piece (priced + live stock) + how many the box holds. */
+/** POS: resolve a scanned box code → the target piece (priced + live stock) + how many the box holds.
+ *  Printed stickers stay valid even if the groups row was archived or later recreated as GRP-…. */
 export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> {
   try {
-    const code = groupCodeFromScan(raw) ?? (raw ?? "").trim().toUpperCase();
+    const parsed = parseGroupScan(raw);
+    const code = parsed?.code ?? (raw ?? "").trim().toUpperCase();
     if (!code) return { ok: false, error: "empty code" };
     const sb = supabaseServer();
-    const exact = escapeIlikeExact(code);
-    const { data: g, error } = await sb.from("inventory_groups").select("*").ilike("code", exact).maybeSingle();
-    if (error) {
-      console.error("Box QR lookup failed:", error.message);
-      return { ok: false, error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
-    }
-    if (!g || (g as any).status !== "active") return { ok: false, error: "Box QR not recognised." };
-    const formula = await getPricingFormula();
 
-    if ((g as any).variant_id) {
-      const { data: v } = await sb.from("variants")
-        .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override)")
-        .eq("id", (g as any).variant_id).maybeSingle();
-      if (!v || !(v as any).product) return { ok: false, error: "Box product missing." };
-      const p = (v as any).product;
-      const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
-      return { ok: true, code, label: (g as any).label, packQty: (g as any).pack_qty,
-        item: { sku: (v as any).sku, name: `${p.name}${(v as any).color ? " · " + (v as any).color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (v as any).qty ?? 0, category: "" } };
+    const lookupByCode = async (c: string) => {
+      const exact = escapeIlikeExact(c);
+      const { data: g, error } = await sb.from("inventory_groups").select("*").ilike("code", exact).limit(1).maybeSingle();
+      if (error) {
+        console.error("Box QR lookup failed:", error.message);
+        return { error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." as const, g: null };
+      }
+      return { error: null, g };
+    };
+
+    const fromGroup = async (g: any, packQtyFallback?: number): Promise<BoxScanResult> => {
+      const item = await pieceFromGroup(g);
+      if (!item) return { ok: false, error: "Box product missing." };
+      const packQty = Number((g as any).pack_qty) || packQtyFallback || 1;
+      return { ok: true, code: (g as any).code ?? code, label: (g as any).label, packQty, item };
+    };
+
+    const byCode = await lookupByCode(code);
+    if (byCode.error) return { ok: false, error: byCode.error };
+    // Any stored row (active or archived) is enough — hiding/archiving is list-only.
+    if (byCode.g) return fromGroup(byCode.g, parsed?.kind === "box" ? parsed.packQty : undefined);
+
+    if (parsed?.kind === "box") {
+      // Same design may have been recreated later as a GRP- row; match on piece SKU + pack size.
+      const exactSku = escapeIlikeExact(parsed.sku);
+      const { data: prod } = await sb.from("products").select("id").ilike("sku", exactSku).limit(1).maybeSingle();
+      const { data: variant } = prod
+        ? { data: null }
+        : await sb.from("variants").select("id,product_id").ilike("sku", exactSku).limit(1).maybeSingle();
+      const productId = (prod as any)?.id ?? (variant as any)?.product_id;
+      const variantId = (variant as any)?.id ?? null;
+      if (productId) {
+        let q = sb.from("inventory_groups").select("*").eq("product_id", productId).eq("pack_qty", parsed.packQty);
+        q = variantId ? q.eq("variant_id", variantId) : q.is("variant_id", null);
+        const { data: g2 } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (g2) return fromGroup(g2, parsed.packQty);
+      }
+
+      // Self-contained sticker: the QR already carries the piece SKU and pack count.
+      const item = await lookupPieceBySku(parsed.sku);
+      if (!item) return { ok: false, error: `No product with SKU ${parsed.sku}.` };
+      return {
+        ok: true,
+        code: parsed.code,
+        label: `${item.name} · box of ${parsed.packQty}`,
+        packQty: parsed.packQty,
+        item,
+      };
     }
 
-    const { data: prod } = await sb.from("products")
-      .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
-      .eq("id", (g as any).product_id).maybeSingle();
-    if (!prod) return { ok: false, error: "Box product missing." };
-    const ps = resolvePrices((prod as any).base_wholesale, formula, overridesOf(prod));
-    return { ok: true, code, label: (g as any).label, packQty: (g as any).pack_qty,
-      item: { sku: (prod as any).sku, name: (prod as any).name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (prod as any).qty ?? 0, category: "" } };
+    return { ok: false, error: "Box QR not recognised." };
   } catch (err) {
     console.error("Box QR lookup threw:", err);
     return { ok: false, error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
