@@ -12,6 +12,29 @@ export function groupCodeFromScan(raw: string): string | null {
   // Some wedges drop the hyphen: GRPAB12CD → GRP-AB12CD (stored form).
   const glued = value.match(/^GRP([A-Za-z0-9]{4,})$/i);
   if (glued) return `GRP-${glued[1].toUpperCase()}`;
+
+  /**
+   * LEGACY BOX PAYLOAD — `BOX:<sku>:<packQty>`, e.g. `BOX:AJDH1934:12`.
+   *
+   * Sept 2026, owner: a box QR scanned at the counter answered `No product "BOX:AJDH1934:12"`.
+   *
+   * The sticker was never wrong and neither was the database — inventory_groups holds a row whose
+   * `code` is LITERALLY that string, status active, pack_qty 12. The gap was here: the first 15 box
+   * QRs (24 Aug 2026, 11:08–11:25) were created before the GRP- scheme existed, and this function
+   * only ever learned the GRP- shapes. Returning null made POSClient skip its whole box branch
+   * (`const groupCode = groupCodeFromScan(source); if (groupCode) { …box… }`) and fall through to the
+   * ordinary product search, which of course has no product called "BOX:AJDH1934:12".
+   *
+   * Those 15 stickers are stuck on real boxes on his shelves — they cannot be recalled and reprinted,
+   * so the software has to keep understanding them. The payload IS the stored code, so it is returned
+   * as-is (upper-cased; the lookup is ilike and colons are not escaped by escapeIlikeExact, so it
+   * matches the row exactly).
+   *
+   * Verified against all 15 live codes: BOX:AJDH261:12 … BOX:AJDH1937:12.
+   * The SKU part allows dots because this catalogue has SKUs like BAJDJ.PIN13.
+   */
+  if (/^BOX:[A-Za-z0-9._-]+:\d+$/i.test(value)) return value.toUpperCase();
+
   return null;
 }
 
