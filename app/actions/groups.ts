@@ -220,6 +220,74 @@ export async function deleteBoxGroupAction(
   return { ok: true };
 }
 
+const HIDE_CHUNK = 80;
+
+function uniqueBoxGroupIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of ids) {
+    const id = String(raw ?? "").trim();
+    if (!id || id.length > 80 || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Hide many box QRs from the labels list in one round-trip.
+ *
+ * "Clear all from list" used to call deleteBoxGroupAction once per row. Each call
+ * revalidatePath'd /admin/barcodes, so a list of 125 boxes fired 125 serverless
+ * functions and 125 full-page refetches. On Netlify those pile up, time out, and
+ * the list comes back as if the button did nothing. Individual Delete still
+ * worked because it is one request.
+ *
+ * Stickers stay valid at POS: we only set hidden_from_list, status stays active.
+ */
+export async function hideBoxGroupsAction(
+  ids: string[],
+): Promise<{ ok: boolean; hidden: number; error?: string }> {
+  if (!(await requirePerm("catalog.create"))) {
+    return { ok: false, hidden: 0, error: "Your role can't manage box QRs (needs catalogue-create)." };
+  }
+  const unique = uniqueBoxGroupIds(ids);
+  if (unique.length === 0) return { ok: true, hidden: 0 };
+
+  const sb = supabaseServer();
+  let hidden = 0;
+  for (let i = 0; i < unique.length; i += HIDE_CHUNK) {
+    const chunk = unique.slice(i, i + HIDE_CHUNK);
+    const { data, error } = await sb
+      .from("inventory_groups")
+      .update({ hidden_from_list: true, status: "active" })
+      .in("id", chunk)
+      .select("id");
+    if (error) {
+      if (/hidden_from_list|column|schema cache/i.test(error.message)) {
+        return {
+          ok: false,
+          hidden,
+          error: "Cannot hide box QRs until the list-hide column is applied. Printed stickers are unaffected.",
+        };
+      }
+      return { ok: false, hidden, error: error.message || "Could not clear the list." };
+    }
+    hidden += (data as any[] | null)?.length ?? 0;
+  }
+
+  await logActivity({
+    action: "box_hidden_from_list",
+    ref: "bulk",
+    detail: `list only; hid ${hidden || unique.length} box QR(s); POS still valid`,
+  });
+  revalidatePath("/admin/barcodes");
+  revalidatePath("/admin");
+  // If RLS hides the RETURNING rows, the update still happened — report the asked-for count.
+  return { ok: true, hidden: hidden || unique.length };
+}
+
 /**
  * Recovery for the old archive-on-print flow: it set status='archived', which broke POS scanning
  * of stickers already stuck on boxes. Flip those back to active so the counter works again.

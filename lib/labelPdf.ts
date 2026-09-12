@@ -30,23 +30,36 @@ export { formatBoxLabelLine, thermalTextBox, THERMAL_LABEL } from "./boxLabel";
 // bundle. It's SELF-HOSTED from /public — a same-origin script — so it works even when the shop's
 // network/firewall blocks public CDNs (which is what broke the cdnjs version).
 const JSPDF_URL = "/vendor/jspdf.umd.min.js";
+let jsPdfLoad: Promise<any> | null = null;
 async function loadJsPdf(): Promise<any> {
   const w = window as any;
   if (w.jspdf?.jsPDF) return w.jspdf.jsPDF;
-  await new Promise<void>((resolve, reject) => {
+  if (jsPdfLoad) return jsPdfLoad;
+  jsPdfLoad = new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
     s.src = JSPDF_URL;
     s.async = true;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error("Could not load the PDF library. Reload the page and try again."));
     document.head.appendChild(s);
+  }).then(() => {
+    if (!w.jspdf?.jsPDF) throw new Error("PDF library failed to initialise.");
+    return w.jspdf.jsPDF;
+  }).catch((err) => {
+    jsPdfLoad = null;
+    throw err;
   });
-  if (!w.jspdf?.jsPDF) throw new Error("PDF library failed to initialise.");
-  return w.jspdf.jsPDF;
+  return jsPdfLoad;
+}
+
+/** Warm the PDF library so the first Print click isn't waiting on a script load. */
+export function preloadJsPdf(): void {
+  if (typeof window === "undefined") return;
+  void loadJsPdf().catch(() => { /* print path will surface the error */ });
 }
 
 /**
- * action="print"  → open the PDF in a new tab and auto-trigger the print dialog (no save step).
+ * action="print"  → open the system print dialog on this page (no extra PDF tab).
  * action="download" → save the file to disk.
  * The exact-size PDF is the same either way; "print" is the everyday one-click path.
  */
@@ -141,13 +154,81 @@ export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "downl
     doc.save("aggarwal-labels.pdf");
     return;
   }
-  // One-click print: embed an auto-print action and open the PDF in a new tab, where the browser
-  // pops the print dialog straight away — no "download then open" round-trip.
-  doc.autoPrint();
-  const url = doc.output("bloburl");
-  const win = window.open(url as any, "_blank");
-  if (!win) {
-    // Popup blocked → fall back to a normal download so the labels are never lost.
-    doc.save("aggarwal-labels.pdf");
+  printPdfDocument(doc);
+}
+
+/**
+ * Open the system print dialog in one click.
+ *
+ * The old path was: autoPrint() + window.open(blob URL). Chrome's built-in PDF viewer
+ * ignores PDF OpenAction JavaScript, so the owner got a PDF tab and had to click Print
+ * again. Firefox/Adobe did auto-print, Chrome (what the counter uses) did not.
+ *
+ * We now print from a hidden same-origin iframe so the dialog appears over the labels
+ * page — no extra tab, no second click. QR matrix / quiet zone / page size are unchanged;
+ * this only changes how the already-built PDF is handed to the printer.
+ */
+function printPdfDocument(doc: any): void {
+  const blob: Blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+
+  const fallback = () => {
+    try { doc.autoPrint(); } catch { /* jspdf always has this */ }
+    const win = window.open(url, "_blank");
+    if (!win) {
+      doc.save("aggarwal-labels.pdf");
+      return;
+    }
+    const tryWinPrint = () => {
+      try { win.focus(); win.print(); } catch { /* PDF viewer may own the tab */ }
+    };
+    try { win.addEventListener("load", () => setTimeout(tryWinPrint, 300)); } catch { /* */ }
+    setTimeout(tryWinPrint, 700);
+  };
+
+  if (typeof document === "undefined") {
+    fallback();
+    return;
   }
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("title", "Print labels");
+  iframe.setAttribute("aria-hidden", "true");
+  // Off-screen but non-zero: some PDF plugins skip print() on a 0×0 frame.
+  iframe.style.cssText = "position:fixed;top:0;left:0;width:800px;height:600px;margin:0;border:0;opacity:0;pointer-events:none;z-index:-1;";
+
+  let handedOff = false;
+  const tryPrint = () => {
+    if (handedOff) return;
+    const cw = iframe.contentWindow;
+    if (!cw) {
+      handedOff = true;
+      iframe.remove();
+      fallback();
+      return;
+    }
+    handedOff = true;
+    try {
+      cw.focus();
+      cw.print();
+    } catch {
+      iframe.remove();
+      fallback();
+      return;
+    }
+    const cleanup = () => {
+      setTimeout(() => {
+        try { iframe.remove(); } catch { /* already gone */ }
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    };
+    try { cw.addEventListener("afterprint", cleanup); } catch { /* */ }
+    setTimeout(cleanup, 120_000);
+  };
+
+  iframe.addEventListener("load", () => setTimeout(tryPrint, 400));
+  document.body.appendChild(iframe);
+  iframe.src = url;
+  // Chrome's PDF plugin sometimes never fires load on blob URLs.
+  setTimeout(tryPrint, 1200);
 }

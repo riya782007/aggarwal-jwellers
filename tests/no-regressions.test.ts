@@ -125,7 +125,11 @@ describe("features that were lost and restored stay present", () => {
     ["box QR resolves at the POS", "app/actions/groups.ts", /export async function resolveBoxScanAction/],
     ["legacy BOX:sku:qty stickers parse at POS", "lib/groupQr.ts", /kind: "box"/],
     ["hidden box QRs can be restored", "app/actions/groups.ts", /export async function restoreHiddenBoxQrsAction/],
+    ["clear-all hides box QRs in one request", "app/actions/groups.ts", /export async function hideBoxGroupsAction/],
+    ["clear-all on the labels page uses bulk hide", "components/admin/BoxQrMaker.tsx", /hideBoxGroupsAction/],
     ["thermal label PDF export", "lib/labelPdf.ts", /export async function makeLabelsPdf/],
+    ["thermal print opens the system print dialog", "lib/labelPdf.ts", /function printPdfDocument/],
+    ["jsPDF is warmed before the first Print click", "lib/labelPdf.ts", /export function preloadJsPdf/],
     ["staff price code on labels", "lib/priceCode.ts", /export function formatPriceCode/],
     ["catalogue reads page past the 1000-row cap", "lib/supabase/queries.ts", /allRows/],
     ["POS falls back to a direct SKU lookup", "app/actions/billing.ts", /export async function resolveSellableSku/],
@@ -137,5 +141,23 @@ describe("features that were lost and restored stay present", () => {
 
   it.each(CONTRACTS)("%s", (_label, rel, pattern) => {
     expect(readFileSync(join(ROOT, rel), "utf8")).toMatch(pattern);
+  });
+
+  it("clear-all hides every listed box in one action, not a per-row loop", () => {
+    const src = readFileSync(join(ROOT, "components/admin/BoxQrMaker.tsx"), "utf8");
+    const start = src.indexOf("async function removeAll");
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf("\n  return (", start);
+    const fn = src.slice(start, end === -1 ? undefined : end);
+    expect(fn).toMatch(/hideBoxGroupsAction/);
+    expect(fn).not.toMatch(/deleteBoxGroupAction/);
+    expect(fn).not.toMatch(/for \(const b of snapshot\)/);
+  });
+
+  it("label PDF print still encodes the QR with a quiet zone (scan safety)", () => {
+    const src = readFileSync(join(ROOT, "lib/labelPdf.ts"), "utf8");
+    expect(src).toMatch(/QR_QUIET_ZONE_MODULES/);
+    expect(src).toMatch(/qrMatrix\(lab\.qrValue\)/);
+    expect(src).toMatch(/function printPdfDocument/);
   });
 });

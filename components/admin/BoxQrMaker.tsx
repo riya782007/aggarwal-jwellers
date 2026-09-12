@@ -1,9 +1,9 @@
 "use client";
 import { Icon } from "@/components/ui/Icon";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createBoxGroupAction, deleteBoxGroupAction, restoreHiddenBoxQrsAction } from "@/app/actions/groups";
-import { makeLabelsPdf } from "@/lib/labelPdf";
+import { createBoxGroupAction, deleteBoxGroupAction, hideBoxGroupsAction, restoreHiddenBoxQrsAction } from "@/app/actions/groups";
+import { makeLabelsPdf, preloadJsPdf } from "@/lib/labelPdf";
 import { formatBoxLabelLine } from "@/lib/boxLabel";
 import { priceCodeFromPaise } from "@/lib/priceCode";
 
@@ -30,6 +30,8 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   const [showHidden, setShowHidden] = useState(false);
   const boxesInStock = (b: Box) => Math.max(1, Math.floor((b.stock || 0) / (b.packQty || 1)));
   const input = "w-full rounded-xl border border-sand px-3 py-2 text-sm bg-white outline-none focus:border-emerald";
+
+  useEffect(() => { preloadJsPdf(); }, []);
 
   // `hidden` comes from the DB (rows cleared with Delete, or buried by migration 0078).
   // `hiddenIds` is the optimistic client-side hide while a Delete is in flight.
@@ -150,27 +152,39 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   async function removeAll() {
     if (visibleGroups.length === 0) return;
     if (!confirm(`Remove all ${visibleGroups.length} box QR(s) from this list?\n\nPrinted stickers stay valid at POS.`)) return;
-    setBusy(true); setMsg(null);
     const snapshot = [...visibleGroups];
+    setBusy(true); setMsg(null);
     setHiddenIds((prev) => {
       const next = new Set(prev);
       snapshot.forEach((b) => next.add(b.id));
       return next;
     });
-    let failed = 0;
-    for (const b of snapshot) {
-      const r = await deleteBoxGroupAction(b.id);
-      if (!r.ok) {
-        failed++;
-        setHiddenIds((prev) => { const next = new Set(prev); next.delete(b.id); return next; });
+    try {
+      const r = await hideBoxGroupsAction(snapshot.map((b) => b.id));
+      if (r.ok) {
+        setMsg({
+          text: `Removed ${r.hidden} box QR${r.hidden === 1 ? "" : "s"} from this list.`,
+          ok: true,
+        });
+        router.refresh();
+      } else {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          snapshot.forEach((b) => next.delete(b.id));
+          return next;
+        });
+        setMsg({ text: r.error ?? "Could not clear the list.", ok: false });
       }
+    } catch (e: any) {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        snapshot.forEach((b) => next.delete(b.id));
+        return next;
+      });
+      setMsg({ text: e?.message || "Could not clear the list.", ok: false });
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    router.refresh();
-    setMsg({
-      text: failed ? `Removed most boxes; ${failed} failed.` : `Removed all ${snapshot.length} box QR(s).`,
-      ok: failed === 0,
-    });
   }
 
   return (
@@ -204,7 +218,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">
-        <button onClick={create} disabled={busy} className="btn-primary px-5 py-2 text-sm font-medium disabled:opacity-50">{busy ? "Creating…" : "Create box QR"}</button>
+        <button onClick={create} disabled={busy} className="btn-primary px-5 py-2 text-sm font-medium disabled:opacity-50">{busy ? "Working…" : "Create box QR"}</button>
         {msg && <span className={`text-xs ${msg.ok ? "text-emerald-dark" : "text-rose"}`}>{msg.text}</span>}
       </div>
 

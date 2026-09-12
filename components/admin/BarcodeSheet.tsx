@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Barcode } from "@/components/admin/Barcode";
 import { QrCode } from "@/components/admin/QrCode";
 import { QtyField } from "@/components/admin/QtyField";
-import { makeLabelsPdf } from "@/lib/labelPdf";
+import { makeLabelsPdf, preloadJsPdf } from "@/lib/labelPdf";
 import { formatPriceCode } from "@/lib/priceCode";
 
 type P = {
@@ -59,6 +59,8 @@ export function BarcodeSheet({ products, initialSkus }: { products: P[]; initial
   // no price, nothing). The shop's billing scanner reads that code straight into the POS search.
   // Old stickers that encoded a /p/<sku> URL still scan — the POS extracts the SKU from them too.
   const qrValue = (sku: string) => sku;
+
+  useEffect(() => { preloadJsPdf(); }, []);
 
   const matches = useMemo(
     () => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 10) : []),
