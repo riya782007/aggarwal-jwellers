@@ -124,6 +124,7 @@ describe("features that were lost and restored stay present", () => {
   const CONTRACTS: Array<[string, string, RegExp]> = [
     ["box QR resolves at the POS", "app/actions/groups.ts", /export async function resolveBoxScanAction/],
     ["legacy BOX:sku:qty stickers parse at POS", "lib/groupQr.ts", /kind: "box"/],
+    ["BOX: stickers skip PostgREST colon filters", "lib/groupQr.ts", /groupCodeSafeForPostgrestFilter/],
     ["hidden box QRs can be restored", "app/actions/groups.ts", /export async function restoreHiddenBoxQrsAction/],
     ["clear-all hides box QRs in one request", "app/actions/groups.ts", /export async function hideBoxGroupsAction/],
     ["clear-all on the labels page uses bulk hide", "components/admin/BoxQrMaker.tsx", /hideBoxGroupsAction/],

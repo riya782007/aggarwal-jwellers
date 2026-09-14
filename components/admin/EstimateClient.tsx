@@ -92,7 +92,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
     const groupCode = groupCodeFromScan(source);
     if (groupCode) {
       setScanMsg({ text: "Box…", ok: true });
-      const r = await resolveBoxScanAction(groupCode);
+      const r = await resolveBoxScanAction(source);
       if (r.ok && r.item && r.packQty) {
         const addN = Math.max(1, Math.floor(Number(r.packQty) || 1));
         addQty({ sku: r.item.sku, name: r.item.name, price: r.item.price, wholesale: r.item.wholesale }, addN);

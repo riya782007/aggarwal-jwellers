@@ -11,7 +11,7 @@ import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { logActivity } from "@/lib/audit";
-import { parseGroupScan } from "@/lib/groupQr";
+import { parseGroupScan, groupCodeSafeForPostgrestFilter } from "@/lib/groupQr";
 import { escapeIlikeExact } from "@/lib/scan";
 
 type PieceRow = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string };
@@ -112,13 +112,15 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
     const sb = supabaseServer();
 
     const lookupByCode = async (c: string) => {
+      // BOX:SKU:N cannot be sent as an unquoted PostgREST filter (colons). Skip to the piece fallback.
+      if (!groupCodeSafeForPostgrestFilter(c)) return { error: null as string | null, g: null };
       const exact = escapeIlikeExact(c);
       const { data: g, error } = await sb.from("inventory_groups").select("*").ilike("code", exact).limit(1).maybeSingle();
       if (error) {
         console.error("Box QR lookup failed:", error.message);
         return { error: "Box QR lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." as const, g: null };
       }
-      return { error: null, g };
+      return { error: null as string | null, g };
     };
 
     const fromGroup = async (g: any, packQtyFallback?: number): Promise<BoxScanResult> => {
@@ -129,7 +131,8 @@ export async function resolveBoxScanAction(raw: string): Promise<BoxScanResult> 
     };
 
     const byCode = await lookupByCode(code);
-    if (byCode.error) return { ok: false, error: byCode.error };
+    // A groups-table error must not block a BOX:SKU:N sticker — the QR already has the piece SKU.
+    if (byCode.error && parsed?.kind !== "box") return { ok: false, error: byCode.error };
     // Any stored row (active or archived) is enough — hiding/archiving is list-only.
     if (byCode.g) return fromGroup(byCode.g, parsed?.kind === "box" ? parsed.packQty : undefined);
 

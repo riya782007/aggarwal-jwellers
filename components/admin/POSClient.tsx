@@ -193,7 +193,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     const groupCode = groupCodeFromScan(source);
     if (groupCode) {
       setScanMsg({ text: "Box…", ok: true });
-      const r = await resolveBoxScanAction(groupCode);
+      const r = await resolveBoxScanAction(source);
       if (r.ok && r.item && r.packQty) {
         const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
         const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill, allowBackorder);

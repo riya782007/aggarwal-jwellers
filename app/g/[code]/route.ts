@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { parseGroupScan } from "@/lib/groupQr";
+import { parseGroupScan, groupCodeSafeForPostgrestFilter } from "@/lib/groupQr";
 import { escapeIlikeExact } from "@/lib/scan";
 
 /** Box-sticker URL (`/g/GRP-AB12CD` or `/g/BOX:AJDH1931:12`). HID scanners dump this into POS;
@@ -11,7 +11,11 @@ export async function GET(req: Request, { params }: { params: { code: string } }
   const code = parsed?.code ?? decodeURIComponent(params.code ?? "").trim().toUpperCase();
   if (!code) return NextResponse.redirect(`${base}/shop`, 302);
   const sb = supabaseServer();
-  const { data: g } = await sb.from("inventory_groups").select("product:products(sku), variant:variants(sku)").ilike("code", escapeIlikeExact(code)).limit(1).maybeSingle();
+  let g: any = null;
+  if (groupCodeSafeForPostgrestFilter(code)) {
+    const found = await sb.from("inventory_groups").select("product:products(sku), variant:variants(sku)").ilike("code", escapeIlikeExact(code)).limit(1).maybeSingle();
+    g = found.data;
+  }
   const sku = (g as any)?.variant?.sku || (g as any)?.product?.sku || (parsed?.kind === "box" ? parsed.sku : "");
   if (!sku) return NextResponse.redirect(`${base}/shop`, 302);
   return NextResponse.redirect(`${base}/p/${encodeURIComponent(sku)}`, 302);

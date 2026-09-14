@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupCodeFromScan, groupUnitsToAdd, parseGroupScan } from "../lib/groupQr";
+import { groupCodeFromScan, groupUnitsToAdd, parseGroupScan, groupCodeSafeForPostgrestFilter } from "../lib/groupQr";
 
 describe("group QR scans", () => {
   it("normalizes raw and legacy URL QR payloads", () => {
@@ -21,6 +21,12 @@ describe("group QR scans", () => {
     expect(groupCodeFromScan("BOX;AJDH1931;12")).toBe("BOX:AJDH1931:12");
     expect(groupCodeFromScan("*BOX:AJDH1931:12*")).toBe("BOX:AJDH1931:12");
     expect(groupCodeFromScan("box:bajdj.pin13:6")).toBe("BOX:BAJDJ.PIN13:6");
+  });
+
+  it("does not send BOX:SKU:N through PostgREST eq/ilike (colons break the filter)", () => {
+    expect(groupCodeSafeForPostgrestFilter("GRP-AB12CD")).toBe(true);
+    expect(groupCodeSafeForPostgrestFilter("BOX:AJDH1931:12")).toBe(false);
+    expect(groupCodeSafeForPostgrestFilter("BOX;AJDH1931;12")).toBe(false);
   });
 
   it("does not treat a piece SKU or a product-page QR as a box", () => {

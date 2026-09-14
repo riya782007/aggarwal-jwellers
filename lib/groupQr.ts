@@ -70,6 +70,17 @@ export function groupCodeFromScan(raw: string): string | null {
   return parseGroupScan(raw)?.code ?? null;
 }
 
+/**
+ * PostgREST `eq.` / `ilike.` values are not quoted. A colon in BOX:AJDH1931:12 is parsed as
+ * filter syntax, the groups query errors, and POS used to abort with "temporarily unavailable"
+ * before the self-contained sticker fallback could run. GRP- codes are safe; BOX: payloads are not.
+ */
+export function groupCodeSafeForPostgrestFilter(code: string): boolean {
+  if (!code) return false;
+  // Avoid a `[:` character class — some transformers treat that as a POSIX class.
+  return !code.includes(":") && !code.includes(";") && !code.includes("(") && !code.includes(")") && !code.includes(",");
+}
+
 /** How many piece units a box scan should add. Oversell bills the full pack even if stock is 0. */
 export function groupUnitsToAdd(packQty: number, stockQty: number, alreadyInBill = 0, allowOversell = false): number {
   const pack = Math.max(0, Math.floor(Number(packQty) || 0));
