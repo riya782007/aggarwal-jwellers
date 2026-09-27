@@ -7,8 +7,17 @@ import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing"
 import { resolveBoxScanAction } from "@/app/actions/groups";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
-import { groupCodeFromScan } from "@/lib/groupQr";
+import { groupCodeFromScan, parseGroupScan } from "@/lib/groupQr";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
+import { usePosKeepalive } from "@/components/admin/usePosKeepalive";
+import {
+  enqueueScan,
+  isTransientPosError,
+  localBoxFromCatalog,
+  recallGroupScan,
+  rememberGroupScan,
+  retryLookup,
+} from "@/lib/posLookup";
 
 type P = { sku: string; name: string; price: number; wholesale: number };
 type Cust = { id: string; name: string; phone: string; type: string; gstin: string };
@@ -37,6 +46,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const scanBusyRef = useRef(false);
   const scanQueueRef = useRef<string[]>([]);
   useEffect(() => { linesRef.current = lines; }, [lines]);
+  usePosKeepalive();
 
   const skuIndex = useMemo(() => {
     const m = new Map<string, P>();
@@ -89,52 +99,76 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   async function submitSearch(raw?: string) {
     const source = (raw ?? searchRef.current?.value ?? q).trim();
     if (!source) return;
-    const groupCode = groupCodeFromScan(source);
-    if (groupCode) {
+    const findExact = (codes: string[]) => codes.map((c) => skuIndex.get(c.toLowerCase())).find(Boolean);
+    const parsed = parseGroupScan(source);
+    if (parsed || groupCodeFromScan(source)) {
+      const applyBox = (item: P & { qty?: number; mrp?: number }, packQty: number, cacheCode?: string) => {
+        const addN = Math.max(1, Math.floor(Number(packQty) || 1));
+        addQty({ sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale }, addN);
+        setScanMsg({ text: `Box · ${item.name} ×${addN}`, ok: true });
+        if (cacheCode) {
+          rememberGroupScan(cacheCode, {
+            sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale,
+            mrp: item.mrp ?? item.price, qty: item.qty ?? 0, packQty,
+          });
+        }
+        setQ(""); searchRef.current?.focus();
+      };
+
+      const localBox = localBoxFromCatalog(source, findExact);
+      if (localBox) { applyBox(localBox.item, localBox.packQty, localBox.code); return; }
+
+      const cached = recallGroupScan(parsed?.code ?? groupCodeFromScan(source) ?? "");
+      if (cached) {
+        const live = findExact([cached.sku]);
+        applyBox(live ?? cached, cached.packQty);
+        return;
+      }
+
       setScanMsg({ text: "Box…", ok: true });
-      const r = await resolveBoxScanAction(source);
-      if (r.ok && r.item && r.packQty) {
-        const addN = Math.max(1, Math.floor(Number(r.packQty) || 1));
-        addQty({ sku: r.item.sku, name: r.item.name, price: r.item.price, wholesale: r.item.wholesale }, addN);
-        setScanMsg({ text: `Box · ${r.item.name} ×${addN}`, ok: true });
-      } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      try {
+        const r = await retryLookup(() => resolveBoxScanAction(source), { label: "box QR" });
+        if (r.ok && r.item && r.packQty) {
+          applyBox(r.item, r.packQty, parsed?.code ?? r.code);
+          return;
+        }
+        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      } catch (err) {
+        setScanMsg({
+          text: isTransientPosError(err)
+            ? "Counter is waking up — scan that sticker once more."
+            : "Box QR lookup failed. Scan once more.",
+          ok: false,
+        });
+      }
       setQ(""); searchRef.current?.focus(); return;
     }
     const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const exact = codes.map((c) => skuIndex.get(c.toLowerCase())).find(Boolean);
+    const exact = findExact(codes);
     if (exact) { add(exact); setScanMsg({ text: `Added ${exact.name}`, ok: true }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
     let lookupError: string | undefined;
-    for (const candidate of codes) {
-      const result = await resolveSellableSku(candidate);
-      if (result.item) { found = result.item; break; }
-      lookupError ||= result.error;
+    try {
+      for (const candidate of codes) {
+        const result = await retryLookup(() => resolveSellableSku(candidate), { label: "SKU" });
+        if (result.item) { found = result.item; break; }
+        lookupError ||= result.error;
+      }
+    } catch (err) {
+      lookupError = isTransientPosError(err)
+        ? "Counter is waking up — scan that sticker once more."
+        : "Product lookup failed. Scan once more.";
     }
     const p = found ?? (!lookupError && !looksLikeSkuScan(source) ? matches[0] : undefined);
     if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}`, ok: true }); }
     else setScanMsg({ text: lookupError ?? `No product “${code}”`, ok: false });
     setQ(""); searchRef.current?.focus();
   }
-  async function ingestScan(raw: string) {
-    const payload = raw.trim();
-    if (!payload) return;
-    const now = Date.now();
-    if (payload === lastScanRef.current.code && now - lastScanRef.current.at < 140) return;
-    lastScanRef.current = { code: payload, at: now };
-    scanQueueRef.current.push(payload);
-    if (scanBusyRef.current) return;
-    scanBusyRef.current = true;
-    try {
-      while (scanQueueRef.current.length) {
-        const next = scanQueueRef.current.shift();
-        if (next) await submitSearch(next);
-      }
-    } finally {
-      scanBusyRef.current = false;
-    }
+  function ingestScan(raw: string) {
+    enqueueScan(raw, lastScanRef, scanQueueRef, scanBusyRef, submitSearch);
   }
   useWedgeScanner(ingestScan, searchRef);
   const setOverride = (sku: string, v: string) => setLines((p) => p.map((l) => (l.sku === sku ? { ...l, override: v } : l)));

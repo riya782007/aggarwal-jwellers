@@ -6,11 +6,20 @@ import { formatPaise } from "@/lib/pricing";
 import { posSaleAction } from "@/app/actions/orders";
 import { resolveSellableSku } from "@/app/actions/billing";
 import { resolveBoxScanAction } from "@/app/actions/groups";
-import { groupCodeFromScan, groupUnitsToAdd } from "@/lib/groupQr";
+import { groupCodeFromScan, groupUnitsToAdd, parseGroupScan } from "@/lib/groupQr";
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
+import { usePosKeepalive } from "@/components/admin/usePosKeepalive";
+import {
+  enqueueScan,
+  isTransientPosError,
+  localBoxFromCatalog,
+  recallGroupScan,
+  rememberGroupScan,
+  retryLookup,
+} from "@/lib/posLookup";
 
 type P = { sku: string; name: string; price: number; wholesale: number; mrp: number; category: string; qty: number };
 type Line = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; stock: number; override: string; disc: string };
@@ -73,6 +82,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const [allowBackorder, setAllowBackorder] = useState(false);
   // When on, the printed bill merges a product's colour variants into one line (qty summed).
   const [mergeVariants, setMergeVariants] = useState(false);
+  usePosKeepalive();
 
   const pct = (v: string) => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 100 ? n : 0; };
   const gDisc = pct(globalDisc);
@@ -190,21 +200,53 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   async function submitSearch(raw?: string) {
     const source = (raw ?? searchRef.current?.value ?? q).trim();
     if (!source) return;
-    const groupCode = groupCodeFromScan(source);
-    if (groupCode) {
-      setScanMsg({ text: "Box…", ok: true });
-      const r = await resolveBoxScanAction(source);
-      if (r.ok && r.item && r.packQty) {
-        const alreadyInBill = linesRef.current.find((line) => line.sku === r.item!.sku)?.qty ?? 0;
-        const addN = groupUnitsToAdd(r.packQty, r.item.qty, alreadyInBill, allowBackorder);
-        const available = Math.max(0, r.item.qty - alreadyInBill);
-        if (addN <= 0) setScanMsg({ text: `${r.item.name}: no stock remaining for this bill`, ok: false });
+    const parsed = parseGroupScan(source);
+    if (parsed || groupCodeFromScan(source)) {
+      const applyBox = (item: { sku: string; name: string; price: number; wholesale: number; mrp?: number; qty: number; category?: string }, packQty: number, cacheCode?: string) => {
+        const alreadyInBill = linesRef.current.find((line) => line.sku === item.sku)?.qty ?? 0;
+        const addN = groupUnitsToAdd(packQty, item.qty, alreadyInBill, allowBackorder);
+        const available = Math.max(0, item.qty - alreadyInBill);
+        if (addN <= 0) setScanMsg({ text: `${item.name}: no stock remaining for this bill`, ok: false });
         else {
-          addLineQty(r.item, addN);
-          const short = available < r.packQty;
-          setScanMsg({ text: `Box · ${r.item.name} ×${addN}${short ? ` — only ${available} of ${r.packQty} remaining` : ""}`, ok: !short });
+          addLineQty({ sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale, mrp: item.mrp ?? item.price, category: item.category ?? "", qty: item.qty }, addN);
+          const short = available < packQty;
+          setScanMsg({ text: `Box · ${item.name} ×${addN}${short ? ` — only ${available} of ${packQty} remaining` : ""}`, ok: !short });
         }
-      } else setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+        if (cacheCode) {
+          rememberGroupScan(cacheCode, {
+            sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale,
+            mrp: item.mrp ?? item.price, qty: item.qty, packQty,
+          });
+        }
+        setQ(""); searchRef.current?.focus();
+      };
+
+      const localBox = localBoxFromCatalog(source, findExact);
+      if (localBox) { applyBox(localBox.item, localBox.packQty, localBox.code); return; }
+
+      const cached = recallGroupScan(parsed?.code ?? groupCodeFromScan(source) ?? "");
+      if (cached) {
+        const live = findExact([cached.sku]);
+        applyBox(live ?? { ...cached, category: "" }, cached.packQty);
+        return;
+      }
+
+      setScanMsg({ text: "Box…", ok: true });
+      try {
+        const r = await retryLookup(() => resolveBoxScanAction(source), { label: "box QR" });
+        if (r.ok && r.item && r.packQty) {
+          applyBox(r.item, r.packQty, parsed?.code ?? r.code);
+          return;
+        }
+        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+      } catch (err) {
+        setScanMsg({
+          text: isTransientPosError(err)
+            ? "Counter is waking up — scan that sticker once more."
+            : "Box QR lookup failed. Scan once more.",
+          ok: false,
+        });
+      }
       setQ(""); searchRef.current?.focus(); return;
     }
     const codes = skuCandidatesFromScan(source);
@@ -215,10 +257,16 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
     let lookupError: string | undefined;
-    for (const candidate of codes) {
-      const result = await resolveSellableSku(candidate);
-      if (result.item) { found = result.item; break; }
-      lookupError ||= result.error;
+    try {
+      for (const candidate of codes) {
+        const result = await retryLookup(() => resolveSellableSku(candidate), { label: "SKU" });
+        if (result.item) { found = result.item; break; }
+        lookupError ||= result.error;
+      }
+    } catch (err) {
+      lookupError = isTransientPosError(err)
+        ? "Counter is waking up — scan that sticker once more."
+        : "Product lookup failed. Scan once more.";
     }
     const allowNameFallback = !looksLikeSkuScan(source) && !lookupError;
     const p = found ?? (allowNameFallback ? matches[0] : undefined);
@@ -227,23 +275,8 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     setQ(""); searchRef.current?.focus();
   }
 
-  async function ingestScan(raw: string) {
-    const payload = raw.trim();
-    if (!payload) return;
-    const now = Date.now();
-    if (payload === lastScanRef.current.code && now - lastScanRef.current.at < 140) return;
-    lastScanRef.current = { code: payload, at: now };
-    scanQueueRef.current.push(payload);
-    if (scanBusyRef.current) return;
-    scanBusyRef.current = true;
-    try {
-      while (scanQueueRef.current.length) {
-        const next = scanQueueRef.current.shift();
-        if (next) await submitSearch(next);
-      }
-    } finally {
-      scanBusyRef.current = false;
-    }
+  function ingestScan(raw: string) {
+    enqueueScan(raw, lastScanRef, scanQueueRef, scanBusyRef, submitSearch);
   }
   useWedgeScanner(ingestScan, searchRef);
 
