@@ -109,6 +109,7 @@ describe("critical customer-facing entry points still exist", () => {
     "components/admin/POSClient.tsx",
     "components/admin/BarcodeSheet.tsx",
     "components/admin/BoxQrMaker.tsx",
+    "lib/posLookup.ts",                       // POS scan timeout / queue drain
     "public/vendor/jspdf.umd.min.js",           // self-hosted PDF lib; label printing dies without it
   ];
 
@@ -134,6 +135,13 @@ describe("features that were lost and restored stay present", () => {
     ["staff price code on labels", "lib/priceCode.ts", /export function formatPriceCode/],
     ["catalogue reads page past the 1000-row cap", "lib/supabase/queries.ts", /allRows/],
     ["POS falls back to a direct SKU lookup", "app/actions/billing.ts", /export async function resolveSellableSku/],
+    ["POS box scans retry with a timeout instead of hanging", "components/admin/POSClient.tsx", /retryLookup\(\(\) => resolveBoxScanAction/],
+    ["POS scan queue cannot freeze on a thrown lookup", "components/admin/POSClient.tsx", /enqueueScan/],
+    ["POS still caps a box scan against remaining stock", "components/admin/POSClient.tsx", /groupUnitsToAdd/],
+    ["Estimates box scans retry with a timeout instead of hanging", "components/admin/EstimateClient.tsx", /retryLookup\(\(\) => resolveBoxScanAction/],
+    ["BOX stickers resolve from the in-memory catalogue", "lib/posLookup.ts", /export function localBoxFromCatalog/],
+    ["counter keepalive slides the admin session cookie", "components/admin/usePosKeepalive.ts", /\/admin\/pos-ping/],
+    ["POS ping route exists so middleware slides the cookie", "app/(admin)/admin/pos-ping/route.ts", /export async function GET/],
     ["storefront search box", "components/site/SearchField.tsx", /name="q"/],
     // Add a line here whenever an owner reports a feature lost after a deploy — that is how this
     // list earns its keep. (Once the AI-title-variety branch merges, add:
