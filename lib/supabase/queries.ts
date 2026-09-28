@@ -1885,6 +1885,28 @@ export async function getPosCatalog(): Promise<PosSellable[]> {
   return list;
 }
 
+/** Live stock for the open POS: `{ SKU: qty }` for exactly the SKUs getPosCatalog lists (each
+ *  colour variant, or the product itself when it has none). No prices, no names — just counts,
+ *  so the counter's piggy-backed keepalive ping stays tiny. Returns null if the product read
+ *  failed; SKUs missing from the map are simply left alone by the POS (never reset to 0). */
+export async function getPosStock(): Promise<Record<string, number> | null> {
+  const sb = supabaseServer();
+  const [products, variants] = await Promise.all([
+    allRows<any>(() => sb.from("products").select("id,sku,qty").order("sku")),
+    allRows<any>(() => sb.from("variants").select("sku,qty,product_id").order("sku")),
+  ]);
+  if (!products.length) return null;
+  const hasVariants = new Set<string>();
+  const out: Record<string, number> = {};
+  for (const v of variants) {
+    if (!v?.sku || !v.product_id) continue;
+    hasVariants.add(v.product_id);
+    out[v.sku] = v.qty ?? 0;
+  }
+  for (const p of products) if (p?.sku && !hasVariants.has(p.id)) out[p.sku] = p.qty ?? 0;
+  return out;
+}
+
 export async function getAbandonedCarts() {
   const sb = supabaseServer();
   // 0049: a cart is "abandoned" only after 30 idle minutes — live shoppers aren't leads yet.

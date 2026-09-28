@@ -82,7 +82,51 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const [allowBackorder, setAllowBackorder] = useState(false);
   // When on, the printed bill merges a product's colour variants into one line (qty summed).
   const [mergeVariants, setMergeVariants] = useState(false);
-  usePosKeepalive();
+  // Live copy of the catalogue. The `products` prop is a snapshot taken when Billing was opened
+  // (and AutoRefresh is deliberately off on this screen), so stock added later — purchase entry,
+  // inventory add, another counter's sale — used to show as (0) here all day while Catalogue
+  // showed the real count. The keepalive ping now brings back live counts every 2 minutes.
+  const [catalog, setCatalog] = useState<P[]>(products);
+  useEffect(() => { setCatalog(products); }, [products]);
+  const applyStock = (stock: Record<string, number>) => {
+    const qtyOf = (sku: string) => (typeof stock[sku] === "number" && Number.isFinite(stock[sku]) ? stock[sku] : undefined);
+    setCatalog((prev) => {
+      let changed = false;
+      const next = prev.map((p) => {
+        const q = qtyOf(p.sku);
+        if (q === undefined || q === p.qty) return p;
+        changed = true;
+        return { ...p, qty: q };
+      });
+      return changed ? next : prev;
+    });
+    setLines((prev) => {
+      let changed = false;
+      const next = prev.map((l) => {
+        const q = qtyOf(l.sku);
+        if (q === undefined || q === l.stock) return l;
+        changed = true;
+        return { ...l, stock: q };
+      });
+      if (changed) linesRef.current = next;
+      return changed ? next : prev;
+    });
+  };
+  usePosKeepalive(applyStock);
+  /** Before telling the counter a piece is OUT (or a box is short), confirm with the database —
+   *  the in-memory count may be older than the latest stock entry. Only runs when the local
+   *  count is too low, so normal in-stock scans stay instant and cost no server call. */
+  async function confirmStock<T extends { sku: string; qty: number }>(item: T, need: number): Promise<T> {
+    if (item.qty >= need) return item;
+    try {
+      const r = await retryLookup(() => resolveSellableSku(item.sku), { label: "stock", tries: 1, timeoutMs: 3000 });
+      if (r.item && typeof r.item.qty === "number") {
+        if (r.item.qty !== item.qty) applyStock({ [item.sku]: r.item.qty });
+        return { ...item, qty: r.item.qty };
+      }
+    } catch { /* offline / cold start — fall back to the count we have */ }
+    return item;
+  }
 
   const pct = (v: string) => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 100 ? n : 0; };
   const gDisc = pct(globalDisc);
@@ -125,14 +169,14 @@ export function POSClient({ products, customers = [], methods = [], employees = 
 
   const skuIndex = useMemo(() => {
     const m = new Map<string, P>();
-    for (const p of products) m.set(p.sku.toLowerCase(), p);
+    for (const p of catalog) m.set(p.sku.toLowerCase(), p);
     return m;
-  }, [products]);
+  }, [catalog]);
   const matches = useMemo(() => {
     if (!q.trim()) return [];
     const s = q.toLowerCase();
-    return products.filter((p) => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s) || p.category.toLowerCase().includes(s)).slice(0, 8);
-  }, [q, products]);
+    return catalog.filter((p) => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s) || p.category.toLowerCase().includes(s)).slice(0, 8);
+  }, [q, catalog]);
   function findExact(codes: string[]) {
     for (const c of codes) {
       const hit = skuIndex.get(c.toLowerCase());
@@ -169,7 +213,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         prev,
         p.sku,
         () => ({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: 1, stock: p.qty, override: "", disc: "" }),
-        (row) => ({ ...row, qty: row.qty + 1 }),
+        (row) => ({ ...row, qty: row.qty + 1, stock: p.qty }),
       );
       linesRef.current = next;
       return next;
@@ -184,7 +228,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         prev,
         p.sku,
         () => ({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale, mrp: p.mrp, qty: add, stock: p.qty, override: "", disc: "" }),
-        (row) => ({ ...row, qty: row.qty + add }),
+        (row) => ({ ...row, qty: row.qty + add, stock: p.qty }),
       );
       linesRef.current = next;
       return next;
@@ -221,13 +265,23 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         setQ(""); searchRef.current?.focus();
       };
 
+      // Local/cached box hits use in-memory stock; if that looks short, re-check the DB first so a
+      // restocked box isn't refused with "no stock remaining".
+      const inBill = (sku: string) => linesRef.current.find((line) => line.sku === sku)?.qty ?? 0;
+      const boxNeed = (sku: string, packQty: number) => (allowBackorder ? 0 : packQty + inBill(sku));
+
       const localBox = localBoxFromCatalog(source, findExact);
-      if (localBox) { applyBox(localBox.item, localBox.packQty, localBox.code); return; }
+      if (localBox) {
+        const item = await confirmStock(localBox.item, boxNeed(localBox.item.sku, localBox.packQty));
+        applyBox(item, localBox.packQty, localBox.code);
+        return;
+      }
 
       const cached = recallGroupScan(parsed?.code ?? groupCodeFromScan(source) ?? "");
       if (cached) {
         const live = findExact([cached.sku]);
-        applyBox(live ?? { ...cached, category: "" }, cached.packQty);
+        const item = await confirmStock(live ?? { ...cached, category: "" }, boxNeed(cached.sku, cached.packQty));
+        applyBox(item, cached.packQty);
         return;
       }
 
@@ -252,7 +306,8 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const exact = findExact(codes);
+    const local = findExact(codes);
+    const exact = local ? await confirmStock(local, (linesRef.current.find((l) => l.sku === local.sku)?.qty ?? 0) + 1) : undefined;
     if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
     let found = null;
@@ -364,7 +419,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           {matches.length > 0 && (
             <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
               {matches.map((p) => (
-                <button type="button" key={p.sku} onClick={() => { addLine(p); searchRef.current?.focus(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-mist flex justify-between items-center">
+                <button type="button" key={p.sku} onClick={() => { addLine(p); if (p.qty <= 0) void confirmStock(p, 1); searchRef.current?.focus(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-emerald-mist flex justify-between items-center">
                   <span className="truncate">{p.name} <span className="text-muted">· {p.sku}</span> <span className={`text-[11px] ${p.qty <= 0 ? "text-rose" : "text-muted"}`}>({p.qty})</span></span>
                   <span className="text-ink shrink-0 ml-2">{formatPaise(baseUnit(p))}</span>
                 </button>
