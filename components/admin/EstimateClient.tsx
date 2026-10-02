@@ -7,6 +7,9 @@ import { createEstimateAction, resolveSellableSku } from "@/app/actions/billing"
 import { resolveBoxScanAction } from "@/app/actions/groups";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
+import { buildSkuIndex, matchSku, suggestSkus } from "@/lib/skuMatch";
+import { scanFeedback } from "@/lib/scanFeedback";
+import { CameraScanner } from "@/components/admin/CameraScanner";
 import { groupCodeFromScan, parseGroupScan } from "@/lib/groupQr";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 import { usePosKeepalive } from "@/components/admin/usePosKeepalive";
@@ -14,6 +17,7 @@ import {
   enqueueScan,
   isTransientPosError,
   localBoxFromCatalog,
+  localGroupFromIndex,
   recallGroupScan,
   rememberGroupScan,
   retryLookup,
@@ -26,7 +30,13 @@ type Line = { sku: string; name: string; price: number; wholesale: number; qty: 
 // R = retail, W = wholesale — tier follows the selected customer (same as POS).
 const TIER_LABEL: Record<string, string> = { retail: "R", wholesale: "W" };
 
-export function EstimateClient({ products, customers = [] }: { products: P[]; customers?: Cust[] }) {
+/** In-memory matching: exact SKU + old (renamed) SKUs. Separator-blind guesses are the server's
+ *  call — this list can lag the database, so it can't prove a near-match is the only one. */
+const LOCAL = { canonical: false } as const;
+
+type ScanIndex = { aliases?: Record<string, string>; boxes?: Record<string, { sku: string; packQty: number }> };
+
+export function EstimateClient({ products, customers = [], scanIndex = {} }: { products: P[]; customers?: Cust[]; scanIndex?: ScanIndex }) {
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [name, setName] = useState("");
@@ -39,7 +49,13 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   const [custOpen, setCustOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [scanMsg, setScanMsgState] = useState<{ text: string; ok: boolean } | null>(null);
+  const setScanMsg = (m: { text: string; ok: boolean } | null, sound?: "ok" | "warn" | "error") => {
+    setScanMsgState(m);
+    if (sound) scanFeedback(sound);
+  };
+  const [scanSuggest, setScanSuggest] = useState<string[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const lastScanRef = useRef({ code: "", at: 0 });
   const linesRef = useRef<Line[]>([]);
@@ -48,11 +64,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   useEffect(() => { linesRef.current = lines; }, [lines]);
   usePosKeepalive();
 
-  const skuIndex = useMemo(() => {
-    const m = new Map<string, P>();
-    for (const p of products) m.set(p.sku.toLowerCase(), p);
-    return m;
-  }, [products]);
+  const skuIndex = useMemo(() => buildSkuIndex(products, scanIndex.aliases), [products, scanIndex.aliases]);
   const matches = useMemo(() => (q.trim() ? products.filter((p) => (p.name + p.sku).toLowerCase().includes(q.toLowerCase())).slice(0, 6) : []), [q, products]);
   const custMatches = useMemo(() => {
     const s = custQ.trim().toLowerCase();
@@ -99,13 +111,14 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
   async function submitSearch(raw?: string) {
     const source = (raw ?? searchRef.current?.value ?? q).trim();
     if (!source) return;
-    const findExact = (codes: string[]) => codes.map((c) => skuIndex.get(c.toLowerCase())).find(Boolean);
+    setScanSuggest([]);
+    const findExact = (codes: string[]) => matchSku(skuIndex, codes, LOCAL)?.item;
     const parsed = parseGroupScan(source);
     if (parsed || groupCodeFromScan(source)) {
       const applyBox = (item: P & { qty?: number; mrp?: number }, packQty: number, cacheCode?: string) => {
         const addN = Math.max(1, Math.floor(Number(packQty) || 1));
         addQty({ sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale }, addN);
-        setScanMsg({ text: `Box · ${item.name} ×${addN}`, ok: true });
+        setScanMsg({ text: `Box · ${item.name} ×${addN}`, ok: true }, "ok");
         if (cacheCode) {
           rememberGroupScan(cacheCode, {
             sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale,
@@ -117,6 +130,9 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
       const localBox = localBoxFromCatalog(source, findExact);
       if (localBox) { applyBox(localBox.item, localBox.packQty, localBox.code); return; }
+
+      const indexed = localGroupFromIndex(source, scanIndex.boxes, findExact);
+      if (indexed) { applyBox(indexed.item, indexed.packQty, indexed.code); return; }
 
       const cached = recallGroupScan(parsed?.code ?? groupCodeFromScan(source) ?? "");
       if (cached) {
@@ -132,39 +148,45 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
           applyBox(r.item, r.packQty, parsed?.code ?? r.code);
           return;
         }
-        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false }, "error");
       } catch (err) {
         setScanMsg({
           text: isTransientPosError(err)
             ? "Counter is waking up — scan that sticker once more."
             : "Box QR lookup failed. Scan once more.",
           ok: false,
-        });
+        }, "error");
       }
       setQ(""); searchRef.current?.focus(); return;
     }
     const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const exact = findExact(codes);
-    if (exact) { add(exact); setScanMsg({ text: `Added ${exact.name}`, ok: true }); searchRef.current?.focus(); return; }
+    const hit = matchSku(skuIndex, codes, LOCAL);
+    const note = (sku: string, via?: string) => (via && via !== "exact" ? ` · sticker ${code} → ${sku}` : "");
+    if (hit) { add(hit.item); setScanMsg({ text: `Added ${hit.item.name}${note(hit.item.sku, hit.via)}`, ok: true }, hit.via === "exact" ? "ok" : "warn"); searchRef.current?.focus(); return; }
     setScanMsg({ text: "Looking up…", ok: true });
-    let found = null;
+    let found: P | null = null;
+    let via: string | undefined;
     let lookupError: string | undefined;
+    let suggestions: string[] = [];
     try {
-      for (const candidate of codes) {
-        const result = await retryLookup(() => resolveSellableSku(candidate), { label: "SKU" });
-        if (result.item) { found = result.item; break; }
-        lookupError ||= result.error;
-      }
+      // One call: every spelling, old (renamed) SKUs and separator-blind matches.
+      const result = await retryLookup(() => resolveSellableSku(source), { label: "SKU" });
+      if (result.item) { found = result.item; via = result.via; }
+      else { lookupError = result.error; suggestions = result.suggestions ?? []; }
     } catch (err) {
       lookupError = isTransientPosError(err)
         ? "Counter is waking up — scan that sticker once more."
         : "Product lookup failed. Scan once more.";
     }
     const p = found ?? (!lookupError && !looksLikeSkuScan(source) ? matches[0] : undefined);
-    if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}`, ok: true }); }
-    else setScanMsg({ text: lookupError ?? `No product “${code}”`, ok: false });
+    if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}${note(p.sku, via)}`, ok: true }, via && via !== "exact" ? "warn" : "ok"); }
+    else {
+      if (!suggestions.length && !lookupError) suggestions = suggestSkus(products, code);
+      setScanMsg({ text: lookupError ?? (suggestions.length ? `No product “${code}” — tap the right one below` : `No product “${code}”`), ok: false }, "error");
+      setScanSuggest(suggestions);
+    }
     setQ(""); searchRef.current?.focus();
   }
   function ingestScan(raw: string) {
@@ -232,7 +254,7 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
 
       {/* Products */}
       <div className="relative mb-2">
-        <input ref={searchRef} className={input} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
+        <input ref={searchRef} className={input + " pr-20"} placeholder="Scan a barcode or search a product to add — press Enter" value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ingestScan(searchRef.current?.value ?? q); } }} />
         {matches.length > 0 && (
@@ -240,7 +262,24 @@ export function EstimateClient({ products, customers = [] }: { products: P[]; cu
             {matches.map((p) => <button key={p.sku} onClick={() => add(p)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-emerald-mist flex justify-between"><span>{p.name} <span className="text-muted">· {p.sku}</span></span><span>{formatPaise(baseUnit(p))}</span></button>)}
           </div>
         )}
-        {scanMsg && <p className={`text-[11px] mt-1 ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
+        <button type="button" onClick={() => setCameraOpen(true)} title="Scan with this device's camera"
+          className="absolute right-2 top-1.5 text-xs px-2 py-1 rounded-lg border border-emerald/40 text-emerald-dark bg-white hover:bg-emerald-mist">Camera</button>
+        {scanMsg && <p role="status" aria-live="polite" className={`text-xs font-medium mt-1 ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
+        {scanSuggest.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {scanSuggest.map((sku) => {
+              const p = skuIndex.exact.get(sku.toLowerCase());
+              return (
+                <button type="button" key={sku} onClick={() => { setScanSuggest([]); ingestScan(sku); }}
+                  className="text-xs px-2.5 py-1.5 rounded-full border border-sand hover:border-emerald hover:bg-emerald-mist">
+                  <span className="font-mono">{sku}</span>{p ? <span className="text-muted"> · {p.name}</span> : null}
+                </button>
+              );
+            })}
+            <button type="button" onClick={() => setScanSuggest([])} className="text-xs px-2 py-1.5 text-muted hover:text-rose" aria-label="Dismiss suggestions">✕</button>
+          </div>
+        )}
+        {cameraOpen && <CameraScanner onScan={ingestScan} onClose={() => { setCameraOpen(false); searchRef.current?.focus(); }} />}
       </div>
       {lines.map((l) => (
         <div key={l.sku} className="flex items-center gap-2 border-b border-sand/60 py-1.5 text-sm">

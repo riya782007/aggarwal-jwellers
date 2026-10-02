@@ -10,12 +10,16 @@ import { groupCodeFromScan, groupUnitsToAdd, parseGroupScan } from "@/lib/groupQ
 import { quickAddEmployeeAction } from "@/app/actions/employees";
 import { QtyField } from "@/components/admin/QtyField";
 import { skuCandidatesFromScan, looksLikeSkuScan } from "@/lib/scan";
+import { buildSkuIndex, matchSku, suggestSkus } from "@/lib/skuMatch";
+import { scanFeedback, scanSoundEnabled, setScanSoundEnabled } from "@/lib/scanFeedback";
+import { CameraScanner } from "@/components/admin/CameraScanner";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
 import { usePosKeepalive } from "@/components/admin/usePosKeepalive";
 import {
   enqueueScan,
   isTransientPosError,
   localBoxFromCatalog,
+  localGroupFromIndex,
   recallGroupScan,
   rememberGroupScan,
   retryLookup,
@@ -29,10 +33,26 @@ type Method = { id: string; name: string; kind: string };
 type Emp = { id: string; name: string };
 type PayLine = { methodId: string; amount: string };
 
-export function POSClient({ products, customers = [], methods = [], employees = [] }: { products: P[]; customers?: Cust[]; methods?: Method[]; employees?: Emp[] }) {
+/** In-memory matching: exact SKU + old (renamed) SKUs. Separator-blind guesses are the server's
+ *  call — this list can lag the database, so it can't prove a near-match is the only one. */
+const LOCAL = { canonical: false } as const;
+
+type ScanIndex = { aliases?: Record<string, string>; boxes?: Record<string, { sku: string; packQty: number }> };
+
+export function POSClient({ products, customers = [], methods = [], employees = [], scanIndex = {} }: { products: P[]; customers?: Cust[]; methods?: Method[]; employees?: Emp[]; scanIndex?: ScanIndex }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [scanMsg, setScanMsgState] = useState<{ text: string; ok: boolean } | null>(null);
+  /** Every scan outcome is also heard: beep = on the bill, two-tone = check stock, buzz = not added. */
+  const setScanMsg = (m: { text: string; ok: boolean } | null, sound?: "ok" | "warn" | "error") => {
+    setScanMsgState(m);
+    if (sound) scanFeedback(sound);
+  };
+  /** Close-match SKUs offered when a scan isn't found — one tap adds the right size. */
+  const [scanSuggest, setScanSuggest] = useState<string[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  useEffect(() => { setSoundOn(scanSoundEnabled()); }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   const discRef = useRef<HTMLInputElement>(null);
   const payRef = useRef<HTMLSelectElement>(null);
@@ -167,22 +187,15 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     if (type === "wholesale") setMergeVariants(true);
   }
 
-  const skuIndex = useMemo(() => {
-    const m = new Map<string, P>();
-    for (const p of catalog) m.set(p.sku.toLowerCase(), p);
-    return m;
-  }, [catalog]);
+  // Exact SKU → old (renamed) SKU, all in memory: an instant scan with no server trip.
+  const skuIndex = useMemo(() => buildSkuIndex(catalog, scanIndex.aliases), [catalog, scanIndex.aliases]);
   const matches = useMemo(() => {
     if (!q.trim()) return [];
     const s = q.toLowerCase();
     return catalog.filter((p) => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s) || p.category.toLowerCase().includes(s)).slice(0, 8);
   }, [q, catalog]);
   function findExact(codes: string[]) {
-    for (const c of codes) {
-      const hit = skuIndex.get(c.toLowerCase());
-      if (hit) return hit;
-    }
-    return undefined;
+    return matchSku(skuIndex, codes, LOCAL)?.item;
   }
 
   const toPaise = (v: string) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) : 0; };
@@ -244,17 +257,18 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   async function submitSearch(raw?: string) {
     const source = (raw ?? searchRef.current?.value ?? q).trim();
     if (!source) return;
+    setScanSuggest([]);
     const parsed = parseGroupScan(source);
     if (parsed || groupCodeFromScan(source)) {
       const applyBox = (item: { sku: string; name: string; price: number; wholesale: number; mrp?: number; qty: number; category?: string }, packQty: number, cacheCode?: string) => {
         const alreadyInBill = linesRef.current.find((line) => line.sku === item.sku)?.qty ?? 0;
         const addN = groupUnitsToAdd(packQty, item.qty, alreadyInBill, allowBackorder);
         const available = Math.max(0, item.qty - alreadyInBill);
-        if (addN <= 0) setScanMsg({ text: `${item.name}: no stock remaining for this bill`, ok: false });
+        if (addN <= 0) setScanMsg({ text: `${item.name}: no stock remaining for this bill`, ok: false }, "error");
         else {
           addLineQty({ sku: item.sku, name: item.name, price: item.price, wholesale: item.wholesale, mrp: item.mrp ?? item.price, category: item.category ?? "", qty: item.qty }, addN);
           const short = available < packQty;
-          setScanMsg({ text: `Box · ${item.name} ×${addN}${short ? ` — only ${available} of ${packQty} remaining` : ""}`, ok: !short });
+          setScanMsg({ text: `Box · ${item.name} ×${addN}${short ? ` — only ${available} of ${packQty} remaining` : ""}`, ok: !short }, short ? "warn" : "ok");
         }
         if (cacheCode) {
           rememberGroupScan(cacheCode, {
@@ -277,6 +291,14 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         return;
       }
 
+      // Every printed GRP- box is in the index loaded with this page — no server trip.
+      const indexed = localGroupFromIndex(source, scanIndex.boxes, findExact);
+      if (indexed) {
+        const item = await confirmStock(indexed.item, boxNeed(indexed.item.sku, indexed.packQty));
+        applyBox(item, indexed.packQty, indexed.code);
+        return;
+      }
+
       const cached = recallGroupScan(parsed?.code ?? groupCodeFromScan(source) ?? "");
       if (cached) {
         const live = findExact([cached.sku]);
@@ -292,32 +314,42 @@ export function POSClient({ products, customers = [], methods = [], employees = 
           applyBox(r.item, r.packQty, parsed?.code ?? r.code);
           return;
         }
-        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false });
+        setScanMsg({ text: r.error ?? "Box QR not recognised", ok: false }, "error");
       } catch (err) {
         setScanMsg({
           text: isTransientPosError(err)
             ? "Counter is waking up — scan that sticker once more."
             : "Box QR lookup failed. Scan once more.",
           ok: false,
-        });
+        }, "error");
       }
       setQ(""); searchRef.current?.focus(); return;
     }
     const codes = skuCandidatesFromScan(source);
     const code = codes[0];
     if (!code) return;
-    const local = findExact(codes);
-    const exact = local ? await confirmStock(local, (linesRef.current.find((l) => l.sku === local.sku)?.qty ?? 0) + 1) : undefined;
-    if (exact) { addLine(exact); setScanMsg({ text: `${exact.name} · ${exact.qty} in stock${exact.qty <= 0 ? " (OUT)" : ""}`, ok: exact.qty > 0 }); searchRef.current?.focus(); return; }
+    const announce = (p: P, note = "") => {
+      addLine(p);
+      // A sticker matched via an old SKU / different separators gets the two-tone "glance" cue.
+      setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}${note}`, ok: p.qty > 0 }, p.qty > 0 && !note ? "ok" : "warn");
+    };
+    const hit = matchSku(skuIndex, codes, LOCAL);
+    if (hit) {
+      const exact = await confirmStock(hit.item, (linesRef.current.find((l) => l.sku === hit.item.sku)?.qty ?? 0) + 1);
+      announce(exact, hit.via === "exact" ? "" : ` · sticker ${code} → ${exact.sku}`);
+      searchRef.current?.focus();
+      return;
+    }
     setScanMsg({ text: "Looking up…", ok: true });
-    let found = null;
+    let found: P | null = null;
+    let via: string | undefined;
     let lookupError: string | undefined;
+    let suggestions: string[] = [];
     try {
-      for (const candidate of codes) {
-        const result = await retryLookup(() => resolveSellableSku(candidate), { label: "SKU" });
-        if (result.item) { found = result.item; break; }
-        lookupError ||= result.error;
-      }
+      // The server tries every spelling, old SKUs and separator-blind matches in one call.
+      const result = await retryLookup(() => resolveSellableSku(source), { label: "SKU" });
+      if (result.item) { found = result.item; via = result.via; }
+      else { lookupError = result.error; suggestions = result.suggestions ?? []; }
     } catch (err) {
       lookupError = isTransientPosError(err)
         ? "Counter is waking up — scan that sticker once more."
@@ -325,8 +357,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     }
     const allowNameFallback = !looksLikeSkuScan(source) && !lookupError;
     const p = found ?? (allowNameFallback ? matches[0] : undefined);
-    if (p) { addLine(p); setScanMsg({ text: `${p.name} · ${p.qty} in stock${p.qty <= 0 ? " (OUT)" : ""}`, ok: p.qty > 0 }); }
-    else setScanMsg({ text: lookupError ?? `No product “${code}”`, ok: false });
+    if (p) announce(p, via && via !== "exact" ? ` · sticker ${code} → ${p.sku}` : "");
+    else {
+      if (!suggestions.length && !lookupError) suggestions = suggestSkus(catalog, code);
+      setScanMsg({ text: lookupError ?? (suggestions.length ? `No product “${code}” — tap the right one below` : `No product “${code}”`), ok: false }, "error");
+      setScanSuggest(suggestions);
+    }
     setQ(""); searchRef.current?.focus();
   }
 
@@ -388,7 +424,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       else if (e.key === "F5") { e.preventDefault(); setMoreOpen(true); setTimeout(() => discRef.current?.focus(), 0); }
       else if (e.key === "F4") { e.preventDefault(); if (methods.length && payLines.length === 0) addPayLine(); setTimeout(() => payRef.current?.focus(), 0); }
       else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); completeRef.current(); }
-      else if (e.key === "Escape") { setCustPanel(false); setScanMsg(null); }
+      else if (e.key === "Escape") { setCustPanel(false); setScanMsg(null); setScanSuggest([]); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -415,6 +451,11 @@ export function POSClient({ products, customers = [], methods = [], employees = 
               placeholder="Scan barcode, or search SKU / product / category… (F3)"
               className="flex-1 bg-transparent outline-none text-base placeholder:text-emerald-dark/50" />
             <kbd className="text-[10px] text-emerald-dark/60 border border-emerald/30 rounded px-1">Enter</kbd>
+            <button type="button" onClick={() => setCameraOpen(true)} title="Scan with this device's camera"
+              className="text-xs px-2 py-1 rounded-lg border border-emerald/40 text-emerald-dark hover:bg-emerald-mist whitespace-nowrap">Camera</button>
+            <button type="button" onClick={() => { const on = !soundOn; setScanSoundEnabled(on); setSoundOn(on); if (on) scanFeedback("ok"); }}
+              title={soundOn ? "Scan sounds on — click to mute" : "Scan sounds off — click to turn on"} aria-pressed={soundOn}
+              className={`text-xs px-2 py-1 rounded-lg border whitespace-nowrap ${soundOn ? "border-emerald/40 text-emerald-dark" : "border-sand text-muted line-through"}`}>Beep</button>
           </div>
           {matches.length > 0 && (
             <div className="absolute z-20 left-0 right-0 mt-1 bg-white rounded-xl shadow-luxe border border-sand overflow-hidden">
@@ -426,7 +467,22 @@ export function POSClient({ products, customers = [], methods = [], employees = 
               ))}
             </div>
           )}
-          {scanMsg && <p className={`text-[11px] mt-0.5 absolute ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
+          {scanMsg && <p role="status" aria-live="polite" className={`text-xs font-medium mt-0.5 absolute ${scanMsg.ok ? "text-emerald-dark" : "text-rose"}`}>{scanMsg.text}</p>}
+          {scanSuggest.length > 0 && (
+            <div className="absolute z-20 left-0 right-0 top-full mt-5 bg-white rounded-xl shadow-luxe border border-rose/30 p-2 flex flex-wrap gap-1.5">
+              {scanSuggest.map((sku) => {
+                const p = skuIndex.exact.get(sku.toLowerCase());
+                return (
+                  <button type="button" key={sku} onClick={() => { setScanSuggest([]); ingestScan(sku); }}
+                    className="text-xs px-2.5 py-1.5 rounded-full border border-sand hover:border-emerald hover:bg-emerald-mist">
+                    <span className="font-mono">{sku}</span>{p ? <span className="text-muted"> · {p.name} ({p.qty})</span> : null}
+                  </button>
+                );
+              })}
+              <button type="button" onClick={() => setScanSuggest([])} className="text-xs px-2 py-1.5 text-muted hover:text-rose" aria-label="Dismiss suggestions">✕</button>
+            </div>
+          )}
+          {cameraOpen && <CameraScanner onScan={ingestScan} onClose={() => { setCameraOpen(false); searchRef.current?.focus(); }} />}
         </div>
 
         {/* Salesperson (employee sales attribution) — REQUIRED so every bill is tracked. Staff can

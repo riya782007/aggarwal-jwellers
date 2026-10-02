@@ -146,3 +146,22 @@ export function localBoxFromCatalog<T extends { sku: string }>(
   if (!item) return null;
   return { item, packQty: parsed.packQty, code: parsed.code };
 }
+
+/**
+ * GRP- box sticker → piece + pack size from the index loaded with the billing page (every box ever
+ * printed). No server trip, so a box scan is as instant as a piece scan even on a cold function.
+ */
+export function localGroupFromIndex<T extends { sku: string }>(
+  raw: string,
+  boxes: Record<string, { sku: string; packQty: number }> | undefined,
+  findExact: (codes: string[]) => T | undefined,
+): { item: T; packQty: number; code: string } | null {
+  if (!boxes) return null;
+  const parsed = parseGroupScan(raw);
+  if (parsed?.kind !== "grp") return null;
+  const hit = boxes[parsed.code.toUpperCase()];
+  if (!hit || !(hit.packQty >= 1)) return null;
+  const item = findExact([hit.sku]);
+  if (!item) return null;
+  return { item, packQty: hit.packQty, code: parsed.code };
+}

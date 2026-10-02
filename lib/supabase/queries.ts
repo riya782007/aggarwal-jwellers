@@ -4,6 +4,8 @@ import { supabaseServer } from "./server";
 import type { PricingFormula } from "../pricing";
 import { resolvePrices as posPrices, overridesOf as posOverrides } from "../pricing";
 import { allRows } from "../pagination";
+import { variantLabel } from "../skuMatch";
+import { getSkuAliasMap } from "../skuAlias";
 
 /**
  * Sanitise a user search term before putting it in a PostgREST `.or(...ilike...)` filter.
@@ -1856,11 +1858,13 @@ export async function getPosCatalog(): Promise<PosSellable[]> {
   const formula = await getPricingFormula();
   const RICH_P = "id,sku,name,qty,base_wholesale,wholesale_override,retail_override,mrp_override,category:categories(name)";
   const BASIC_P = "id,sku,name,qty,base_wholesale,category:categories(name)";
-  const RICH_V = "sku,color,qty,product_id,wholesale_override,retail_override,mrp_override";
+  const RICH_V = "sku,color,size,polish,qty,product_id,wholesale_override,retail_override,mrp_override";
+  const MID_V = "sku,color,qty,product_id,wholesale_override,retail_override,mrp_override";
   const BASIC_V = "sku,color,qty,product_id";
   let products = await allRows<any>(() => sb.from("products").select(RICH_P).order("sku"));
   if (!products.length) products = await allRows<any>(() => sb.from("products").select(BASIC_P).order("sku"));
   let variants = await allRows<any>(() => sb.from("variants").select(RICH_V).order("sku"));
+  if (!variants.length) variants = await allRows<any>(() => sb.from("variants").select(MID_V).order("sku"));
   if (!variants.length) variants = await allRows<any>(() => sb.from("variants").select(BASIC_V).order("sku"));
   const varsByProduct = new Map<string, any[]>();
   for (const v of variants) {
@@ -1875,7 +1879,8 @@ export async function getPosCatalog(): Promise<PosSellable[]> {
     if (vs.length) {
       for (const v of vs) {
         const ps = posPrices(p.base_wholesale, formula, posOverrides(v), posOverrides(p));
-        list.push({ sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, category: cat, qty: v.qty ?? 0 });
+        // Name the size/polish too — four bangle sizes all reading "STONE BANGLE" made staff re-check.
+        list.push({ sku: v.sku, name: variantLabel(p.name, v), price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, category: cat, qty: v.qty ?? 0 });
       }
     } else {
       const ps = posPrices(p.base_wholesale, formula, posOverrides(p));
@@ -1883,6 +1888,27 @@ export async function getPosCatalog(): Promise<PosSellable[]> {
     }
   }
   return list;
+}
+
+/** What the counter needs to resolve EVERY printed sticker in memory, with no server trip:
+ *  - aliases: { OLD_SKU: CURRENT_SKU } — stickers printed before a SKU rename (sku_aliases, 0079)
+ *  - boxes:   { GRP-CODE: { sku, packQty } } — every box QR ever printed (archived/hidden included,
+ *             because hiding a box from the labels list must never stop its sticker scanning)
+ *  Both degrade to {} on a DB that lacks the table, and the server lookup stays the backstop. */
+export type PosScanIndex = { aliases: Record<string, string>; boxes: Record<string, { sku: string; packQty: number }> };
+export async function getPosScanIndex(): Promise<PosScanIndex> {
+  const sb = supabaseServer();
+  const [aliases, groups] = await Promise.all([
+    getSkuAliasMap(sb),
+    allRows<any>(() => sb.from("inventory_groups").select("code,pack_qty,product:products(sku),variant:variants(sku)").order("code")).catch(() => [] as any[]),
+  ]);
+  const boxes: PosScanIndex["boxes"] = {};
+  for (const g of groups) {
+    const sku = g?.variant?.sku ?? g?.product?.sku;
+    const packQty = Math.floor(Number(g?.pack_qty) || 0);
+    if (g?.code && sku && packQty >= 1) boxes[String(g.code).toUpperCase()] = { sku, packQty };
+  }
+  return { aliases, boxes };
 }
 
 /** Live stock for the open POS: `{ SKU: qty }` for exactly the SKUs getPosCatalog lists (each

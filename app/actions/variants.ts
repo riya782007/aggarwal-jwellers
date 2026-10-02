@@ -6,6 +6,7 @@ import { generateImage, geminiConfigured } from "@/lib/ai/gemini";
 import { buildVariantImagePrompt } from "@/lib/ai/imagePrompt";
 import { getColorCodeMap } from "@/lib/supabase/queries";
 import { barcodeCodeForColor } from "@/lib/colors";
+import { recordSkuAlias } from "@/lib/skuAlias";
 
 const BUCKET = "product-media";
 
@@ -127,9 +128,10 @@ export async function updateVariantAction(formData: FormData): Promise<void> {
   const finalSku = sku || autoSku(productSku, { color, size, polish }, dbColorCode);
   // Keep the code unique across products + other variants; skip the rename on a clash so we never
   // point two items at the same SKU (the client warns before submit; this is the server backstop).
-  const [{ data: pClash }, { data: vClash }] = await Promise.all([
+  const [{ data: pClash }, { data: vClash }, { data: before }] = await Promise.all([
     sb.from("products").select("id").ilike("sku", finalSku).maybeSingle(),
     sb.from("variants").select("id").ilike("sku", finalSku).neq("id", id).maybeSingle(),
+    sb.from("variants").select("sku,product_id").eq("id", id).maybeSingle(),
   ]);
   const patch: Record<string, any> = {
     color: color || null, size: size || null, polish: polish || null,
@@ -143,7 +145,12 @@ export async function updateVariantAction(formData: FormData): Promise<void> {
   const qtyLoadedRaw = formData.get("qty_loaded");
   const qtyLoaded = qtyLoadedRaw == null ? null : Math.max(0, Math.floor(Number(qtyLoadedRaw) || 0));
   if (qtyLoaded == null || qty !== qtyLoaded) patch.qty = qty;
-  await sb.from("variants").update(patch).eq("id", id);
+  const { error: updErr } = await sb.from("variants").update(patch).eq("id", id);
+  // A colour/size edit regenerates the code; keep the old one so printed stickers still scan.
+  const oldSku = String((before as any)?.sku ?? "");
+  if (!updErr && patch.sku && oldSku && oldSku.toUpperCase() !== String(patch.sku).toUpperCase() && (before as any)?.product_id) {
+    await recordSkuAlias(sb, oldSku, { productId: (before as any).product_id, variantId: id });
+  }
   await rememberOptions(sb, { color, size, polish });
   const { data: vp } = await sb.from("variants").select("product_id").eq("id", id).maybeSingle();
   if ((vp as any)?.product_id) await syncParentQty(sb, (vp as any).product_id); // #5
