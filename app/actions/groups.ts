@@ -13,27 +13,15 @@ import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { logActivity } from "@/lib/audit";
 import { parseGroupScan, groupCodeSafeForPostgrestFilter } from "@/lib/groupQr";
 import { escapeIlikeExact } from "@/lib/scan";
+import { resolveSellableSku } from "@/app/actions/billing";
 
 type PieceRow = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string };
 
 async function lookupPieceBySku(sku: string): Promise<PieceRow | null> {
-  const sb = supabaseServer();
-  const formula = await getPricingFormula();
-  const exact = escapeIlikeExact(sku);
-  const { data: prod } = await sb.from("products")
-    .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
-    .ilike("sku", exact).limit(1).maybeSingle();
-  if (prod) {
-    const ps = resolvePrices((prod as any).base_wholesale, formula, overridesOf(prod));
-    return { sku: (prod as any).sku, name: (prod as any).name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (prod as any).qty ?? 0, category: "" };
-  }
-  const { data: v } = await sb.from("variants")
-    .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(name,base_wholesale,wholesale_override,retail_override,mrp_override)")
-    .ilike("sku", exact).limit(1).maybeSingle();
-  if (!v || !(v as any).product) return null;
-  const p = (v as any).product;
-  const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
-  return { sku: (v as any).sku, name: `${p.name}${(v as any).color ? " · " + (v as any).color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: (v as any).qty ?? 0, category: "" };
+  // Same resolver as a piece scan, so a BOX:<sku>:<n> sticker whose piece SKU was later renamed
+  // (or printed with a stray separator) still bills the right item.
+  const r = await resolveSellableSku(sku);
+  return r.item ?? null;
 }
 
 async function pieceFromGroup(g: any): Promise<PieceRow | null> {

@@ -4299,3 +4299,17 @@ alter table public.inventory_groups
   add column if not exists hidden_from_list boolean not null default false;
 
 
+
+
+-- ------------------------------------------------------------ 0079_sku_aliases.sql
+
+create table if not exists public.sku_aliases (
+  alias       text primary key,                                            -- old SKU, stored UPPER-case
+  product_id  uuid not null references public.products(id) on delete cascade,
+  variant_id  uuid references public.variants(id) on delete cascade,       -- null = the product itself
+  created_at  timestamptz not null default now()
+);
+create index if not exists sku_aliases_product_idx on public.sku_aliases(product_id);
+create index if not exists sku_aliases_variant_idx on public.sku_aliases(variant_id);
+-- Admin-only, like the rest of the console: RLS on, no anon policy (service-role reads bypass it).
+alter table public.sku_aliases enable row level security;

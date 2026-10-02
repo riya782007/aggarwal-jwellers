@@ -1,4 +1,5 @@
 import "server-only";
+import { recordSkuAlias } from "./skuAlias";
 
 /**
  * Keep variant SKUs in sync when a product's SKU is renamed.
@@ -11,6 +12,9 @@ import "server-only";
  * "{old}") to use the new parent, preserving the suffix ("{new}-XX"). Variants with a fully custom,
  * unrelated SKU are left untouched. Best-effort and collision-safe: skips any target SKU that is
  * already taken, and never lets a hiccup block the rename itself.
+ *
+ * Every old code (the product's and each renamed variant's) is kept in sku_aliases, so stickers
+ * printed before the rename still scan at the counter.
  */
 export async function cascadeVariantSkuRename(
   sb: any,
@@ -23,6 +27,7 @@ export async function cascadeVariantSkuRename(
     const o = (oldSku || "").trim();
     const n = (newSku || "").trim();
     if (!productId || !o || !n || o.toUpperCase() === n.toUpperCase()) return 0;
+    await recordSkuAlias(sb, o, { productId });
     const { data: vars } = await sb.from("variants").select("id,sku").eq("product_id", productId);
     for (const v of ((vars as any[]) ?? [])) {
       const s = String(v.sku ?? "");
@@ -34,7 +39,10 @@ export async function cascadeVariantSkuRename(
       const { data: clash } = await sb.from("variants").select("id").eq("sku", next).neq("id", v.id).maybeSingle();
       if (clash) continue;
       const { error } = await sb.from("variants").update({ sku: next }).eq("id", v.id);
-      if (!error) changed++;
+      if (!error) {
+        changed++;
+        await recordSkuAlias(sb, s, { productId, variantId: v.id });
+      }
     }
   } catch {
     /* never block the parent rename on a cascade problem */

@@ -4,6 +4,7 @@ import {
   enqueueScan,
   isTransientPosError,
   localBoxFromCatalog,
+  localGroupFromIndex,
   recallGroupScan,
   rememberGroupScan,
   retryLookup,
@@ -135,5 +136,25 @@ describe("local BOX: resolution and GRP cache", () => {
     rememberGroupScan("grp-ab12cd", item, store);
     expect(recallGroupScan("GRP-AB12CD", store)).toEqual(item);
     expect(recallGroupScan("GRP-NOPE", store)).toBeNull();
+  });
+});
+
+describe("GRP- box index (no server trip)", () => {
+  const catalog = [{ sku: "AJDH1931", name: "Dhwani Earrings" }];
+  const findExact = (codes: string[]) =>
+    catalog.find((p) => codes.some((c) => c.toLowerCase() === p.sku.toLowerCase()));
+  const boxes = { "GRP-AB12CD": { sku: "AJDH1931", packQty: 12 } };
+
+  it("resolves a printed GRP- sticker from the page's box index", () => {
+    expect(localGroupFromIndex("GRP-AB12CD", boxes, findExact)).toEqual({ item: catalog[0], packQty: 12, code: "GRP-AB12CD" });
+    expect(localGroupFromIndex("grpab12cd", boxes, findExact)?.packQty).toBe(12); // wedge dropped the hyphen
+    expect(localGroupFromIndex("https://aggarwaljewellers.in/g/GRP-AB12CD", boxes, findExact)?.item).toBe(catalog[0]);
+  });
+
+  it("falls through for unknown codes, BOX: payloads and piece SKUs", () => {
+    expect(localGroupFromIndex("GRP-NOPE01", boxes, findExact)).toBeNull();
+    expect(localGroupFromIndex("BOX:AJDH1931:12", boxes, findExact)).toBeNull();
+    expect(localGroupFromIndex("AJDH1931", boxes, findExact)).toBeNull();
+    expect(localGroupFromIndex("GRP-AB12CD", undefined, findExact)).toBeNull();
   });
 });

@@ -5,61 +5,140 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
-import { escapeIlikeExact, skuCandidatesFromScan } from "@/lib/scan";
+import { escapeIlikeExact, normalizeScanPayload, skuCandidatesFromScan } from "@/lib/scan";
+import { CANONICAL_MIN, canonicalSku, longestSkuToken, variantLabel } from "@/lib/skuMatch";
+import { resolveSkuAlias } from "@/lib/skuAlias";
+
+type SellableItem = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string };
+
+const PRODUCT_SELECT = "id,sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override";
+const PRODUCT_JOIN = "sku,name,base_wholesale,wholesale_override,retail_override,mrp_override";
+const VARIANT_SELECT_RICH = `sku,color,size,polish,qty,wholesale_override,retail_override,mrp_override, product:products(${PRODUCT_JOIN})`;
+const VARIANT_SELECT_BASIC = `sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(${PRODUCT_JOIN})`;
+const UNAVAILABLE = "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again.";
 
 /**
- * Resolve a single SKU (product OR variant) to a billable line, straight from the DB.
- * The POS holds an in-memory catalogue list for fast search, but that list can lag or miss an
- * item (e.g. a colour variant, a just-added product). When the counter enters a SKU the list
- * doesn't have, POS calls this so a REAL sku is never wrongly shown as "product not found".
- * Read-only; matches SKU case-insensitively and exactly.
+ * Resolve a scanned sticker (product OR variant SKU) to a billable line, straight from the DB.
+ * The POS holds an in-memory catalogue for instant scans; this is the backstop for anything that
+ * list doesn't have (a just-added SKU, a renamed design, a legacy label), so a REAL item is never
+ * wrongly shown as "product not found".
+ *
+ * One call does everything (the counter used to call this once per spelling, each call walking
+ * every spelling again — up to ~70 sequential queries on a miss, which is what timed out on a cold
+ * Netlify function). Now at most two parallel rounds:
+ *   1. exact, case-insensitive, every spelling of the scan — products and variants together
+ *   2. only on a miss: old SKUs (sku_aliases) + a separator-blind match that is accepted only
+ *      when exactly ONE item fits, so two different items can never be confused
+ * Read-only.
  */
 export async function resolveSellableSku(
   skuRaw: string,
-): Promise<{ item: { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string } | null; error?: string }> {
+): Promise<{ item: SellableItem | null; error?: string; suggestions?: string[]; via?: "exact" | "alias" | "canonical" }> {
   try {
     const candidates = skuCandidatesFromScan(skuRaw);
     if (!candidates.length) return { item: null };
     const sb = supabaseServer();
-    const formula = await getPricingFormula();
+    const formulaP = getPricingFormula();
 
-    for (const sku of candidates) {
-      const exact = escapeIlikeExact(sku);
-      const { data: prod, error: productError } = await sb
-        .from("products")
-        .select("sku,name,base_wholesale,qty,wholesale_override,retail_override,mrp_override")
-        .ilike("sku", exact).limit(1).maybeSingle();
-      if (productError) {
-        console.error("Product SKU lookup failed:", productError.message);
-        return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+    // size/polish arrived in a later migration — fall back cleanly on a DB that lacks them.
+    let variantSelect = VARIANT_SELECT_RICH;
+    const variants = async (apply: (q: any) => any) => {
+      let r = await apply(sb.from("variants").select(variantSelect));
+      if (r.error && variantSelect === VARIANT_SELECT_RICH) {
+        variantSelect = VARIANT_SELECT_BASIC;
+        r = await apply(sb.from("variants").select(variantSelect));
       }
-      if (prod) {
-        const p: any = prod;
-        const ps = resolvePrices(p.base_wholesale, formula, overridesOf(p));
-        return { item: { sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: p.qty ?? 0, category: "" } };
-      }
+      return r;
+    };
+    const fromProduct = async (p: any): Promise<SellableItem> => {
+      const ps = resolvePrices(p.base_wholesale, await formulaP, overridesOf(p));
+      return { sku: p.sku, name: p.name, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: p.qty ?? 0, category: "" };
+    };
+    const fromVariant = async (v: any): Promise<SellableItem | null> => {
+      const p = v?.product;
+      if (!p) return null;
+      const ps = resolvePrices(p.base_wholesale, await formulaP, overridesOf(v), overridesOf(p));
+      return { sku: v.sku, name: variantLabel(p.name, v), price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: v.qty ?? 0, category: "" };
+    };
 
-      const { data: variant, error: variantError } = await sb
-        .from("variants")
-        .select("sku,color,qty,wholesale_override,retail_override,mrp_override, product:products(sku,name,base_wholesale,wholesale_override,retail_override,mrp_override)")
-        .ilike("sku", exact).limit(1).maybeSingle();
-      if (variantError) {
-        console.error("Variant SKU lookup failed:", variantError.message);
-        return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+    // ---- 1) exact (case-insensitive), all spellings in parallel. Candidate order = preference.
+    const spellings = [...new Map(candidates.map((c) => [c.toLowerCase(), c])).values()];
+    const exactRows = await Promise.all(
+      spellings.map(async (c) => {
+        const exact = escapeIlikeExact(c);
+        const [prod, variant] = await Promise.all([
+          sb.from("products").select(PRODUCT_SELECT).ilike("sku", exact).limit(1).maybeSingle(),
+          variants((q) => q.ilike("sku", exact).limit(1).maybeSingle()),
+        ]);
+        return { prod, variant };
+      }),
+    );
+    for (const { prod, variant } of exactRows) {
+      if (prod.error || variant.error) {
+        console.error("SKU lookup failed:", (prod.error ?? variant.error)?.message);
+        return { item: null, error: UNAVAILABLE };
       }
-      if (variant) {
-        const v: any = variant;
-        const p = v.product;
-        if (!p) continue;
-        const ps = resolvePrices(p.base_wholesale, formula, overridesOf(v), overridesOf(p));
-        return { item: { sku: v.sku, name: `${p.name}${v.color ? " · " + v.color : ""}`, price: ps.retailPrice, wholesale: ps.wholesaleRate, mrp: ps.mrp, qty: v.qty ?? 0, category: "" } };
+    }
+    for (const { prod, variant } of exactRows) {
+      if (prod.data) return { item: await fromProduct(prod.data), via: "exact" };
+      const it = await fromVariant(variant.data);
+      if (it) return { item: it, via: "exact" };
+    }
+
+    // ---- 2) miss: renamed-SKU stickers + separator-blind match, in parallel.
+    const want = canonicalSku(skuRaw);
+    const token = longestSkuToken(skuRaw).toUpperCase();
+    const fuzzy = want.length >= CANONICAL_MIN;
+    // Same letters/digits in the same order, any separators between them ("%K%P%1%2%3%" finds
+    // "KP-12-3"); canonical equality below decides what actually matches.
+    const like = `%${want.split("").join("%")}%`;
+    const none = Promise.resolve({ data: [] as any[], error: null });
+    const related = token.length >= CANONICAL_MIN ? `%${escapeIlikeExact(token)}%` : "";
+    const [alias, prods, vars, relProds, relVars] = await Promise.all([
+      resolveSkuAlias(sb, candidates),
+      fuzzy ? sb.from("products").select(PRODUCT_SELECT).ilike("sku", like).limit(500) : none,
+      fuzzy ? variants((q) => q.ilike("sku", like).limit(500)) : none,
+      // "did you mean" chips: other SKUs of the same design code (e.g. the other bangle sizes)
+      related ? sb.from("products").select("sku").ilike("sku", related).limit(12) : none,
+      related ? sb.from("variants").select("sku").ilike("sku", related).limit(12) : none,
+    ]);
+
+    if (alias) {
+      if (alias.variantId) {
+        const { data: v } = await variants((q) => q.eq("id", alias.variantId).maybeSingle());
+        const it = await fromVariant(v);
+        if (it) return { item: it, via: "alias" };
+      } else {
+        const { data: p } = await sb.from("products").select(PRODUCT_SELECT).eq("id", alias.productId).maybeSingle();
+        if (p) return { item: await fromProduct(p), via: "alias" };
       }
     }
 
-    return { item: null };
+    if ((prods as any).error || (vars as any).error) {
+      console.error("Fuzzy SKU lookup failed:", ((prods as any).error ?? (vars as any).error)?.message);
+      return { item: null, error: UNAVAILABLE };
+    }
+    const prodRows = ((prods as any).data as any[]) ?? [];
+    const varRows = ((vars as any).data as any[]) ?? [];
+    const hits: SellableItem[] = [];
+    for (const p of prodRows) if (canonicalSku(p.sku) === want) hits.push(await fromProduct(p));
+    for (const v of varRows) if (canonicalSku(v.sku) === want) { const it = await fromVariant(v); if (it) hits.push(it); }
+    if (hits.length === 1) return { item: hits[0], via: "canonical" };
+    if (hits.length > 1) {
+      return {
+        item: null,
+        error: `“${normalizeScanPayload(skuRaw)}” fits ${hits.length} items — tap the right one.`,
+        suggestions: hits.map((h) => h.sku).slice(0, 6),
+      };
+    }
+
+    // ---- 3) nothing fits: offer the same design's SKUs so the counter can tap the right size.
+    const relRows = [...(((relVars as any).data as any[]) ?? []), ...(((relProds as any).data as any[]) ?? [])];
+    const siblings = [...new Set(relRows.map((r) => String(r.sku)))].sort().slice(0, 6);
+    return { item: null, suggestions: siblings };
   } catch (err) {
     console.error("SKU lookup failed:", err);
-    return { item: null, error: "Product lookup is temporarily unavailable. Do not rescan repeatedly; check the connection and try again." };
+    return { item: null, error: UNAVAILABLE };
   }
 }
 
