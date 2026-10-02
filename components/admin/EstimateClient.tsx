@@ -183,7 +183,7 @@ export function EstimateClient({ products, customers = [], scanIndex = {} }: { p
     const p = found ?? (!lookupError && !looksLikeSkuScan(source) ? matches[0] : undefined);
     if (p) { add({ sku: p.sku, name: p.name, price: p.price, wholesale: p.wholesale }); setScanMsg({ text: `Added ${p.name}${note(p.sku, via)}`, ok: true }, via && via !== "exact" ? "warn" : "ok"); }
     else {
-      if (!suggestions.length && !lookupError) suggestions = suggestSkus(products, source);
+      if (!suggestions.length && !lookupError) suggestions = suggestSkus(products, code);
       setScanMsg({ text: lookupError ?? (suggestions.length ? `No product “${code}” — tap the right one below` : `No product “${code}”`), ok: false }, "error");
       setScanSuggest(suggestions);
     }

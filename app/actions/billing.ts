@@ -5,7 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { getPricingFormula } from "@/lib/supabase/queries";
 import { resolvePrices, overridesOf } from "@/lib/pricing";
-import { escapeIlikeExact, normalizeScanPayload, skuCandidatesFromScan } from "@/lib/scan";
+import { escapeIlikeExact, skuCandidatesFromScan } from "@/lib/scan";
 import { CANONICAL_MIN, canonicalSku, longestSkuToken, variantLabel } from "@/lib/skuMatch";
 import { resolveSkuAlias } from "@/lib/skuAlias";
 
@@ -86,8 +86,11 @@ export async function resolveSellableSku(
     }
 
     // ---- 2) miss: renamed-SKU stickers + separator-blind match, in parallel.
-    const want = canonicalSku(skuRaw);
-    const token = longestSkuToken(skuRaw).toUpperCase();
+    // Key off the SKU extracted from the scan (candidates[0]), not the raw payload — a legacy
+    // /p/<sku> URL sticker would otherwise canonicalise to "HTTPSAGGARWAL…" and never match.
+    const scanned = candidates[0];
+    const want = canonicalSku(scanned);
+    const token = longestSkuToken(scanned).toUpperCase();
     const fuzzy = want.length >= CANONICAL_MIN;
     // Same letters/digits in the same order, any separators between them ("%K%P%1%2%3%" finds
     // "KP-12-3"); canonical equality below decides what actually matches.
@@ -127,7 +130,7 @@ export async function resolveSellableSku(
     if (hits.length > 1) {
       return {
         item: null,
-        error: `“${normalizeScanPayload(skuRaw)}” fits ${hits.length} items — tap the right one.`,
+        error: `“${scanned}” fits ${hits.length} items — tap the right one.`,
         suggestions: hits.map((h) => h.sku).slice(0, 6),
       };
     }

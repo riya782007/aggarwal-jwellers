@@ -120,3 +120,14 @@ describe("resolveSellableSku (server backstop for scans)", () => {
     expect(queries).toBeLessThanOrEqual(20);
   });
 });
+
+describe("legacy /p/<sku> URL stickers in the fallbacks", () => {
+  it("runs the separator-blind match on the SKU inside the URL", async () => {
+    const r = await resolveSellableSku("https://aggarwaljewellers.in/p/A3SAJNI13124MHWT-2.10");
+    expect(r).toMatchObject({ via: "canonical", item: { sku: "A3SAJNI13124MHWT-210" } });
+  });
+  it("suggests the design's SKUs, not URL noise", async () => {
+    const r = await resolveSellableSku("https://aggarwaljewellers.in/p/A3SAJNI13124MHWT-2.6");
+    expect(r.suggestions).toEqual(expect.arrayContaining(["A3SAJNI13124MHWT-210", "A3SAJNI13124MHWT-28"]));
+  });
+});

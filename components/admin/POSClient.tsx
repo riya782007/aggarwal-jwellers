@@ -359,7 +359,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     const p = found ?? (allowNameFallback ? matches[0] : undefined);
     if (p) announce(p, via && via !== "exact" ? ` · sticker ${code} → ${p.sku}` : "");
     else {
-      if (!suggestions.length && !lookupError) suggestions = suggestSkus(catalog, source);
+      if (!suggestions.length && !lookupError) suggestions = suggestSkus(catalog, code);
       setScanMsg({ text: lookupError ?? (suggestions.length ? `No product “${code}” — tap the right one below` : `No product “${code}”`), ok: false }, "error");
       setScanSuggest(suggestions);
     }
