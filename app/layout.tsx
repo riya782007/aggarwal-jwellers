@@ -5,6 +5,9 @@ import { ToastProvider } from "@/components/ui/Toast";
 export const metadata: Metadata = {
   title: { default: "Aggarwal Jewellers — Artificial Jewellery, Sadar Bazar Delhi", template: "%s | Aggarwal Jewellers" },
   description: "Premium artificial jewellery — Kundan, Meenakari, Temple & more. Retail & wholesale from Aggarwal Jewellers, Sadar Bazar, Delhi.",
+  // Installable app (see app/manifest.ts): icon + iPhone "Add to Home Screen" full-screen.
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Aggarwal", statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

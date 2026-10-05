@@ -27,7 +27,10 @@ export default async function Barcodes({ searchParams }: { searchParams: { sku?:
     // Add Inventory and Bulk Add screens already carry, for the same reason.
     <main className="p-4 sm:p-6 pb-28 bg-cream/40 min-h-screen">
       <div className="no-print">
-        <h1 className="font-display text-4xl text-ink mb-1">QR & Barcode Labels</h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="font-display text-4xl text-ink mb-1">QR & Barcode Labels</h1>
+          <a href="/admin/printer" className="text-sm text-emerald underline underline-offset-2">Bluetooth printer setup</a>
+        </div>
         <p className="text-sm text-muted mb-6">Generate scannable <b>QR</b> labels (default — phone cameras and 2D scanners read them, and they survive smudging) or classic Code-128 barcodes for any product or colour variant. Search a SKU and print a sheet for your tag gun or label printer. The number of labels for each item is <b>pre-filled from its current stock</b> — just print. You can still edit any count if you need more or fewer. <b>Printing never removes a box row</b> — reprint any time. Rows leave the list only when you press Delete, and Restore brings them back; printed stickers always stay valid at POS.</p>
       </div>
       <BoxQrMaker products={list.map((p) => ({ sku: p.sku, name: p.name, qty: p.qty }))} groups={boxGroups} />
