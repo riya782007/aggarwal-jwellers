@@ -12,6 +12,7 @@ import { cancelOrderAction } from "@/app/actions/billing";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { UpiQr } from "@/components/UpiQr";
 import { isDeadOrder } from "@/lib/business";
+import { EditBillItems } from "@/components/admin/EditBillItems";
 
 export const metadata = { title: "Invoice" };
 
@@ -311,6 +312,24 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
         {/* Admin controls (never printed) */}
         {(can(session, "billing.sell") || can(session, "billing.gst")) && (
           <div className="no-print grid sm:grid-cols-2 gap-4 mt-5">
+            {/* Edit a saved Final Estimate (owner request): add / remove / change items without
+                cancelling. Cash bills only, not cancelled, no sales return yet (docs/0081). */}
+            {can(session, "billing.sell") && isCash && !isDeadOrder(order.status) && returnAmount === 0 && items.every((it: any) => it.id) && (
+              <EditBillItems
+                orderId={order.id}
+                lines={items.map((it: any) => ({
+                  itemId: String(it.id),
+                  sku: String(it.variant?.sku ?? it.product?.sku ?? ""),
+                  name: `${it.product?.name ?? "Item"}${it.variant?.color ? ` – ${it.variant.color}` : ""}`,
+                  qty: Number(it.qty),
+                  rate: Number(it.unit_price),
+                }))}
+                extrasPaise={xCharges}
+                paidPaise={paid}
+                totalPaise={total}
+                wholesale={wholesaleBill}
+              />
+            )}
             {can(session, "billing.sell") && (
               <div className="bg-white rounded-2xl p-5 shadow-card sm:col-span-2">
                 <h2 className="font-medium text-ink mb-1">Internal note <span className="text-xs text-muted font-normal">· staff only, never printed</span></h2>

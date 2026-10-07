@@ -8,6 +8,7 @@ import { resolvePrices, overridesOf } from "@/lib/pricing";
 import { escapeIlikeExact, skuCandidatesFromScan } from "@/lib/scan";
 import { CANONICAL_MIN, canonicalSku, longestSkuToken, variantLabel } from "@/lib/skuMatch";
 import { resolveSkuAlias } from "@/lib/skuAlias";
+import { editGivesBack } from "@/lib/billEdit";
 
 type SellableItem = { sku: string; name: string; price: number; wholesale: number; mrp: number; qty: number; category: string };
 
@@ -373,4 +374,55 @@ export async function cancelOrderAction(formData: FormData): Promise<void> {
   revalidatePath(`/admin/invoice/${id}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
   revalidatePath("/admin/creditors"); revalidatePath("/admin/cashbook"); revalidatePath("/admin/inventory");
   revalidatePath("/admin/stock-movements"); revalidatePath("/admin/returns");
+}
+/**
+ * Edit a saved Final Estimate (cash bill): change qty/rate, remove lines, add items — owner
+ * request, Oct 2026. Same bill, same invoice number. The edit_order_items RPC (docs/0081) does
+ * the stock, total, day-book and any refund atomically.
+ * Adding needs billing.sell; removing / lowering a quantity puts stock back like a return, so it
+ * also needs billing.refund (the permission that already guards Returns and Cancel bill).
+ */
+export async function editOrderItemsAction(input: {
+  orderId: string;
+  lines: { item_id?: string; sku?: string; qty: number; unit_price: number }[];
+  reason?: string;
+  allowOversell?: boolean;
+}): Promise<{ ok: boolean; error?: string; total?: number; due?: number; refund?: number; stockShort?: boolean }> {
+  if (!(await requirePerm("billing.sell"))) return { ok: false, error: "Your role can't edit bills." };
+  const orderId = String(input?.orderId ?? "");
+  const lines = Array.isArray(input?.lines) ? input.lines : [];
+  if (!orderId || !lines.length) return { ok: false, error: "A bill needs at least one item. To remove everything, cancel the bill instead." };
+  for (const l of lines) {
+    if (!Number.isInteger(l.qty) || l.qty < 1 || l.qty > 100000) return { ok: false, error: "Every line needs a whole-number quantity of 1 or more." };
+    if (!Number.isFinite(l.unit_price) || l.unit_price < 0) return { ok: false, error: "Rates cannot be negative." };
+    if (!l.item_id && !String(l.sku ?? "").trim()) return { ok: false, error: "A new line is missing its SKU." };
+  }
+
+  const sb = supabaseServer();
+  const { data: current, error: curErr } = await sb.from("order_items").select("id,qty").eq("order_id", orderId);
+  if (curErr) return { ok: false, error: "Couldn't read this bill — try again." };
+  if (editGivesBack((current as any[]) ?? [], lines) && !(await requirePerm("billing.refund"))) {
+    return { ok: false, error: "Your role can add items to a bill but not remove them. Ask the owner to remove or reduce items." };
+  }
+
+  const payload = lines.map((l) => (l.item_id
+    ? { item_id: l.item_id, qty: l.qty, unit_price: Math.round(l.unit_price) }
+    : { sku: String(l.sku).trim(), qty: l.qty, unit_price: Math.round(l.unit_price) }));
+  const { data, error } = await sb.rpc("edit_order_items", {
+    p_order: orderId,
+    p_lines: payload,
+    p_reason: String(input.reason ?? "").trim().slice(0, 200) || "Bill edited",
+    p_allow_oversell: !!input.allowOversell,
+  });
+  if (error) {
+    if (/function .*edit_order_items|could not find the function/i.test(error.message)) {
+      return { ok: false, error: "Bill editing isn't switched on in the database yet (update 0081). Ask the administrator." };
+    }
+    return { ok: false, error: error.message, stockShort: /not enough stock/i.test(error.message) };
+  }
+  revalidatePath(`/admin/invoice/${orderId}`); revalidatePath("/admin/sales"); revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/creditors"); revalidatePath("/admin/cashbook"); revalidatePath("/admin/inventory");
+  revalidatePath("/admin/stock-movements"); revalidatePath("/admin/billing");
+  const r = (data as any) ?? {};
+  return { ok: true, total: Number(r.total ?? 0), due: Number(r.due ?? 0), refund: Number(r.refund ?? 0) };
 }
