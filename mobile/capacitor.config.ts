@@ -19,9 +19,16 @@ const config: CapacitorConfig = {
     allowNavigation: [host, "aggarwaljeweller.in", "*.aggarwaljeweller.in", "*.netlify.app"],
     androidScheme: "https",
   },
+  // Lets the server (device usage stats) tell the app apart from Chrome.
+  appendUserAgent: "AggarwalApp/1.0",
   android: {
     backgroundColor: "#451117",
     allowMixedContent: false,
+  },
+  plugins: {
+    // Page is padded clear of the status/navigation bars (no viewport-fit=cover on the site);
+    // light icons on the brand maroon behind them.
+    SystemBars: { style: "DARK" },
   },
 };
 

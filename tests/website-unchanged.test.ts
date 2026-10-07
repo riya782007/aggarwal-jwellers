@@ -32,3 +32,25 @@ describe("website behaviour is unchanged outside the Android app", () => {
     expect(isNativeApp()).toBe(true);
   });
 });
+
+import { downloadName, isDownloadLink } from "@/lib/nativeBridge";
+const link = (href: string, download?: string) => ({
+  href,
+  hasAttribute: (n: string) => n === "download" && download !== undefined,
+  getAttribute: (n: string) => (n === "download" ? download ?? null : n === "href" ? href : null),
+});
+
+describe("app downloads (exports / label PDFs / templates)", () => {
+  it("only links with a download attribute count", () => {
+    expect(isDownloadLink(link("blob:https://aggarwaljeweller.in/1234", "ledger.csv"))).toBe(true);
+    expect(isDownloadLink(link("data:text/csv;charset=utf-8,a,b", "template.csv"))).toBe(true);
+    expect(isDownloadLink(link("https://aggarwaljeweller.in/files/x.xlsx", ""))).toBe(true);
+    expect(isDownloadLink(link("https://wa.me/919999999999?text=hi"))).toBe(false); // WhatsApp opens the app instead
+    expect(isDownloadLink(link("javascript:void(0)", "x"))).toBe(false);
+  });
+  it("file name comes from the attribute, else the URL", () => {
+    expect(downloadName(link("blob:https://x/1", "aggarwal-labels.pdf"))).toBe("aggarwal-labels.pdf");
+    expect(downloadName(link("https://aggarwaljeweller.in/files/stock%20list.xlsx", ""))).toBe("stock list.xlsx");
+    expect(downloadName(link("data:text/csv,a", ""))).toBe("aggarwal-export");
+  });
+});

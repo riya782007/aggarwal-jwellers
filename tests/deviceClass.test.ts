@@ -16,3 +16,10 @@ describe("classifyDevice", () => {
     expect(classifyDevice("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/154.0 Mobile Safari/537.36", true).browser).toBe("Aggarwal app");
   });
 });
+
+describe("classifyDevice — app identity tag", () => {
+  it("recognises the Android app from its user-agent tag even without the JS flag", () => {
+    const ua = "Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36 AggarwalApp/1.0";
+    expect(classifyDevice(ua)).toEqual({ device: "phone", os: "Android", browser: "Aggarwal app" });
+  });
+});

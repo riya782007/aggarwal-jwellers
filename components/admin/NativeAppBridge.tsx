@@ -3,14 +3,17 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { installNativePrintShim, isNativeApp } from "@/lib/nativeBridge";
 
-const SEEN_KEY = "aj_device_seen";
-const DEDUPE_MS = 10 * 60 * 1000;
+const SEEN_KEY = "aj_device_seen_at";
+/** One usage ping per device per 6 hours — enough to answer "phone or PC?", and each ping is a
+ *  paid serverless call, so a busy counter must not send one per screen. */
+const EVERY_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Mounted once in the admin layout. Renders nothing.
- * 1. In the Android app, window.print() opens Android's print screen (A4 bills keep working).
- * 2. Records phone / PC usage per screen (at most once per screen per 10 min per tab), so the
- *    owner can see which devices the shop actually uses. Fire-and-forget; never blocks.
+ * 1. In the Android app: window.print() opens Android's print screen (A4 bills) and download
+ *    links (Excel/CSV exports, label PDFs) are saved to the phone — see lib/nativeBridge.
+ * 2. Records which kind of device uses the console (phone / tablet / PC, app or browser) at most
+ *    once per device every 6 hours. Fire-and-forget; never blocks.
  */
 export function NativeAppBridge() {
   const path = usePathname();
@@ -18,12 +21,10 @@ export function NativeAppBridge() {
   useEffect(() => {
     if (!path) return;
     try {
-      const seen = JSON.parse(sessionStorage.getItem(SEEN_KEY) || "{}") as Record<string, number>;
-      const now = Date.now();
-      if (seen[path] && now - seen[path] < DEDUPE_MS) return;
-      seen[path] = now;
-      sessionStorage.setItem(SEEN_KEY, JSON.stringify(seen));
-    } catch { /* private mode: still send */ }
+      const last = Number(localStorage.getItem(SEEN_KEY) || 0);
+      if (Date.now() - last < EVERY_MS) return;
+      localStorage.setItem(SEEN_KEY, String(Date.now()));
+    } catch { return; /* no storage → skip rather than ping on every screen */ }
     const body = JSON.stringify({ path, app: isNativeApp() });
     try {
       fetch("/admin/device-ping", { method: "POST", body, keepalive: true, credentials: "same-origin", headers: { "Content-Type": "application/json" } }).catch(() => {});

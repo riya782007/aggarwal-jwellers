@@ -15,10 +15,17 @@ import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.widget.Toast;
 import android.os.Handler;
 import android.os.Looper;
 import android.print.PrintAttributes;
@@ -27,6 +34,7 @@ import android.print.PrintManager;
 import android.webkit.WebView;
 
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -38,6 +46,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
@@ -59,6 +69,9 @@ import java.util.concurrent.TimeUnit;
  *   write({address, type, data})   send TSPL/ESC-POS text to the printer
  *   printPage({name})              Android print screen for the current page (A4 bills)
  *   disconnect()
+ *
+ *   saveFile({name, mime, data})   save an export (Excel / CSV / PDF) to Downloads/Aggarwal and
+ *                                  open the share sheet — browsers' "download" doesn't exist in apps
  *
  * Works with both kinds of printer: Classic Bluetooth (SPP, most label printers) and BLE.
  * Connections are kept open between prints for speed and closed after 60 s idle.
@@ -433,6 +446,71 @@ public class AjPrinterPlugin extends Plugin {
                 call.resolve();
             } catch (Exception e) {
                 call.reject("Could not open the print screen: " + e.getMessage());
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------- saveFile
+
+    private static String safeName(String raw) {
+        String n = raw == null ? "" : raw.replaceAll("[\\\\/:*?\"<>|\\r\\n]+", "_").trim();
+        return n.isEmpty() ? "aggarwal-export" : (n.length() > 120 ? n.substring(n.length() - 120) : n);
+    }
+
+    @PluginMethod
+    public void saveFile(PluginCall call) {
+        final String name = safeName(call.getString("name", "aggarwal-export"));
+        final String mime = call.getString("mime", "application/octet-stream");
+        final String data = call.getString("data", "");
+        final boolean share = Boolean.TRUE.equals(call.getBoolean("share", true));
+        io.execute(() -> {
+            try {
+                byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+                String savedTo = null;
+
+                // 1) Public Downloads/Aggarwal (Android 10+, no permission needed) — findable in Files.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentResolver cr = getContext().getContentResolver();
+                    ContentValues v = new ContentValues();
+                    v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+                    v.put(MediaStore.Downloads.MIME_TYPE, mime);
+                    v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Aggarwal");
+                    Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                    if (uri != null) {
+                        try (java.io.OutputStream os = cr.openOutputStream(uri)) {
+                            if (os != null) { os.write(bytes); savedTo = "Downloads/Aggarwal/" + name; }
+                        }
+                    }
+                }
+
+                // 2) Private copy for the share sheet (WhatsApp, Drive, print apps…).
+                File dir = new File(getContext().getCacheDir(), "exports");
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("cannot create export folder");
+                File f = new File(dir, name);
+                try (FileOutputStream fos = new FileOutputStream(f)) { fos.write(bytes); }
+                final Uri shareUri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+                final String where = savedTo;
+
+                getActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), where != null ? "Saved to " + where : "File ready", Toast.LENGTH_SHORT).show();
+                    if (share) {
+                        Intent send = new Intent(Intent.ACTION_SEND);
+                        send.setType(mime);
+                        send.putExtra(Intent.EXTRA_STREAM, shareUri);
+                        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        Intent view = new Intent(Intent.ACTION_VIEW);
+                        view.setDataAndType(shareUri, mime);
+                        view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        Intent chooser = Intent.createChooser(send, "Open or share " + name);
+                        chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[] { view });
+                        try { getActivity().startActivity(chooser); } catch (Exception ignored) { }
+                    }
+                });
+                JSObject ret = new JSObject();
+                ret.put("savedTo", where);
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("Could not save the file: " + e.getMessage());
             }
         });
     }

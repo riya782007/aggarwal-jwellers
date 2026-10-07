@@ -12,7 +12,7 @@ export function classifyDevice(ua: string, isApp = false): DeviceClass {
   const tablet = /iPad|Tablet/i.test(u) || (/Android/i.test(u) && !/Mobile/i.test(u));
   const phone = !tablet && /Mobi|iPhone|iPod|Android.*Mobile/i.test(u);
   const device = tablet ? "tablet" : phone ? "phone" : "pc";
-  const browser = isApp ? "Aggarwal app"
+  const browser = isApp || /AggarwalApp\//.test(u) ? "Aggarwal app"
     : /Edg\//.test(u) ? "Edge"
     : /OPR\/|Opera/.test(u) ? "Opera"
     : /SamsungBrowser/.test(u) ? "Samsung Internet"

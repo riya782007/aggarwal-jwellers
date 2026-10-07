@@ -1,16 +1,21 @@
-# Aggarwal Jewellers — Android app
+# Aggarwal Jewellers — Android app (internal, not on the Play Store)
 
 The app is a thin Android shell (Capacitor 8) that opens the **live console** at
-`https://aggarwaljeweller.in/admin` and adds what a browser can't do:
+`https://aggarwaljeweller.in/admin`. **Every feature of the current software is in it automatically**:
+billing / POS with scanning, Final Estimates (including **Edit items**), stock, catalogue and photos,
+labels, purchases, customers, reports and the A4 print fix. They are the same pages, and every website
+update reaches the app instantly. It adds what a browser on a phone can't do:
 
-- **Bluetooth sticker printing.** Every "Print labels" button sends the stickers straight to the paired label printer, using TSPL with the same QR, SKU, price code and box line as the PDF. It supports both Classic Bluetooth (SPP) and BLE printers.
-- **Android print screen for A4 bills.** `window.print()` opens Android printing, including Save as PDF.
-- **Camera** for QR scanning at billing and for product photos.
-- **Offline screen** with a Retry button when there is no internet.
+- **Bluetooth sticker printing.** Every "Print labels" button prints straight to the paired label printer, using TSPL with the same QR, SKU, price code and box line as the PDF. It works with Classic Bluetooth (SPP) and BLE printers, and is set up once on the **Label Printer** screen.
+- **A4 bills.** "Download / Print PDF" opens Android's print screen (any Wi-Fi printer, or Save as PDF → share).
+- **Exports and downloads.** Excel/CSV exports, label PDFs and templates are saved to **Downloads/Aggarwal**, and the share sheet opens (WhatsApp, Drive, Files…).
+- **WhatsApp buttons** open the WhatsApp app.
+- **Camera** for QR scanning at billing and for product photos. **Bluetooth barcode scanners** pair as a keyboard and work like at the counter.
+- **Back button** goes to the previous page. On the first page it only minimises the app, so a bill in progress is never lost.
+- **Stays logged in** across app switches (same 1-hour idle rule as the website).
+- **No-internet screen** with Retry; bills are always safe on the server.
 
-Because it loads the live site, **website updates reach every phone instantly. A new APK is only needed when files in `mobile/` change.**
-
-On a normal browser nothing changes: the website keeps its PDF printing.
+On a normal browser nothing changes: the website keeps its PDF printing and normal downloads.
 
 ## One-time setup (5 minutes)
 
@@ -39,11 +44,19 @@ The APK appears under **Releases** as `aggarwal-jewellers.apk`.
 3. Open **Aggarwal Jewellers** and log in with the usual passcode.
 4. The first time someone taps **Print labels**, the app opens **Label Printer** setup. Pick the printer, and a test sticker prints. Done.
 
-## Staging (test without touching the live shop)
+## Test before going live
 
-Run the workflow with `server_url` set to a Netlify Deploy Preview, for example
-`https://deploy-preview-50--<site>.netlify.app/admin`, and untick "publish release".
-Install that APK on a test phone only. Before testing billing there, point the Deploy Preview's Supabase env vars at a staging project, so test bills never reach the live database.
+Pull requests use `[skip netlify]`, so no Netlify credits are spent on previews. The safe order is:
+
+1. Merge the PR (no build). Then in Netlify, **Trigger deploy → Deploy project** (one build) and **Publish**.
+   The website changes are app-only: on a browser nothing changes (`tests/website-unchanged.test.ts`).
+2. GitHub → **Actions → Android app → Run workflow** (defaults) → install the APK from **Releases** on
+   **your own phone** first, and try billing, Edit items, labels and printing.
+3. When it's good, install it on the shop phones.
+
+For a staging check, run the workflow with `server_url` = a Deploy Preview `/admin` URL and untick
+"publish release". That builds a separate **"Aggarwal TEST"** app that installs beside the real one. A preview
+uses the live database, so don't save real test bills on it.
 
 ## Develop locally (optional)
 

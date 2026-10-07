@@ -37,7 +37,11 @@ jobs:
       run:
         working-directory: mobile
     env:
+      # The app opens the LIVE console. A manual run with a different server_url (e.g. a Netlify
+      # Deploy Preview) builds a separate "Aggarwal TEST" app that installs beside the live one.
+      # (Pull requests use [skip netlify] to save credits, so there is no preview to point at.)
       CAP_SERVER_URL: ${{ inputs.server_url || 'https://aggarwaljeweller.in/admin' }}
+      IS_TEST_APP: ${{ inputs.server_url != '' && inputs.server_url != 'https://aggarwaljeweller.in/admin' }}
       APP_VERSION_CODE: ${{ github.run_number }}
       APP_VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
@@ -62,6 +66,14 @@ jobs:
 
       - name: Sync web shell + plugins into the Android project
         run: npx cap sync android
+
+      - name: Mark the TEST app (separate app, installs beside the live one)
+        if: env.IS_TEST_APP == 'true'
+        run: |
+          sed -i 's|>Aggarwal Jewellers<|>Aggarwal TEST<|g' android/app/src/main/res/values/strings.xml
+          sed -i 's|https://aggarwaljeweller.in/admin|'"$CAP_SERVER_URL"'|g' www/offline.html www/index.html android/app/src/main/assets/public/offline.html android/app/src/main/assets/public/index.html
+          echo "APP_ID_SUFFIX=.test" >> "$GITHUB_ENV"
+          echo "Test app → $CAP_SERVER_URL"
 
       - name: Decode signing key (if configured)
         id: key
@@ -93,7 +105,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: aggarwal-jewellers-apk-${{ github.run_number }}
+          name: ${{ env.IS_TEST_APP == 'true' && 'aggarwal-TEST' || 'aggarwal-jewellers' }}-apk-${{ github.run_number }}
           path: ${{ runner.temp }}/aggarwal-jewellers.apk
           if-no-files-found: error
 

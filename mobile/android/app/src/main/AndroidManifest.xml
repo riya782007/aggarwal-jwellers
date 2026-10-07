@@ -50,6 +50,9 @@
     <!-- Camera QR scanning at billing, and product photos -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Scan feedback buzz (navigator.vibrate) on the billing screen -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />

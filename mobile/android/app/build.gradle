@@ -5,6 +5,8 @@ android {
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "in.aggarwaljeweller.counter"
+        // CI sets ".test" for the TEST app so it installs beside the live app (see android.yml).
+        applicationIdSuffix System.getenv("APP_ID_SUFFIX") ?: ""
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI sets these from the GitHub run number so every APK installs over the previous one.

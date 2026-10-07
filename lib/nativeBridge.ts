@@ -15,6 +15,7 @@ type AjPrinterPlugin = {
   listDevices(o: { scan: boolean }): Promise<{ devices: PrinterDevice[] }>;
   write(o: { address: string; type: string; data: string }): Promise<void>;
   printPage(o: { name: string }): Promise<void>;
+  saveFile(o: { name: string; mime: string; data: string; share?: boolean }): Promise<{ savedTo?: string | null }>;
   disconnect(): Promise<void>;
 };
 
@@ -95,4 +96,67 @@ export function installNativePrintShim(): void {
       alert("Couldn't open the print screen. Try again, or print this page from the counter PC.");
     });
   };
+  installNativeDownloads(p);
+}
+
+/** File name for a download link: its `download` attribute, else the last URL segment. */
+export function downloadName(a: { getAttribute(n: string): string | null; href: string }): string {
+  const given = (a.getAttribute("download") || "").trim();
+  if (given) return given;
+  try {
+    const u = new URL(a.href);
+    if (u.protocol === "http:" || u.protocol === "https:") {
+      const last = u.pathname.split("/").filter(Boolean).pop();
+      if (last) return decodeURIComponent(last);
+    }
+  } catch { /* unparsable */ }
+  return "aggarwal-export";
+}
+
+/** True for links the browser would download (has a `download` attribute and a real target). */
+export function isDownloadLink(a: { hasAttribute(n: string): boolean; getAttribute(n: string): string | null; href: string }): boolean {
+  if (!a.hasAttribute("download")) return false;
+  const href = a.href || a.getAttribute("href") || "";
+  return /^(blob:|data:|https?:)/i.test(href);
+}
+
+function blobToBase64(b: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(b);
+  });
+}
+
+/**
+ * Android apps have no browser "download". Excel / CSV exports, label PDFs and template files
+ * are links with a `download` attribute (often a blob: URL revoked right after the click), so the
+ * file is captured AT CLICK TIME and handed to the native side, which saves it to
+ * Downloads/Aggarwal and opens the share sheet (WhatsApp, Drive, print…).
+ */
+function installNativeDownloads(p: AjPrinterPlugin): void {
+  const take = (a: HTMLAnchorElement): boolean => {
+    if (!isDownloadLink(a)) return false;
+    const name = downloadName(a);
+    // Start reading synchronously — the page may revoke a blob: URL right after click().
+    const read = fetch(a.href).then((r) => r.blob());
+    read
+      .then(async (b) => p.saveFile({ name, mime: b.type || "application/octet-stream", data: await blobToBase64(b) }))
+      .catch(() => alert(`Couldn't save ${name}. Try again, or export it from the counter PC.`));
+    return true;
+  };
+  const proto = HTMLAnchorElement.prototype;
+  const origClick = proto.click;
+  proto.click = function (this: HTMLAnchorElement) { if (take(this)) return; return origClick.call(this); };
+  const origDispatch = proto.dispatchEvent;
+  proto.dispatchEvent = function (this: HTMLAnchorElement, ev: Event) {
+    if (ev?.type === "click" && take(this)) return false;
+    return origDispatch.call(this, ev);
+  };
+  // Links tapped by hand (e.g. "Download a ready-made template").
+  document.addEventListener("click", (e) => {
+    const a = (e.target as Element | null)?.closest?.("a[download]") as HTMLAnchorElement | null;
+    if (a && take(a)) e.preventDefault();
+  }, true);
 }

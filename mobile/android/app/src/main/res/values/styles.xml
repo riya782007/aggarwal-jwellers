@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Brand maroon behind the status / navigation bars (the page is padded clear of them). -->
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
     </style>
 
 
