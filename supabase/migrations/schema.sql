@@ -4314,6 +4314,18 @@ create index if not exists sku_aliases_variant_idx on public.sku_aliases(variant
 -- Admin-only, like the rest of the console: RLS on, no anon policy (service-role reads bypass it).
 alter table public.sku_aliases enable row level security;
 
+-- ---------- 0080 device usage (see docs/0080_device_visits.sql) ----------
+create table if not exists public.device_visits (
+  id      uuid primary key default gen_random_uuid(),
+  at      timestamptz not null default now(),
+  role    text,
+  path    text,
+  device  text,
+  os      text,
+  browser text
+);
+create index if not exists idx_device_visits_at on public.device_visits (at);
+alter table public.device_visits enable row level security;
 -- ---------- 0081 edit a saved Final Estimate (see docs/0081_edit_order_items.sql) ----------
 create or replace function public.edit_order_items(
   p_order uuid,
