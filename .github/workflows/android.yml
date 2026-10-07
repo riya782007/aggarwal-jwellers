@@ -41,7 +41,7 @@ jobs:
       # Deploy Preview) builds a separate "Aggarwal TEST" app that installs beside the live one.
       # (Pull requests use [skip netlify] to save credits, so there is no preview to point at.)
       CAP_SERVER_URL: ${{ inputs.server_url || 'https://aggarwaljeweller.in/admin' }}
-      IS_TEST_APP: ${{ inputs.server_url != '' && inputs.server_url != 'https://aggarwaljeweller.in/admin' }}
+      IS_TEST_APP: ${{ github.event_name == 'workflow_dispatch' && inputs.server_url != '' && inputs.server_url != 'https://aggarwaljeweller.in/admin' }}
       APP_VERSION_CODE: ${{ github.run_number }}
       APP_VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
@@ -73,7 +73,9 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Sync web shell + plugins into the Android project
-        run: npx cap sync android
+        run: |
+          set -o pipefail
+          npx cap sync android 2>&1 | tee "$RUNNER_TEMP/sync.log" || { tail -n 25 "$RUNNER_TEMP/sync.log" | sed 's/^/::error::/'; exit 1; }
 
       - name: Mark the TEST app (separate app, installs beside the live one)
         if: env.IS_TEST_APP == 'true'
@@ -101,13 +103,14 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -o pipefail
           chmod +x gradlew
           if [ -n "$ANDROID_KEYSTORE_PATH" ]; then
-            ./gradlew --no-daemon assembleRelease
+            ./gradlew --no-daemon assembleRelease 2>&1 | tee "$RUNNER_TEMP/gradle.log" || { grep -E "error:|What went wrong|FAILURE|^e: |Could not" -A4 "$RUNNER_TEMP/gradle.log" | head -n 40 | sed 's/^/::error::/'; exit 1; }
             cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/aggarwal-jewellers.apk"
           else
             echo "::warning::No signing secrets set — building a debug APK. See mobile/README.md."
-            ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon assembleDebug 2>&1 | tee "$RUNNER_TEMP/gradle.log" || { grep -E "error:|What went wrong|FAILURE|^e: |Could not" -A4 "$RUNNER_TEMP/gradle.log" | head -n 40 | sed 's/^/::error::/'; exit 1; }
             cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/aggarwal-jewellers.apk"
           fi
 
