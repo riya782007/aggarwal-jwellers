@@ -109,6 +109,12 @@ body {
 @media print {
   .no-print { display: none !important; }
   body { background: #fff !important; border-top: none !important; }
+  /* While printing, "100vh" is one whole sheet. The console shell + page wrappers are
+     min-h-screen and add top padding on top of that, so every bill spilled ~1 inch past
+     page 1 and the printer pushed out an extra BLANK A4 sheet (owner report, Oct 2026).
+     Paper should be exactly as tall as the bill — never a screen tall. */
+  .min-h-screen { min-height: 0 !important; }
+  .print-shell-reset { padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
   .print-area { box-shadow: none !important; }
   /* Multi-page docs (estimate/invoice): repeat the table header on every sheet and never split a row,
      so long bills flow cleanly across pages (direct-print matches Save-as-PDF). */
