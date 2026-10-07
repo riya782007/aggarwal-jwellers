@@ -11,6 +11,7 @@
  */
 import { QR_QUIET_ZONE_MODULES, qrMatrix } from "@/lib/qr";
 import { THERMAL_LABEL, thermalTextBox } from "./boxLabel";
+import { isNativeApp, printLabelsNative } from "./nativeBridge";
 
 export type PdfLabel = {
   name?: string;
@@ -65,6 +66,13 @@ export function preloadJsPdf(): void {
  */
 export async function makeLabelsPdf(labels: PdfLabel[], action: "print" | "download" = "print"): Promise<void> {
   if (labels.length === 0) return;
+  // Android app only: send the same stickers straight to the paired Bluetooth printer.
+  // On every normal browser isNativeApp() is false and the PDF path below runs unchanged.
+  if (action === "print" && isNativeApp()) {
+    const printed = await printLabelsNative(labels);
+    if (!printed) window.location.href = "/admin/printer?setup=1";
+    return;
+  }
   const jsPDF = await loadJsPdf();
 
   const PW = THERMAL_LABEL.pageW, PH = THERMAL_LABEL.pageH;
