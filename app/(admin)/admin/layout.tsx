@@ -4,6 +4,7 @@ import { Diva } from "@/components/admin/Diva";
 import { PrivacyShield } from "@/components/admin/PrivacyShield";
 import { IdleLogout } from "@/components/admin/IdleLogout";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
+import { InternalApp } from "@/components/admin/InternalApp";
 import { NativeAppBridge } from "@/components/admin/NativeAppBridge";
 import { getSession, getLang } from "@/lib/auth";
 import { countNewWebsiteOrders } from "@/lib/supabase/queries";
@@ -33,6 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <IdleLogout />
       <AutoRefresh />
       <NativeAppBridge />
+      <InternalApp />
       <Diva roleName={s.roleName} />
     </div>
   );

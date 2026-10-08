@@ -145,7 +145,7 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
     <>
       {/* Mobile top bar */}
       <header className="no-print lg:hidden fixed top-0 inset-x-0 h-14 bg-ink text-cream z-40 flex items-center gap-3 px-4 shadow-card">
-        <button onClick={() => setOpen(true)} aria-label="Open menu" className="flex flex-col gap-[5px] p-1">
+        <button onClick={() => setOpen(true)} aria-label="Open menu" className="flex flex-col gap-[5px] min-h-11 min-w-11 justify-center">
           <span className="block h-0.5 w-6 bg-cream rounded" /><span className="block h-0.5 w-6 bg-cream rounded" /><span className="block h-0.5 w-6 bg-cream rounded" />
         </button>
         <p className="font-display text-xl text-ivory leading-none">Aggarwal Jewellers</p>
@@ -154,13 +154,13 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
 
       {/* Mobile drawer + overlay */}
       {open && <div className="no-print lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setOpen(false)} />}
-      <aside className={`no-print lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-ink text-cream/90 z-50 px-4 py-6 overflow-y-auto overflow-x-hidden nav-scroll transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`no-print lg:hidden fixed top-0 left-0 bottom-0 w-72 max-w-[90vw] bg-ink text-cream/90 z-50 px-4 py-6 overflow-y-auto overflow-x-hidden nav-scroll transition-transform duration-300 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between mb-6 px-2">
           <div>
             <p className="font-display text-2xl text-ivory leading-none">Aggarwal Jewellers</p>
             <p className="text-[10px] tracking-[0.25em] uppercase text-gold-light mt-1">Owner Console</p>
           </div>
-          <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-cream/70 text-xl px-2"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
+          <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-cream/70 text-xl px-2 min-h-11 min-w-11"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         </div>
         <NavInner collapsed={false} onNavigate={() => setOpen(false)} perms={perms} lang={lang} badges={badges} />
       </aside>
