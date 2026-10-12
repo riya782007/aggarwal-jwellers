@@ -13,6 +13,8 @@ import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { UpiQr } from "@/components/UpiQr";
 import { isDeadOrder } from "@/lib/business";
 import { EditBillItems } from "@/components/admin/EditBillItems";
+import { groupBillLines, OTHER_CATEGORY } from "@/lib/billGroups";
+import { Fragment } from "react";
 
 export const metadata = { title: "Invoice" };
 
@@ -33,6 +35,10 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
         acc[key] = cur; return acc;
       }, {} as Record<string, any>)).map((g: any) => ({ ...g, unit_price: g.qty > 0 ? Math.round(g.line_total / g.qty) : g.line_total }))
     : items;
+  // Owner request: print the bill CATEGORY-WISE (all earrings together, all necklaces together…),
+  // A–Z by SKU inside each category. Only the order changes — every amount stays the same.
+  const itemGroups = groupBillLines(displayItems);
+  const showGroupHeads = itemGroups.some((grp) => grp.category !== OTHER_CATEGORY);
 
   const isCash = order.bill_type === "cash";
   const isProforma = order.doc_type === "proforma";
@@ -86,7 +92,7 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
       {/* Print bills on A4 (the owner's sheet) at a readable size — legible without glasses. The
           items table repeats its header on every page and never splits a row, so a long bill flows
           cleanly across sheets. Scoped to this route so the barcode sheet is unaffected. */}
-      <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}.print-area tr.bill-group-head{break-after:avoid;page-break-after:avoid}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
       <div className="max-w-4xl mx-auto">
         {searchParams?.save === "attention" && <div className="mb-4 rounded-xl border border-rose/40 bg-rose/10 px-4 py-3 text-sm text-rose no-print">This sale was created, but essential invoice data was not saved. Do not collect another payment; have an administrator review this invoice first.</div>}
         {searchParams?.save === "warning" && <div className="mb-4 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold-dark no-print">The sale was saved with an administrative warning. Review the invoice details before filing it.</div>}
@@ -168,7 +174,20 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
               </tr>
             </thead>
             <tbody>
-              {displayItems.map((it: any, i: number) => {
+              {itemGroups.map((grp, gi) => {
+                const startNo = itemGroups.slice(0, gi).reduce((n, x) => n + x.items.length, 0);
+                const grpQty = grp.items.reduce((s: number, it: any) => s + it.qty, 0);
+                return (
+                <Fragment key={grp.category}>
+                {showGroupHeads && (
+                  <tr className="bill-group-head bg-cream/70 border-b border-sand">
+                    <td colSpan={isCash ? 5 : 7} className={`${td} font-semibold text-ink uppercase tracking-wide`}>
+                      {grp.category} <span className="font-normal normal-case tracking-normal text-muted">· Qty {grpQty}</span>
+                    </td>
+                  </tr>
+                )}
+                {grp.items.map((it: any, j: number) => {
+                const i = startNo + j;
                 const lineTaxable = (isCash || gstExclusive) ? it.line_total : Math.round(it.line_total / (1 + GST_RATE / 100));
                 const unit = (isCash || gstExclusive) ? it.unit_price : Math.round(it.unit_price / (1 + GST_RATE / 100));
                 // Original (pre-discount) rate for the Rate column; Amount stays the discounted net.
@@ -189,6 +208,9 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
                     </>)}
                     <td className={`${td} text-right`}>{formatPaise(lineTaxable)}</td>
                   </tr>
+                );
+                })}
+                </Fragment>
                 );
               })}
               <tr className="bg-cream/50 font-medium">

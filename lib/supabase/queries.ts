@@ -1666,11 +1666,17 @@ export async function getOrder(id: string) {
   // "…Necklace Set – Navy Blue" with SKU KN5441-NBlue (the "green not showing" issue). Resilient:
   // if the variant embed can't resolve, fall back to product-only so the invoice never blanks.
   // `id` lets the invoice page edit a saved Final Estimate line-by-line (docs/0081).
+  // The product's CATEGORY lets the printed bill group lines category-wise (lib/billGroups).
+  const WITH_CAT = "id,qty,unit_price,unit_mrp,line_total,product:products(name,sku,unit,category:categories(name,sort)),variant:variants(sku,color)";
   const RICH = "id,qty,unit_price,unit_mrp,line_total,product:products(name,sku,unit),variant:variants(sku,color)";
   const BASIC = "id,qty,unit_price,unit_mrp,line_total,product:products(name,sku,unit)";
-  const rich = await sb.from("order_items").select(RICH).eq("order_id", id);
-  let items: any[] | null = (rich.data as any) ?? null;
-  if (rich.error || items == null) {
+  const withCat = await sb.from("order_items").select(WITH_CAT).eq("order_id", id);
+  let items: any[] | null = withCat.error ? null : ((withCat.data as any) ?? null);
+  if (items == null) {
+    const rich = await sb.from("order_items").select(RICH).eq("order_id", id);
+    items = rich.error ? null : ((rich.data as any) ?? null);
+  }
+  if (items == null) {
     const basic = await sb.from("order_items").select(BASIC).eq("order_id", id);
     items = (basic.data as any) ?? null;
   }
