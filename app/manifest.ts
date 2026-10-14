@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 /** Installable app for counter PCs (Chrome/Edge "Install") and phones ("Add to Home screen").
- *  Deliberately NO service worker / offline cache: every screen must show live stock and prices. */
+ *  Internal service worker caches only a static offline notice; stock and prices stay live. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Aggarwal Jewellers",
