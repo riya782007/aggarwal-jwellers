@@ -20,7 +20,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
   const [q, setQ] = useState("");
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
-  const [packQty, setPackQty] = useState("6");
+  const [packQty, setPackQty] = useState("12");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
     setBusy(true); setMsg(null);
     const r = await createBoxGroupAction({ sku, packQty: n, label: label.trim() || undefined });
     setBusy(false);
-    if (r.ok) { setMsg({ text: `Box QR ${r.code} created. Print it from the list below.`, ok: true }); setSku(""); setName(""); setLabel(""); setPackQty("6"); setQ(""); router.refresh(); }
+    if (r.ok) { setMsg({ text: `Box QR ${r.code} created. Print it from the list below.`, ok: true }); setSku(""); setName(""); setLabel(""); setPackQty("12"); setQ(""); router.refresh(); }
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
 
@@ -210,7 +210,7 @@ export function BoxQrMaker({ products, groups }: { products: Pick[]; groups: Box
         </div>
         <div>
           <label className="text-[11px] text-muted">Pieces in the box *</label>
-          <input className={`${input} mt-0.5`} inputMode="numeric" value={packQty} onChange={(e) => setPackQty(e.target.value)} placeholder="6" />
+          <input className={`${input} mt-0.5`} inputMode="numeric" value={packQty} onChange={(e) => setPackQty(e.target.value)} placeholder="12" />
         </div>
         <div>
           <label className="text-[11px] text-muted">Box label (optional)</label>

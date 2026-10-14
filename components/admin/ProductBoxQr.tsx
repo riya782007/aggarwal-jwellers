@@ -17,7 +17,7 @@ type Box = { id: string; code: string; label: string; packQty: number; sku: stri
  */
 export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string; groups: Box[] }) {
   const router = useRouter();
-  const [packQty, setPackQty] = useState("6");
+  const [packQty, setPackQty] = useState("12");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
     setBusy(true); setMsg(null);
     const r = await createBoxGroupAction({ sku, packQty: n, label: label.trim() || undefined });
     setBusy(false);
-    if (r.ok) { setMsg({ text: `Box QR ${r.code} created.`, ok: true }); setLabel(""); setPackQty("6"); router.refresh(); }
+    if (r.ok) { setMsg({ text: `Box QR ${r.code} created.`, ok: true }); setLabel(""); setPackQty("12"); router.refresh(); }
     else setMsg({ text: r.error ?? "Could not create the box QR.", ok: false });
   }
 
@@ -134,7 +134,7 @@ export function ProductBoxQr({ sku, name, groups }: { sku: string; name: string;
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-[11px] text-muted">Pieces in the box
-          <input className={`${input} w-24 block mt-0.5`} inputMode="numeric" value={packQty} onChange={(e) => setPackQty(e.target.value)} placeholder="6" />
+          <input className={`${input} w-24 block mt-0.5`} inputMode="numeric" value={packQty} onChange={(e) => setPackQty(e.target.value)} placeholder="12" />
         </label>
         <label className="text-[11px] text-muted flex-1 min-w-[160px]">Box label (optional)
           <input className={`${input} w-full block mt-0.5`} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`${name} · box`} />
