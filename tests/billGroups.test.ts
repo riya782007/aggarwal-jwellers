@@ -48,4 +48,24 @@ describe("groupBillLines", () => {
     expect(g[0].category).toBe(OTHER_CATEGORY);
     expect(g[0].items.map((i) => i.product.sku)).toEqual(["A", "B"]);
   });
+
+  it("inside a category, lines run by price — lowest rate first (owner request)", () => {
+    const g = groupBillLines([
+      line("N1", NECK, 1, 90000), line("E2", EAR, 2, 50000), line("N9", NECK, 1, 12000),
+      line("E1", EAR, 6, 48000), line("N5", NECK, 2, 60000),
+    ]);
+    expect(g.map((x) => x.category)).toEqual(["Necklace", "Earrings"]);
+    // Necklace rates: N9 ₹120, N5 ₹300, N1 ₹900
+    expect(g[0].items.map((i) => i.product.sku)).toEqual(["N9", "N5", "N1"]);
+    // Earrings rates: E1 ₹80, E2 ₹250
+    expect(g[1].items.map((i) => i.product.sku)).toEqual(["E1", "E2"]);
+  });
+
+  it("equal prices fall back to A–Z by SKU; a missing price never breaks the order", () => {
+    const g = groupBillLines([
+      line("B2", EAR, 1, 5000), line("B1", EAR, 1, 5000),
+      { qty: 1, line_total: 0, unit_price: undefined, product: { sku: "Z9", category: EAR } } as any,
+    ]);
+    expect(g[0].items.map((i: any) => i.product.sku)).toEqual(["Z9", "B1", "B2"]);
+  });
 });
