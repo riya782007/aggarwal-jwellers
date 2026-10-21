@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { divaPlan, divaRun, getDivaSuggestions, type DivaSuggestion } from "@/app/actions/diva";
@@ -9,6 +9,12 @@ type Msg = { who: "owner" | "diva"; text: string };
 type Step = { tool: string; args: Record<string, any>; label: string; kind: string; needsConfirm: boolean; status: "pending" | "running" | "done" | "error" | "skipped"; message?: string; confirmed?: boolean };
 
 const STATUS_ICON: Record<string, string> = { pending: "pending", running: "pending", done: "check", error: "close", skipped: "remove" };
+
+/** Window event that opens the DIVA panel (fired by the "Ask DIVA" buttons in AdminNav). */
+export const DIVA_OPEN_EVENT = "aj:open-diva";
+export function openDiva(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(DIVA_OPEN_EVENT));
+}
 
 export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const router = useRouter();
@@ -30,6 +36,13 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
   const runIdRef = useRef(0);
   const ctxRef = useRef<string | undefined>(undefined);
   const sync = (s: Step[]) => { stepsRef.current = s; setSteps([...s]); };
+
+  // Opened from the menu / top bar (components/AdminNav) via a window event.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(DIVA_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(DIVA_OPEN_EVENT, onOpen);
+  }, []);
 
   useEffect(() => { logRef.current?.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, steps]);
 
@@ -118,17 +131,9 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
 
   return (
     <>
-      {/* Floating avatar */}
-      {!open && (
-        <button onClick={() => setOpen(true)} className="no-print fixed bottom-5 right-5 z-50 group flex items-center gap-2">
-          <span className="hidden sm:block bg-ink text-cream text-xs px-3 py-1.5 rounded-full shadow-luxe opacity-0 group-hover:opacity-100 transition-opacity">Ask DIVA</span>
-          <span className="relative block">
-            <span className="absolute inset-0 rounded-full bg-emerald/40 animate-ping" />
-            <DivaAvatar className="relative w-16 h-16 drop-shadow-xl" />
-          </span>
-        </button>
-      )}
-
+      {/* No floating avatar any more (owner request): it sat over the bottom-right of every page,
+          on top of Save / Bill buttons, and its pulse distracted staff. DIVA now opens from the
+          "Ask DIVA" button in the side menu (desktop) and the top bar (phone) — see openDiva(). */}
       {/* Panel */}
       {open && (
         <div className="no-print fixed inset-0 sm:inset-auto sm:bottom-5 sm:right-5 z-50 sm:w-[400px] sm:h-[600px] sm:max-h-[85vh] bg-white sm:rounded-3xl shadow-luxe flex flex-col overflow-hidden border border-sand">
@@ -209,18 +214,22 @@ export function Diva({ roleName = "Owner" }: { roleName?: string }) {
 }
 
 /** Stylised "DIVA" human-figure avatar (brand emerald/gold). */
-function DivaAvatar({ className = "" }: { className?: string }) {
+export function DivaAvatar({ className = "" }: { className?: string }) {
+  // Unique gradient ids per avatar: the menu, top bar and panel can each render one, and a
+  // gradient defined inside a hidden copy (e.g. the phone top bar on desktop) would not paint.
+  const uid = useId().replace(/:/g, "");
+  const bg = `dv-bg-${uid}`, gold = `dv-gold-${uid}`;
   return (
     <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden>
       <defs>
-        <linearGradient id="dv-bg" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={bg} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#2F6B3C" /><stop offset="1" stopColor="#224D2B" />
         </linearGradient>
-        <linearGradient id="dv-gold" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gold} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#E9CF8B" /><stop offset="1" stopColor="#C79A2D" />
         </linearGradient>
       </defs>
-      <circle cx="50" cy="50" r="48" fill="url(#dv-bg)" stroke="#C79A2D" strokeWidth="2.5" />
+      <circle cx="50" cy="50" r="48" fill={`url(#${bg})`} stroke="#C79A2D" strokeWidth="2.5" />
       {/* hair */}
       <path d="M30 48c0-15 9-25 20-25s20 10 20 25c0 6-2 12-4 16-1-10-2-20-8-24-3 6-18 6-22 0-4 5-5 14-6 22-1-4-0-9 0-14z" fill="#451117" />
       {/* face */}
@@ -229,11 +238,11 @@ function DivaAvatar({ className = "" }: { className?: string }) {
       <circle cx="45" cy="45" r="1.6" fill="#451117" /><circle cx="55" cy="45" r="1.6" fill="#451117" />
       <path d="M46 52c2 2 6 2 8 0" stroke="#96701C" strokeWidth="1.4" fill="none" strokeLinecap="round" />
       {/* earrings */}
-      <circle cx="37" cy="50" r="2.3" fill="url(#dv-gold)" /><circle cx="63" cy="50" r="2.3" fill="url(#dv-gold)" />
+      <circle cx="37" cy="50" r="2.3" fill={`url(#${gold})`} /><circle cx="63" cy="50" r="2.3" fill={`url(#${gold})`} />
       {/* shoulders + necklace */}
       <path d="M28 84c2-12 10-18 22-18s20 6 22 18z" fill="#7B1E28" />
-      <path d="M42 70c3 5 13 5 16 0" stroke="url(#dv-gold)" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <circle cx="50" cy="74" r="2.4" fill="url(#dv-gold)" />
+      <path d="M42 70c3 5 13 5 16 0" stroke={`url(#${gold})`} strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="50" cy="74" r="2.4" fill={`url(#${gold})`} />
     </svg>
   );
 }

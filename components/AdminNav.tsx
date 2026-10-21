@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction, setLangAction } from "@/app/actions/auth";
 import { PrivacyToggle } from "@/components/admin/PrivacyShield";
+import { DivaAvatar, openDiva } from "@/components/admin/Diva";
 import { t, LANGS, type Lang, type I18nKey } from "@/lib/i18n";
 
 type L = { href: string; label: I18nKey; icon: string; perm?: string };
@@ -150,6 +151,10 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
         </button>
         <p className="font-display text-xl text-ivory leading-none">Aggarwal Jewellers</p>
         <span className="ml-auto text-[10px] tracking-widest uppercase text-gold-light">{roleName}</span>
+        {/* DIVA lives here on phones (no floating button over the page). */}
+        <button onClick={openDiva} aria-label="Ask DIVA" title="Ask DIVA" className="shrink-0 rounded-full p-0.5 hover:bg-white/10">
+          <DivaAvatar className="w-9 h-9" />
+        </button>
       </header>
 
       {/* Mobile drawer + overlay */}
@@ -174,6 +179,12 @@ export function AdminNav({ perms = "*", roleName = "Owner", lang = "en", badges 
           </div>}
           <button onClick={toggleCollapsed} aria-label="Collapse menu" className="text-cream/60 hover:text-white text-lg px-1">{collapsed ? "»" : "«"}</button>
         </div>
+        {/* DIVA lives in the menu on desktop — it used to float over the bottom-right of every page. */}
+        <button onClick={openDiva} title="Ask DIVA" aria-label="Ask DIVA"
+          className={`mb-4 flex items-center gap-3 rounded-xl bg-white/5 hover:bg-white/10 text-sm text-cream/90 transition-colors ${collapsed ? "justify-center py-1.5" : "px-3 py-2"}`}>
+          <DivaAvatar className="w-8 h-8 shrink-0" />
+          {!collapsed && <span>Ask DIVA</span>}
+        </button>
         <div className="flex-1 overflow-y-auto overflow-x-hidden nav-scroll">
           <NavInner collapsed={collapsed} perms={perms} lang={lang} badges={badges} />
         </div>
