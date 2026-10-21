@@ -4,7 +4,8 @@
  *
  * - Groups follow the catalogue's own category order (categories.sort, then name), so the bill
  *   reads in the same order as the shop's catalogue. Lines with no category go last, as "Other".
- * - Inside a group, lines stay A–Z by SKU (the old order), so picking/checking is still predictable.
+ * - Inside a group, lines run by PRICE, lowest rate first (owner request); equal prices fall back to
+ *   A–Z by SKU so the order is always the same.
  * - Pure and DOM-free: only the ORDER of lines changes, never qty, rate or amount.
  */
 
@@ -16,6 +17,12 @@ export const OTHER_CATEGORY = "Other";
 
 function lineSku(it: any): string {
   return String(it?.variant?.sku ?? it?.product?.sku ?? "");
+}
+
+/** The per-piece rate printed on the bill (paise); unknown → 0 so it sorts first, never crashes. */
+function linePrice(it: any): number {
+  const n = Number(it?.unit_price);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function lineCategory(it: any): BillCategory {
@@ -43,6 +50,6 @@ export function groupBillLines<T>(lines: T[]): BillGroup<T>[] {
       a.category.localeCompare(b.category))
     .map((g) => ({
       category: g.category,
-      items: [...g.items].sort((x, y) => lineSku(x).localeCompare(lineSku(y))),
+      items: [...g.items].sort((x, y) => linePrice(x) - linePrice(y) || lineSku(x).localeCompare(lineSku(y))),
     }));
 }

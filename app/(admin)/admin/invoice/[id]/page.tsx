@@ -36,7 +36,7 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
       }, {} as Record<string, any>)).map((g: any) => ({ ...g, unit_price: g.qty > 0 ? Math.round(g.line_total / g.qty) : g.line_total }))
     : items;
   // Owner request: print the bill CATEGORY-WISE (all earrings together, all necklaces together…),
-  // A–Z by SKU inside each category. Only the order changes — every amount stays the same.
+  // lowest price first inside each category. Only the order changes — every amount stays the same.
   const itemGroups = groupBillLines(displayItems);
   const showGroupHeads = itemGroups.some((grp) => grp.category !== OTHER_CATEGORY);
 
