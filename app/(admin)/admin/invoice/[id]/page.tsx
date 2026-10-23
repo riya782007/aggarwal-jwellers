@@ -18,6 +18,38 @@ import { Fragment } from "react";
 
 export const metadata = { title: "Invoice" };
 
+/* Owner request (Oct 2026): printed bills were too faint — beige table lines and grey text vanish on
+   paper — and, when printed from the Android app, the page edges showed a dark wine frame (the
+   app's background colour painted into the empty page margins).
+   1. Ink: in print, the bill's table gets dark lines (rows AND columns) and all text prints in
+      near-black. Screen look is unchanged.
+   2. No frame (app only — <html class="aj-app">, set by lib/nativeBridge): the bill uses a named
+      page with ZERO margin, so there is no margin for the app colour to show in; the same white
+      space around the bill comes from its own padding, repeated on every sheet. PCs keep the
+      normal @page margin. */
+const PRINT_DARK = [
+  ".print-area{color:#000}",
+  // The console's beige page colour must never reach paper (it printed whenever background
+  // graphics were on): everything around the bill is plain white.
+  "html,body,body>*,main{background:#fff!important}",
+  ".print-area tbody tr:not(.bill-group-head){background:transparent!important}",
+  ".print-area .text-muted,.print-area .text-ink,.print-area [class*='text-ink/']{color:#111!important}",
+  ".print-area .border-sand,.print-area [class*='border-sand']{border-color:#555!important}",
+  ".print-area table{border:1px solid #222!important;border-collapse:collapse}",
+  ".print-area th,.print-area td{border:1px solid #444!important;color:#000!important}",
+  ".print-area thead{background:#e6e6e6!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
+  ".print-area tr.bill-group-head{background:#f0f0f0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
+  ".print-area td .font-mono{background:transparent!important;border-color:#666!important;color:#000!important}",
+  // App print: no page margin → no coloured frame. Padding keeps the same white border on every sheet.
+  "html.aj-app #invoice{page:aj-bill;margin:0!important;border-radius:0!important;padding:10mm!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}",
+  "html.aj-app #invoice.invoice-dense{padding:6mm!important}",
+  "@page aj-bill{margin:0}",
+  // Paint the sheet itself white (never the app colour) — but don't print the console's own
+  // page backgrounds, so only html/body are "exact"; everything inside goes back to normal.
+  "html.aj-app,html.aj-app body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
+  "html.aj-app body>*{-webkit-print-color-adjust:economy;print-color-adjust:economy}",
+].join("");
+
 export default async function Invoice({ params, searchParams }: { params: { id: string }; searchParams?: { save?: string } }) {
   const data = await getOrder(params.id);
   if (!data) notFound();
@@ -92,7 +124,7 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
       {/* Print bills on A4 (the owner's sheet) at a readable size — legible without glasses. The
           items table repeats its header on every page and never splits a row, so a long bill flows
           cleanly across sheets. Scoped to this route so the barcode sheet is unaffected. */}
-      <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}.print-area tr.bill-group-head{break-after:avoid;page-break-after:avoid}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
+      <style dangerouslySetInnerHTML={{ __html: `@media print{@page{size:A4;margin:${densePrint ? "6mm" : "10mm"}}.print-area{font-size:${densePrint ? "10px" : "12px"}}.print-area .font-display{font-size:${densePrint ? "1.25rem" : "1.5rem"}}.print-area thead{display:table-header-group}.print-area tbody tr{break-inside:avoid}.print-area tr.bill-group-head{break-after:avoid;page-break-after:avoid}${PRINT_DARK}${densePrint ? ".invoice-dense .print-chrome{padding:0!important;margin-bottom:4px!important}.invoice-dense table{font-size:10px}.invoice-dense td,.invoice-dense th{padding:2px 4px!important}" : ""}}` }} />
       <div className="max-w-4xl mx-auto">
         {searchParams?.save === "attention" && <div className="mb-4 rounded-xl border border-rose/40 bg-rose/10 px-4 py-3 text-sm text-rose no-print">This sale was created, but essential invoice data was not saved. Do not collect another payment; have an administrator review this invoice first.</div>}
         {searchParams?.save === "warning" && <div className="mb-4 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold-dark no-print">The sale was saved with an administrative warning. Review the invoice details before filing it.</div>}
