@@ -91,6 +91,9 @@ export function installNativePrintShim(): void {
   const p = plugin();
   if (!p || (window as any).__ajPrintShim) return;
   (window as any).__ajPrintShim = true;
+  // Lets print CSS treat the app differently (e.g. the bill's zero-margin page, so the app's dark
+  // background can't show as a frame round the printed sheet). Browsers never get this class.
+  try { document.documentElement.classList.add("aj-app"); } catch { /* */ }
   window.print = () => {
     p.printPage({ name: document.title || "Aggarwal Jewellers" }).catch(() => {
       alert("Couldn't open the print screen. Try again, or print this page from the counter PC.");
