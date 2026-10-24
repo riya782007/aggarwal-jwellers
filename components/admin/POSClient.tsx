@@ -65,8 +65,11 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => { linesRef.current = lines; }, [lines]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [cust, setCust] = useState({ name: "", phone: "" });
-  const [custType, setCustType] = useState<"retail" | "wholesale">("retail");
+  // Owner request (Oct 2026): most bills are wholesale, so every new bill starts exactly as if
+  // "Cash (W)" had been picked — wholesale rates, merged colours. Tap Cash (R) / pick a retail
+  // customer to switch.
+  const [cust, setCust] = useState({ name: "Cash (W)", phone: "" });
+  const [custType, setCustType] = useState<"retail" | "wholesale">("wholesale");
   const [salesEmp, setSalesEmp] = useState(""); // who dealt with the customer (performance attribution)
   // Local, editable roster so a staffer can add their name here and be selected immediately.
   const [emps, setEmps] = useState<Emp[]>(employees);
@@ -101,7 +104,7 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   const [err, setErr] = useState("");
   const [allowBackorder, setAllowBackorder] = useState(false);
   // When on, the printed bill merges a product's colour variants into one line (qty summed).
-  const [mergeVariants, setMergeVariants] = useState(false);
+  const [mergeVariants, setMergeVariants] = useState(true); // on, like Cash (W) — the default bill
   // Live copy of the catalogue. The `products` prop is a snapshot taken when Billing was opened
   // (and AutoRefresh is deliberately off on this screen), so stock added later — purchase entry,
   // inventory add, another counter's sale — used to show as (0) here all day while Catalogue
@@ -178,13 +181,13 @@ export function POSClient({ products, customers = [], methods = [], employees = 
     setCust({ name: c.name, phone: c.phone });
     if (c.gstin) setGstin(c.gstin);
     setCustType(c.type === "wholesale" ? "wholesale" : "retail");
-    if (c.type === "wholesale") setMergeVariants(true);
+    setMergeVariants(c.type === "wholesale"); // retail bills keep separate colour lines, as before
     setCustQ(""); setCustPanel(false);
   }
   function walkIn(type: "retail" | "wholesale") {
     setCust({ name: type === "wholesale" ? "Cash (W)" : "Cash (R)", phone: "" });
     setCustType(type); setCustPanel(false);
-    if (type === "wholesale") setMergeVariants(true);
+    setMergeVariants(type === "wholesale"); // Cash (R) → separate colour lines, as before
   }
 
   // Exact SKU → old (renamed) SKU, all in memory: an instant scan with no server trip.
