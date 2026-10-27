@@ -95,6 +95,10 @@ jobs:
             echo "path=$RUNNER_TEMP/release.jks" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Test connection recovery
+        working-directory: mobile/android
+        run: bash ./gradlew --no-daemon testDebugUnitTest
+
       - name: Build APK
         working-directory: mobile/android
         env:
