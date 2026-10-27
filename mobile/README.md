@@ -13,7 +13,16 @@ update reaches the app instantly. It adds what a browser on a phone can't do:
 - **Camera** for QR scanning at billing and for product photos. **Bluetooth barcode scanners** pair as a keyboard and work like at the counter.
 - **Back button** goes to the previous page. On the first page it only minimises the app, so a bill in progress is never lost.
 - **Stays logged in** across app switches (same 1-hour idle rule as the website).
-- **No-internet screen** with Retry; bills are always safe on the server.
+- **Connection recovery.** If a page load fails, the app retries the failed page when you return
+  to the app or Wi-Fi/mobile data comes back. Repeated failures back off to 30 seconds. A working
+  screen is never reloaded by this recovery, and bill submissions are never replayed. Retry remains
+  available manually. Saved bills stay on the server; this does not restore unsaved edits after
+  a failed navigation or Android killing the app.
+
+Connection recovery changes are native: build and install an updated APK after merging; a
+website deployment alone does not update existing app installations. Test app switching with
+a bill in progress, airplane mode during page navigation, Wi-Fi/mobile-data handoff, and recovery
+to the failed route. Confirm a healthy bill stays untouched and no sale is submitted twice.
 
 On a normal browser nothing changes: the website keeps its PDF printing and normal downloads.
 

@@ -1,6 +1,7 @@
 package in.aggarwaljeweller.counter;
 
 import android.os.Bundle;
+import android.net.ConnectivityManager;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 
@@ -9,11 +10,14 @@ import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private ConnectionRecoveryClient connectionRecovery;
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Local plugin: Bluetooth label printing, Android print screen, saving exports (AjPrinterPlugin).
         registerPlugin(AjPrinterPlugin.class);
         super.onCreate(savedInstanceState);
+        connectionRecovery = new ConnectionRecoveryClient(getBridge(), getSystemService(ConnectivityManager.class));
+        getBridge().setWebViewClient(connectionRecovery);
 
         // Android back button = "previous page" (like the browser). On the first page it only
         // minimises the app, so a bill in progress and the login are never thrown away.
@@ -28,9 +32,22 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        if (connectionRecovery != null) connectionRecovery.resume();
+    }
+
+    @Override
     public void onPause() {
+        if (connectionRecovery != null) connectionRecovery.pause();
         super.onPause();
         // Write the login cookie to disk now, so swiping the app away never logs staff out early.
         CookieManager.getInstance().flush();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (connectionRecovery != null) connectionRecovery.pause();
+        super.onDestroy();
     }
 }
