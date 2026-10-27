@@ -512,15 +512,17 @@ export function POSClient({ products, customers = [], methods = [], employees = 
         </div>
 
         {/* Compact customer chip (F2) */}
-        <div className="relative shrink-0">
-          <button onClick={() => setCustPanel((v) => !v)} className="flex items-center gap-2 rounded-xl border border-sand px-3 py-2 text-sm hover:border-emerald">
+        <div className="relative w-full min-w-0 sm:w-auto sm:shrink-0">
+          <button type="button" aria-expanded={custPanel} aria-controls="pos-customer-panel" onClick={() => setCustPanel((v) => !v)} className="flex items-center gap-2 rounded-xl border border-sand px-3 py-2 text-sm hover:border-emerald">
             <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${custType === "wholesale" ? "bg-wine/10 text-wine" : "bg-emerald-mist text-emerald-dark"}`}>{TIER_LABEL[custType]}</span>
             <span className="text-ink max-w-[160px] truncate">{cust.name || "Walk-in customer"}</span>
             {cust.phone && <span className="text-muted text-xs">· {cust.phone}</span>}
             <span className="text-muted text-xs">▾ <span className="text-[10px]">F2</span></span>
           </button>
           {custPanel && (
-            <div className="absolute z-30 right-0 mt-1 w-80 bg-white rounded-xl shadow-luxe border border-sand p-3 space-y-2">
+            // Keep the mobile panel in normal flow: a right-aligned 320px dropdown can put
+            // Cash (R) outside the left edge when the chip wraps onto its own row.
+            <div id="pos-customer-panel" className="relative z-30 mt-1 w-full sm:absolute sm:right-0 sm:w-80 bg-white rounded-xl shadow-luxe border border-sand p-3 space-y-2">
               <div className="flex gap-2">
                 <button onClick={() => walkIn("retail")} className="flex-1 rounded-lg border border-sand px-3 py-1.5 text-sm hover:border-emerald">Cash (R)</button>
                 <button onClick={() => walkIn("wholesale")} className="flex-1 rounded-lg border border-sand px-3 py-1.5 text-sm hover:border-emerald">Cash (W)</button>
