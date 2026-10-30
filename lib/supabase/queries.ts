@@ -1587,10 +1587,31 @@ export async function getDashboardAnalytics(fromISO: string, toISO: string): Pro
   // QA 16 Jul: cancelled/void/refunded orders were counted here (channel donut ₹4,450 vs the
   // header's correct ₹2,195) — dead orders must never count towards revenue, and the figure
   // shown is the GST-aware grand (net of returns), same as every other money surface.
-  const [{ data: orders }, { data: items }] = await Promise.all([
+  // Speed + accuracy (Oct 2026): bill lines used to be read with NO date limit — every line ever
+  // sold, on every dashboard load (and every auto-refresh). PostgREST also caps a plain select at
+  // 1000 rows, so once the shop passed 1000 lines the "top categories / products" were built from
+  // the OLDEST 1000 lines only. Now only lines of bills inside the chosen dates are read (inner
+  // join on the order date), paged so none are missed. The old query stays as a fallback.
+  const ITEM_COLS = "line_total,qty,product:products(name,category:categories(name))";
+  const datedItems = async (): Promise<any[] | null> => {
+    try {
+      const rows = await allRows<any>(() => sb.from("order_items")
+        .select(`id,${ITEM_COLS},orders!inner(created_at,channel,status,payment_confirmed_at)`)
+        .gte("orders.created_at", fromISO).lte("orders.created_at", toISO)
+        .order("id"));
+      return rows.map((r) => ({ ...r, order: Array.isArray(r.orders) ? r.orders[0] : r.orders }));
+    } catch { return null; }
+  };
+  const [{ data: orders }, dated] = await Promise.all([
     sb.from("orders").select("total,channel,created_at,status,bill_type,gst_mode,return_amount,payment_confirmed_at").gte("created_at", fromISO).lte("created_at", toISO),
-    sb.from("order_items").select("line_total,qty,order:orders(created_at,channel,status,payment_confirmed_at),product:products(name,category:categories(name))"),
+    datedItems(),
   ]);
+  let items: any[] | null = dated;
+  if (items == null || (items.length === 0 && ((orders as any[]) ?? []).length > 0)) {
+    // Fallback: the previous (unbounded) read — never show an empty chart because of a query hiccup.
+    const { data } = await sb.from("order_items").select(`${ITEM_COLS},order:orders(created_at,channel,status,payment_confirmed_at)`);
+    items = (data as any[]) ?? [];
+  }
   const os = ((orders as any[]) ?? []).filter((o) => isCountableSale(o));
   const its = ((items as any[]) ?? []).filter((i) => i.order && isCountableSale(i.order) && i.order.created_at >= fromISO && i.order.created_at <= toISO);
 
