@@ -4,7 +4,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { requirePerm } from "@/lib/auth";
 import { generateImage, geminiConfigured } from "@/lib/ai/gemini";
 import { buildVariantImagePrompt } from "@/lib/ai/imagePrompt";
-import { getColorCodeMap } from "@/lib/supabase/queries";
+import { getColorCodeMap, getPricingFormula } from "@/lib/supabase/queries";
+import { followWholesale } from "@/lib/pricing";
 import { barcodeCodeForColor } from "@/lib/colors";
 import { recordSkuAlias } from "@/lib/skuAlias";
 
@@ -131,11 +132,18 @@ export async function updateVariantAction(formData: FormData): Promise<void> {
   const [{ data: pClash }, { data: vClash }, { data: before }] = await Promise.all([
     sb.from("products").select("id").ilike("sku", finalSku).maybeSingle(),
     sb.from("variants").select("id").ilike("sku", finalSku).neq("id", id).maybeSingle(),
-    sb.from("variants").select("sku,product_id").eq("id", id).maybeSingle(),
+    sb.from("variants").select("sku,product_id,wholesale_override,retail_override,mrp_override").eq("id", id).maybeSingle(),
   ]);
+  // A changed WHOLESALE carries retail + MRP with it (unless those were edited in this same save).
+  const b: any = before ?? {};
+  const priced = followWholesale(
+    { wholesale: b.wholesale_override ?? null, retail: b.retail_override ?? null, mrp: b.mrp_override ?? null },
+    { wholesale: toPaise(formData.get("wholesale")), retail: toPaise(formData.get("retail")), mrp: toPaise(formData.get("mrp")) },
+    await getPricingFormula(),
+  );
   const patch: Record<string, any> = {
     color: color || null, size: size || null, polish: polish || null,
-    retail_override: toPaise(formData.get("retail")), wholesale_override: toPaise(formData.get("wholesale")), mrp_override: toPaise(formData.get("mrp")),
+    retail_override: priced.retail, wholesale_override: priced.wholesale, mrp_override: priced.mrp,
   };
   if (!pClash && !vClash) patch.sku = finalSku; // only change the SKU when the new code is free
   // #4 lost-update guard: this form sets an ABSOLUTE qty. If the user didn't actually change the qty

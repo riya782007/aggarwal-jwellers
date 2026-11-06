@@ -14,7 +14,7 @@ import { buildSkuIndex, matchSku, suggestSkus } from "@/lib/skuMatch";
 import { scanFeedback, scanSoundEnabled, setScanSoundEnabled } from "@/lib/scanFeedback";
 import { CameraScanner } from "@/components/admin/CameraScanner";
 import { useWedgeScanner } from "@/components/admin/useWedgeScanner";
-import { usePosKeepalive } from "@/components/admin/usePosKeepalive";
+import { usePosKeepalive, type PosPrices } from "@/components/admin/usePosKeepalive";
 import {
   enqueueScan,
   isTransientPosError,
@@ -111,15 +111,26 @@ export function POSClient({ products, customers = [], methods = [], employees = 
   // showed the real count. The keepalive ping now brings back live counts every 2 minutes.
   const [catalog, setCatalog] = useState<P[]>(products);
   useEffect(() => { setCatalog(products); }, [products]);
-  const applyStock = (stock: Record<string, number>) => {
+  const applyStock = (stock: Record<string, number>, prices?: PosPrices) => {
     const qtyOf = (sku: string) => (typeof stock[sku] === "number" && Number.isFinite(stock[sku]) ? stock[sku] : undefined);
+    // Live prices too (Nov 2026): a rate corrected in the catalogue reaches this open screen on
+    // the next ping instead of scanning at the morning's price all day. Only list prices change —
+    // a rate or discount typed on a bill line is left exactly as the counter set it.
+    const priceOf = (sku: string) => {
+      const t = prices?.[sku];
+      return Array.isArray(t) && t.length === 3 && t.every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0)
+        ? { price: t[0], wholesale: t[1], mrp: t[2] } : undefined;
+    };
     setCatalog((prev) => {
       let changed = false;
       const next = prev.map((p) => {
         const q = qtyOf(p.sku);
-        if (q === undefined || q === p.qty) return p;
+        const pr = priceOf(p.sku);
+        const qtyMoved = q !== undefined && q !== p.qty;
+        const priceMoved = !!pr && (pr.price !== p.price || pr.wholesale !== p.wholesale || pr.mrp !== p.mrp);
+        if (!qtyMoved && !priceMoved) return p;
         changed = true;
-        return { ...p, qty: q };
+        return { ...p, ...(qtyMoved ? { qty: q! } : {}), ...(priceMoved ? pr! : {}) };
       });
       return changed ? next : prev;
     });
@@ -127,9 +138,12 @@ export function POSClient({ products, customers = [], methods = [], employees = 
       let changed = false;
       const next = prev.map((l) => {
         const q = qtyOf(l.sku);
-        if (q === undefined || q === l.stock) return l;
+        const pr = priceOf(l.sku);
+        const qtyMoved = q !== undefined && q !== l.stock;
+        const priceMoved = !!pr && (pr.price !== l.price || pr.wholesale !== l.wholesale || pr.mrp !== l.mrp);
+        if (!qtyMoved && !priceMoved) return l;
         changed = true;
-        return { ...l, stock: q };
+        return { ...l, ...(qtyMoved ? { stock: q! } : {}), ...(priceMoved ? pr! : {}) };
       });
       if (changed) linesRef.current = next;
       return changed ? next : prev;

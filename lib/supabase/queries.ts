@@ -1943,6 +1943,43 @@ export async function getPosScanIndex(): Promise<PosScanIndex> {
  *  colour variant, or the product itself when it has none). No prices, no names — just counts,
  *  so the counter's piggy-backed keepalive ping stays tiny. Returns null if the product read
  *  failed; SKUs missing from the map are simply left alone by the POS (never reset to 0). */
+/**
+ * Live stock AND prices for an open Billing screen, on the keepalive ping it already sends every
+ * 2 minutes (owner, Nov 2026: a corrected rate kept scanning at the old price because Billing
+ * keeps the catalogue it loaded in the morning, and the ping only refreshed stock). Same price
+ * rules as getPosCatalog: variant price → product price → base cost × formula.
+ * prices[sku] = [retail, wholesale, mrp] in paise.
+ */
+export async function getPosLive(): Promise<{ stock: Record<string, number>; prices: Record<string, [number, number, number]> } | null> {
+  const sb = supabaseServer();
+  const [formula, products, variants] = await Promise.all([
+    getPricingFormula(),
+    allRows<any>(() => sb.from("products").select("id,sku,qty,base_wholesale,wholesale_override,retail_override,mrp_override").order("sku")),
+    allRows<any>(() => sb.from("variants").select("sku,qty,product_id,wholesale_override,retail_override,mrp_override").order("sku")),
+  ]);
+  if (!products.length) return null;
+  const byId = new Map<string, any>(products.map((p) => [p.id, p]));
+  const hasVariants = new Set<string>();
+  const stock: Record<string, number> = {};
+  const prices: Record<string, [number, number, number]> = {};
+  for (const v of variants) {
+    if (!v?.sku || !v.product_id) continue;
+    hasVariants.add(v.product_id);
+    stock[v.sku] = v.qty ?? 0;
+    const p = byId.get(v.product_id);
+    if (!p) continue;
+    const ps = posPrices(p.base_wholesale, formula, posOverrides(v), posOverrides(p));
+    prices[v.sku] = [ps.retailPrice, ps.wholesaleRate, ps.mrp];
+  }
+  for (const p of products) {
+    if (!p?.sku || hasVariants.has(p.id)) continue;
+    stock[p.sku] = p.qty ?? 0;
+    const ps = posPrices(p.base_wholesale, formula, posOverrides(p));
+    prices[p.sku] = [ps.retailPrice, ps.wholesaleRate, ps.mrp];
+  }
+  return { stock, prices };
+}
+
 export async function getPosStock(): Promise<Record<string, number> | null> {
   const sb = supabaseServer();
   const [products, variants] = await Promise.all([

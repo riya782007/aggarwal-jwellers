@@ -23,7 +23,7 @@ const LABEL_CHIP: Record<string, string> = {
   wine: "bg-wine/10 text-wine", rose: "bg-rose/10 text-rose",
   blue: "bg-blue-50 text-blue-700", ink: "bg-ink/10 text-ink",
 };
-import { formatPaise, computePrices, resolvePrices, overridesOf } from "@/lib/pricing";
+import { formatPaise, computePrices, resolvePrices, overridesOf, pricesForWholesale } from "@/lib/pricing";
 import { geminiConfigured } from "@/lib/ai/gemini";
 
 export const metadata = { title: "Owner Console · Product" };
@@ -132,6 +132,8 @@ export default async function ProductPage({ params, searchParams }: { params: { 
   const canPrice = can(session, "catalog.price_edit");
   const fSet = computePrices(p.base_wholesale ?? 0, formula);           // formula defaults (paise)
   const prodOv = overridesOf(p);
+  // With a hand-set wholesale, a blank retail/MRP is priced FROM that wholesale on save — show that.
+  const autoFromW = prodOv.wholesale && prodOv.wholesale > 0 ? pricesForWholesale(prodOv.wholesale, formula) : null;
   const effective = resolvePrices(p.base_wholesale ?? 0, formula, prodOv); // current product-level effective
   const rs = (paise: number) => Math.round(paise / 100);
   const ovVal = (paise: number | null | undefined) => (paise && paise > 0 ? String(rs(paise)) : "");
@@ -164,8 +166,8 @@ export default async function ProductPage({ params, searchParams }: { params: { 
           <p className="text-xs font-medium text-muted mb-2">Product-level (all ₹)</p>
           <div className="grid sm:grid-cols-3 gap-3 mb-5">
             <label className="text-xs text-muted">Wholesale<input name="p_wholesale" type="number" min={0} step="1" defaultValue={ovVal(prodOv.wholesale)} placeholder={`auto ${rs(fSet.wholesaleRate)}`} className={`${priceInput} mt-1`} /></label>
-            <label className="text-xs text-muted">Retail<input name="p_retail" type="number" min={0} step="1" defaultValue={ovVal(prodOv.retail)} placeholder={`auto ${rs(fSet.retailPrice)}`} className={`${priceInput} mt-1`} /></label>
-            <label className="text-xs text-muted">MRP<input name="p_mrp" type="number" min={0} step="1" defaultValue={ovVal(prodOv.mrp)} placeholder={`auto ${rs(fSet.mrp)}`} className={`${priceInput} mt-1`} /></label>
+            <label className="text-xs text-muted">Retail<input name="p_retail" type="number" min={0} step="1" defaultValue={ovVal(prodOv.retail)} placeholder={`auto ${rs(autoFromW?.retail ?? fSet.retailPrice)}`} className={`${priceInput} mt-1`} /></label>
+            <label className="text-xs text-muted">MRP<input name="p_mrp" type="number" min={0} step="1" defaultValue={ovVal(prodOv.mrp)} placeholder={`auto ${rs(autoFromW?.mrp ?? fSet.mrp)}`} className={`${priceInput} mt-1`} /></label>
           </div>
 
           {variants.length > 0 && (
@@ -192,7 +194,7 @@ export default async function ProductPage({ params, searchParams }: { params: { 
       ) : (
         <p className="text-sm text-muted">Your role can't edit prices. The base wholesale cost is set on the Basic tab.</p>
       )}
-      <p className="text-xs text-muted">Retail &amp; MRP are derived from the base wholesale cost via your pricing formula unless you pin a custom value here.</p>
+      <p className="text-xs text-muted">Retail &amp; MRP are derived from the base wholesale cost via your pricing formula unless you pin a custom value here. When you change the <b>Wholesale</b> rate, Retail &amp; MRP move with it automatically (unless you type them yourself).</p>
     </div>
   );
 

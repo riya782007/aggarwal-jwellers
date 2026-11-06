@@ -14,7 +14,9 @@ import { useEffect, useRef } from "react";
 const PING_MS = 2 * 60 * 1000;
 const STOCK_MIN_GAP_MS = 30 * 1000;
 
-export function usePosKeepalive(onStock?: (stock: Record<string, number>) => void) {
+export type PosPrices = Record<string, [number, number, number]>; // sku → [retail, wholesale, mrp] paise
+
+export function usePosKeepalive(onStock?: (stock: Record<string, number>, prices?: PosPrices) => void) {
   const onStockRef = useRef(onStock);
   onStockRef.current = onStock;
   const wantsStock = !!onStock;
@@ -33,7 +35,8 @@ export function usePosKeepalive(onStock?: (stock: Record<string, number>) => voi
           if (!(res.headers.get("content-type") ?? "").includes("application/json")) return;
           const body = await res.json().catch(() => null);
           const stock = body?.stock;
-          if (stock && typeof stock === "object") onStockRef.current?.(stock as Record<string, number>);
+          const prices = body?.prices && typeof body.prices === "object" ? (body.prices as PosPrices) : undefined;
+          if (stock && typeof stock === "object") onStockRef.current?.(stock as Record<string, number>, prices);
         })
         .catch(() => { /* next interval retries */ });
     };

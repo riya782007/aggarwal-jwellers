@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
-import { computePrices, isValidPriceSet } from "@/lib/pricing";
+import { computePrices, isValidPriceSet, followWholesale } from "@/lib/pricing";
 import { getPricingFormula, getColorCodeMap } from "@/lib/supabase/queries";
 import { requirePerm } from "@/lib/auth";
 import { generateContentAction } from "@/app/actions/aiContent";
@@ -763,14 +763,22 @@ export async function savePricingAction(formData: FormData): Promise<void> {
   const sku = String(formData.get("sku") ?? "").trim();
   if (!sku) return;
   const sb = supabaseServer();
-  const { data: prod } = await sb.from("products").select("id").eq("sku", sku).maybeSingle();
+  const { data: prod } = await sb.from("products").select("id,wholesale_override,retail_override,mrp_override").eq("sku", sku).maybeSingle();
   if (!prod) return;
+  // A changed WHOLESALE carries retail + MRP with it (unless those were edited in this same save).
+  const formula = await getPricingFormula();
+  const prevOf = (r: any) => ({ wholesale: r?.wholesale_override ?? null, retail: r?.retail_override ?? null, mrp: r?.mrp_override ?? null });
 
   // Product-level overrides.
+  const pSet = followWholesale(prevOf(prod), {
+    wholesale: rupeesToPaiseOrNull(formData.get("p_wholesale")),
+    retail: rupeesToPaiseOrNull(formData.get("p_retail")),
+    mrp: rupeesToPaiseOrNull(formData.get("p_mrp")),
+  }, formula, { fillBlank: true });
   await sb.from("products").update({
-    wholesale_override: rupeesToPaiseOrNull(formData.get("p_wholesale")),
-    retail_override: rupeesToPaiseOrNull(formData.get("p_retail")),
-    mrp_override: rupeesToPaiseOrNull(formData.get("p_mrp")),
+    wholesale_override: pSet.wholesale,
+    retail_override: pSet.retail,
+    mrp_override: pSet.mrp,
   }).eq("id", (prod as any).id);
 
   // Variant-level overrides — fields named v_<variantId>_(w|r|m).
@@ -783,10 +791,16 @@ export async function savePricingAction(formData: FormData): Promise<void> {
     (cur as any)[tier] = rupeesToPaiseOrNull(val);
     byVariant.set(id, cur);
   }
+  const vIds = [...byVariant.keys()];
+  const { data: vPrev } = vIds.length
+    ? await sb.from("variants").select("id,wholesale_override,retail_override,mrp_override").in("id", vIds)
+    : { data: [] as any[] };
+  const prevById = new Map(((vPrev as any[]) ?? []).map((v) => [v.id, prevOf(v)]));
   await Promise.all(
-    [...byVariant.entries()].map(([id, o]) =>
-      sb.from("variants").update({ wholesale_override: o.w, retail_override: o.r, mrp_override: o.m }).eq("id", id),
-    ),
+    [...byVariant.entries()].map(([id, o]) => {
+      const v = followWholesale(prevById.get(id) ?? { wholesale: null, retail: null, mrp: null }, { wholesale: o.w, retail: o.r, mrp: o.m }, formula, { fillBlank: true });
+      return sb.from("variants").update({ wholesale_override: v.wholesale, retail_override: v.retail, mrp_override: v.mrp }).eq("id", id);
+    }),
   );
 
   await logActivity({ action: "price_changed", ref: sku, detail: `Prices updated for ${sku}.` });
