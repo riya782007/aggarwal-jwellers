@@ -14,7 +14,7 @@ import {
   getChannelReport, getInventoryClassified, getProductsPage, getDashboardData, getStorefront,
   getProductBySku, getProductSalesStats, getCustomersDb, getPricingFormula,
 } from "@/lib/supabase/queries";
-import { formatPaise } from "@/lib/pricing";
+import { formatPaise, pricesForWholesale } from "@/lib/pricing";
 import { liveOffer } from "@/lib/offers";
 import { DIVA_TOOLS, PAGE_MAP, toolByName } from "@/lib/diva/tools";
 import { interpret, type DivaContext } from "@/lib/diva/nlu";
@@ -577,10 +577,13 @@ export async function divaRun(toolName: string, args: Record<string, any>): Prom
         // Explicit tier → pin that exact price as an override (Phase 4).
         if (tier === "retail" || tier === "mrp" || tier === "wholesale") {
           const col = tier === "retail" ? "retail_override" : tier === "mrp" ? "mrp_override" : "wholesale_override";
-          const { error } = await sb.from("products").update({ [col]: paise }).eq("id", (p as any).id);
+          // A new wholesale carries retail + MRP with it (same formula), so they never stay on the old cost.
+          const follow = tier === "wholesale" ? pricesForWholesale(paise, await getPricingFormula()) : null;
+          const upd: Record<string, number> = follow ? { wholesale_override: paise, retail_override: follow.retail, mrp_override: follow.mrp } : { [col]: paise };
+          const { error } = await sb.from("products").update(upd).eq("id", (p as any).id);
           if (error) return { ok: false, message: `${error.message} (the price-override columns need migration 0003 applied).` };
           revalidatePath("/admin/catalogue"); revalidatePath(`/admin/catalogue/${sku}`); revalidatePath("/shop"); revalidatePath("/trade");
-          return { ok: true, message: `Set ${(p as any).name} (${sku}) ${tier} price to ${formatPaise(paise)}.` };
+          return { ok: true, message: `Set ${(p as any).name} (${sku}) ${tier} price to ${formatPaise(paise)}.${follow ? ` Retail ${formatPaise(follow.retail)} · MRP ${formatPaise(follow.mrp)}.` : ""}` };
         }
         // No tier → set the base wholesale cost and re-derive retail/MRP from the formula.
         const formula = await getPricingFormula();

@@ -243,6 +243,45 @@ export function resolvePrices(
   };
 }
 
+/**
+ * Retail + MRP that go WITH a given wholesale rate, by the same pricing formula (owner request,
+ * Nov 2026: "I corrected the wholesale 1815 → 1895 but retail didn't change"). A hand-typed
+ * wholesale used to leave retail/MRP computed from the OLD base cost. This finds the cost that
+ * gives that wholesale under the formula (the chain is proportional) and prices it.
+ */
+export function pricesForWholesale(wholesalePaise: number, formula: PricingFormula): { retail: number; mrp: number } {
+  const REF = 100_000; // ₹1000 — the formula's wholesale-per-cost ratio, measured once
+  const refWholesale = computePrices(REF, formula).wholesaleRate;
+  const base = refWholesale > 0 ? Math.round((wholesalePaise * REF) / refWholesale) : wholesalePaise;
+  const p = computePrices(base, formula);
+  return { retail: p.retailPrice, mrp: p.mrp };
+}
+
+/**
+ * When a save changes the WHOLESALE rate, retail and MRP follow it — unless the same save also
+ * changed them by hand. `prev` = what was stored, `next` = what the form sent (null = "auto").
+ */
+export function followWholesale(
+  prev: { wholesale: number | null; retail: number | null; mrp: number | null },
+  next: { wholesale: number | null; retail: number | null; mrp: number | null },
+  formula: PricingFormula,
+  /** Pricing tab: a hand-set wholesale with retail/MRP left BLANK ("auto") also prices them from
+   *  that wholesale — "auto" from an older base cost is exactly what confused the counter. */
+  opts: { fillBlank?: boolean } = {},
+): { wholesale: number | null; retail: number | null; mrp: number | null } {
+  const w = next.wholesale;
+  if (w == null || !(w > 0)) return next;
+  const changed = w !== prev.wholesale;
+  if (!changed && !opts.fillBlank) return next;
+  const f = pricesForWholesale(w, formula);
+  const follows = (n: number | null, p: number | null) => (changed && n === p) || (!!opts.fillBlank && n == null);
+  return {
+    wholesale: w,
+    retail: follows(next.retail, prev.retail) ? f.retail : next.retail,
+    mrp: follows(next.mrp, prev.mrp) ? f.mrp : next.mrp,
+  };
+}
+
 /** Read one tier out of a resolved price set. */
 export function priceForTier(p: PriceSet, tier: PriceTier): number {
   return tier === "wholesale" ? p.wholesaleRate : tier === "retail" ? p.retailPrice : p.mrp;

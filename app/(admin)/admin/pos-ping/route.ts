@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { getPosStock } from "@/lib/supabase/queries";
+import { getPosLive } from "@/lib/supabase/queries";
 
 /** Lightweight keepalive for the counter. Middleware on /admin/* slides the session cookie
  *  (and bounces anyone not signed in to /login, so stock is never served to the public).
@@ -15,15 +15,20 @@ export async function GET(req: Request) {
       headers: { "Cache-Control": "no-store" },
     });
   }
+  // Stock + current prices in one read, so a rate corrected in the catalogue reaches an open
+  // Billing screen within a couple of minutes (or as soon as you switch back to it).
   let stock: Record<string, number> | null = null;
+  let prices: Record<string, [number, number, number]> | null = null;
   try {
-    stock = await getPosStock();
+    const live = await getPosLive();
+    stock = live?.stock ?? null;
+    prices = live?.prices ?? null;
   } catch (err) {
     console.error("pos-ping stock read failed:", err);
   }
   // A failed read still answers 200 so the keepalive keeps sliding the session; the POS
   // simply keeps the numbers it has.
-  return new Response(JSON.stringify({ ok: true, stock }), {
+  return new Response(JSON.stringify({ ok: true, stock, prices }), {
     status: 200,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
