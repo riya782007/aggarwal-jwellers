@@ -586,14 +586,29 @@ export async function deleteProductAction(formData: FormData): Promise<{ ok: boo
   const { data: p } = await sb.from("products").select("id,name").eq("sku", sku).maybeSingle();
   if (!p) return { ok: false, message: "Product not found" };
   const pid = (p as any).id;
-  await sb.from("product_images").delete().eq("product_id", pid);
-  await sb.from("variants").delete().eq("product_id", pid);
-  const { error } = await sb.from("products").delete().eq("id", pid);
+  // Check for past bills / purchases FIRST. This used to delete the photos (and try the variants)
+  // before discovering the product couldn't be deleted — so a "hidden instead" product lost its
+  // photos for nothing. Now a product with history is only hidden, with everything kept.
+  const { data: vrows } = await sb.from("variants").select("id").eq("product_id", pid);
+  const vids = ((vrows as any[]) ?? []).map((v) => v.id);
+  const refs = await Promise.all([
+    sb.from("order_items").select("id", { count: "exact", head: true }).eq("product_id", pid),
+    sb.from("purchase_items").select("id", { count: "exact", head: true }).eq("product_id", pid),
+    vids.length ? sb.from("order_items").select("id", { count: "exact", head: true }).in("variant_id", vids) : Promise.resolve({ count: 0 } as any),
+    vids.length ? sb.from("purchase_items").select("id", { count: "exact", head: true }).in("variant_id", vids) : Promise.resolve({ count: 0 } as any),
+  ]);
+  const hasHistory = refs.some((r: any) => (r?.count ?? 0) > 0);
+  let error: any = hasHistory ? { message: "has history" } : null;
+  if (!hasHistory) {
+    await sb.from("product_images").delete().eq("product_id", pid);
+    await sb.from("variants").delete().eq("product_id", pid);
+    ({ error } = await sb.from("products").delete().eq("id", pid));
+  }
   revalidatePath("/admin/inventory"); revalidatePath("/admin/catalogue"); revalidatePath("/shop");
   if (error) {
     await sb.from("products").update({ status: "draft" }).eq("id", pid);
     await logActivity({ action: "product_hidden", ref: sku, detail: `${(p as any).name} (${sku}) has past orders — hidden from the store instead of deleted.` });
-    return { ok: true, message: `${sku} has past orders — hidden from the store instead of deleted.` };
+    return { ok: true, message: `${sku} has past orders — hidden from the store instead of deleted. To turn its sizes into one item with a single QR, use "Combine sizes into one item" on the product page.` };
   }
   await logActivity({ action: "product_deleted", ref: sku, detail: `Deleted ${(p as any).name} (${sku}).` });
   return { ok: true, message: `Deleted ${(p as any).name} (${sku}).` };

@@ -1,4 +1,5 @@
 /** Server-only data access. Uses the service-role client (bypasses RLS for admin reads). */
+import { isArchiveProductSku } from "@/lib/oldSizes";
 import "server-only";
 import { supabaseServer } from "./server";
 import type { PricingFormula } from "../pricing";
@@ -1894,6 +1895,8 @@ export async function getPosCatalog(): Promise<PosSellable[]> {
   let variants = await allRows<any>(() => sb.from("variants").select(RICH_V).order("sku"));
   if (!variants.length) variants = await allRows<any>(() => sb.from("variants").select(MID_V).order("sku"));
   if (!variants.length) variants = await allRows<any>(() => sb.from("variants").select(BASIC_V).order("sku"));
+  // Hidden "(old sizes)" archives (lib/oldSizes) are records only — never offered at the counter.
+  products = products.filter((p: any) => !isArchiveProductSku(p?.sku));
   const varsByProduct = new Map<string, any[]>();
   for (const v of variants) {
     if (!v?.sku || !v.product_id) continue;
@@ -1958,7 +1961,7 @@ export async function getPosLive(): Promise<{ stock: Record<string, number>; pri
     allRows<any>(() => sb.from("variants").select("sku,qty,product_id,wholesale_override,retail_override,mrp_override").order("sku")),
   ]);
   if (!products.length) return null;
-  const byId = new Map<string, any>(products.map((p) => [p.id, p]));
+  const byId = new Map<string, any>(products.filter((p) => !isArchiveProductSku(p?.sku)).map((p) => [p.id, p]));
   const hasVariants = new Set<string>();
   const stock: Record<string, number> = {};
   const prices: Record<string, [number, number, number]> = {};
@@ -1972,7 +1975,7 @@ export async function getPosLive(): Promise<{ stock: Record<string, number>; pri
     prices[v.sku] = [ps.retailPrice, ps.wholesaleRate, ps.mrp];
   }
   for (const p of products) {
-    if (!p?.sku || hasVariants.has(p.id)) continue;
+    if (!p?.sku || hasVariants.has(p.id) || isArchiveProductSku(p.sku)) continue;
     stock[p.sku] = p.qty ?? 0;
     const ps = posPrices(p.base_wholesale, formula, posOverrides(p));
     prices[p.sku] = [ps.retailPrice, ps.wholesaleRate, ps.mrp];
