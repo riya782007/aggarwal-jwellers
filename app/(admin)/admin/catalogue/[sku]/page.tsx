@@ -1,3 +1,5 @@
+import { CombineSizesButton } from "@/components/admin/CombineSizesButton";
+import { isArchiveProductSku } from "@/lib/oldSizes";
 import { Icon } from "@/components/ui/Icon";
 export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
@@ -249,9 +251,12 @@ export default async function ProductPage({ params, searchParams }: { params: { 
 
       <div className="flex items-center justify-between gap-3 mb-1">
         <h3 className="font-medium text-ink">Variants</h3>
+        <div className="flex flex-wrap items-center gap-2">
+        {variants.length > 0 && !isArchiveProductSku(p.sku) && <CombineSizesButton sku={p.sku} sizes={variants.length} total={variantStock} />}
         {can(session, "catalog.ai") && (
           <Link href={`/admin/media/${(p as any).id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-ink text-white text-xs hover:bg-ink/90"><Icon g="✦" className="w-3 h-3" />Open AI Studio</Link>
         )}
+        </div>
       </div>
       <p className="text-xs text-muted mb-4">Each variant has its own <b>colour, size &amp; polish</b>, SKU, stock and photos. Variant stock total: <b className="text-ink">{variantStock}</b> pcs. Generate a <b>model photo + a branded on-stand photo per colour</b> in the <Link href={`/admin/media/${(p as any).id}`} className="text-emerald nav-link">AI Studio <Icon g="→" className="inline-block align-middle w-[1em] h-[1em]" /></Link>. SKUs auto-generate as <code className="bg-cream px-1 rounded">{`${p.sku}-{colourCode}`}</code> — see your <Link href="/admin/colours" className="text-emerald nav-link">Colours master</Link> for the codes.</p>
 

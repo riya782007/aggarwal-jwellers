@@ -8,6 +8,8 @@ import { getColorCodeMap, getPricingFormula } from "@/lib/supabase/queries";
 import { followWholesale } from "@/lib/pricing";
 import { barcodeCodeForColor } from "@/lib/colors";
 import { recordSkuAlias } from "@/lib/skuAlias";
+import { logActivity } from "@/lib/audit";
+import { ARCHIVE_PRODUCT_SUFFIX, OLD_VARIANT_SUFFIX, isArchiveProductSku } from "@/lib/oldSizes";
 
 const BUCKET = "product-media";
 
@@ -319,4 +321,96 @@ export async function generateVariantImageAction(variantId: string): Promise<Var
   revalidatePath("/trade");
   revalidatePath("/admin/inventory");
   return { ok: true, url };
+}
+
+/**
+ * Combine all sizes/colours of a product into ONE plain item with a single SKU + QR
+ * (owner request, Nov 2026: "finish the size-wise setup and give a single QR").
+ *
+ * - The product keeps its SKU and gets the TOTAL stock of all its variants; it becomes a simple item.
+ * - Variants never used on a bill / purchase / estimate are deleted.
+ * - Variants that ARE on past records can't be deleted (it would break those records), so they move
+ *   to a hidden archive product "<name> (old sizes)" with "-OLD" on their SKU and 0 stock — old bills
+ *   still show which size was sold. Billing never lists the archive.
+ * - Every old variant SKU becomes an alias of the product, so stickers already on boxes scan as the
+ *   single item. Box QRs made for a size now point at the product.
+ */
+export async function combineSizesAction(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  if (!(await requirePerm("catalog.edit"))) return { ok: false, message: "Your role can't edit products." };
+  const sku = String(formData.get("product_sku") ?? "").trim();
+  if (!sku) return { ok: false, message: "Missing product SKU." };
+  const sb = supabaseServer();
+
+  const { data: p } = await sb.from("products").select("id,sku,name,category_id,base_wholesale").eq("sku", sku).maybeSingle();
+  if (!p) return { ok: false, message: "Product not found." };
+  const prod: any = p;
+  if (isArchiveProductSku(prod.sku)) return { ok: false, message: "This is an archive of old sizes — nothing to combine." };
+
+  const { data: vs, error: vErr } = await sb.from("variants").select("id,sku,qty").eq("product_id", prod.id);
+  if (vErr) return { ok: false, message: vErr.message };
+  const variants = ((vs as any[]) ?? []);
+  if (!variants.length) return { ok: false, message: "This product has no sizes — it already has a single QR." };
+  const ids = variants.map((v) => v.id);
+  const total = variants.reduce((s, v) => s + Math.max(0, Number(v.qty) || 0), 0);
+
+  // Which variants appear on records that must stay intact?
+  const used = new Set<string>();
+  for (const table of ["order_items", "purchase_items", "estimate_items"]) {
+    const { data, error } = await sb.from(table).select("variant_id").in("variant_id", ids);
+    if (error && !/does not exist|relation/i.test(error.message)) return { ok: false, message: `Couldn't check ${table}: ${error.message}` };
+    for (const r of (data as any[]) ?? []) if (r.variant_id) used.add(r.variant_id);
+  }
+
+  // 1. Box QRs and older aliases that point at a size now point at the product itself.
+  await sb.from("inventory_groups").update({ variant_id: null }).in("variant_id", ids);
+  try { await sb.from("sku_aliases").update({ variant_id: null, product_id: prod.id }).in("variant_id", ids); } catch { /* table optional */ }
+
+  // 2. Park used variants on the hidden archive product.
+  const keep = variants.filter((v) => used.has(v.id));
+  if (keep.length) {
+    const archSku = `${prod.sku}${ARCHIVE_PRODUCT_SUFFIX}`;
+    let { data: arch } = await sb.from("products").select("id").eq("sku", archSku).maybeSingle();
+    if (!arch) {
+      const ins = await sb.from("products").insert({
+        sku: archSku, name: `${prod.name} (old sizes)`, category_id: prod.category_id,
+        base_wholesale: prod.base_wholesale ?? 0, type: "configurable", status: "draft", qty: 0,
+      }).select("id").single();
+      if (ins.error) return { ok: false, message: `Couldn't create the old-sizes archive: ${ins.error.message}` };
+      arch = ins.data;
+    }
+    for (const v of keep) {
+      let newSku = `${v.sku}${OLD_VARIANT_SUFFIX}`;
+      for (let n = 2; n < 20; n++) {
+        const { data: clash } = await sb.from("variants").select("id").eq("sku", newSku).neq("id", v.id).maybeSingle();
+        if (!clash) break;
+        newSku = `${v.sku}${OLD_VARIANT_SUFFIX}${n}`;
+      }
+      const { error } = await sb.from("variants").update({ product_id: (arch as any).id, sku: newSku, qty: 0 }).eq("id", v.id);
+      if (error) return { ok: false, message: `Couldn't archive ${v.sku}: ${error.message}` };
+    }
+  }
+
+  // 3. Old stickers keep scanning — every old size SKU now means the single item.
+  for (const v of variants) await recordSkuAlias(sb, v.sku, { productId: prod.id, variantId: null });
+
+  // 4. Remove the sizes that were never used anywhere.
+  const unused = variants.filter((v) => !used.has(v.id)).map((v) => v.id);
+  if (unused.length) {
+    const { error } = await sb.from("variants").delete().in("id", unused);
+    if (error) return { ok: false, message: `Couldn't remove unused sizes: ${error.message}` };
+  }
+
+  // 5. One plain item holding the whole stock.
+  const { error: pErr } = await sb.from("products")
+    .update({ type: "simple", qty: total, last_movement_at: new Date().toISOString() }).eq("id", prod.id);
+  if (pErr) return { ok: false, message: pErr.message };
+
+  await logActivity({
+    action: "sizes_combined", ref: prod.sku,
+    detail: `${prod.name} (${prod.sku}): ${variants.length} sizes combined into one item, ${total} pcs. ` +
+      `Old size stickers now scan as ${prod.sku}.${keep.length ? ` ${keep.length} size(s) kept on the hidden archive ${prod.sku}${ARCHIVE_PRODUCT_SUFFIX} for old bills.` : ""}`,
+  });
+  reval(prod.sku);
+  revalidatePath("/admin/catalogue"); revalidatePath("/admin/inventory"); revalidatePath("/admin/billing");
+  return { ok: true, message: `Done — ${prod.sku} is now one item with ${total} pcs and a single QR. Print its labels to get the new sticker. Old size stickers still scan as this item.` };
 }
