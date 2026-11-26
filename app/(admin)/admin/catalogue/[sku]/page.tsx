@@ -435,21 +435,33 @@ export default async function ProductPage({ params, searchParams }: { params: { 
         <h3 className="font-medium text-ink mb-3">Stock movements</h3>
         {history.length === 0 ? <p className="text-sm text-muted">No stock adjustments recorded yet.</p> : (
           <ul className="divide-y divide-sand/60">
-            {history.map((h, i) => (
-              <li key={i} className="py-2.5 flex items-center justify-between gap-3 text-sm">
-                <span className={`font-medium tabular-nums ${h.delta > 0 ? "text-emerald-dark" : "text-rose"}`}>{h.delta > 0 ? "+" : ""}{h.delta}</span>
-                <span className="flex-1 text-ink truncate">
-                  {h.kind && <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded mr-1.5 ${h.kind === "damage" ? "bg-rose/10 text-rose" : h.kind === "purchase" ? "bg-emerald-mist text-emerald-dark" : h.kind === "sale" ? "bg-gold/15 text-gold-dark" : "bg-cream text-muted"}`}>{h.kind}</span>}
-                  {h.source ?? "Adjustment"}{h.reason ? <span className="text-muted"> — {h.reason}</span> : null}
-                </span>
-                {(h as any).ref_id && (h.kind === "sale" || h.kind === "purchase") ? (
-                  <Link href={h.kind === "sale" ? `/admin/invoice/${(h as any).ref_id}` : `/admin/purchase/${(h as any).ref_id}`} className="text-emerald nav-link whitespace-nowrap text-xs">
-                    {h.kind === "sale" ? "View bill →" : "View purchase →"}
-                  </Link>
-                ) : null}
-                <span className="text-muted whitespace-nowrap">{timeAgo(h.created_at)}</span>
-              </li>
-            ))}
+            {history.map((h, i) => {
+              // Owner request (Nov 2026): a sale / bill-edit / cancel line opens the bill it came from,
+              // and says WHICH bill (number + customer) instead of an internal order code.
+              const bill = h.bill;
+              const what = bill
+                ? <>Bill <b className="font-medium">{bill.invoiceNo ?? `#${bill.id.slice(0, 8)}`}</b>{bill.customer ? <span className="text-muted"> · {bill.customer}</span> : null}{/edited/i.test(h.source ?? "") ? <span className="text-muted"> · bill edited</span> : /cancel/i.test(`${h.kind} ${h.source}`) ? <span className="text-muted"> · cancelled</span> : null}</>
+                : <>{h.source ?? "Adjustment"}{h.reason ? <span className="text-muted"> — {h.reason}</span> : null}</>;
+              const href = bill ? `/admin/invoice/${bill.id}` : h.ref_id && h.kind === "purchase" ? `/admin/purchase/${h.ref_id}` : null;
+              const inner = (
+                <>
+                  <span className={`font-medium tabular-nums ${h.delta > 0 ? "text-emerald-dark" : "text-rose"}`}>{h.delta > 0 ? "+" : ""}{h.delta}</span>
+                  <span className="flex-1 text-ink truncate">
+                    {h.kind && <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded mr-1.5 ${h.kind === "damage" ? "bg-rose/10 text-rose" : h.kind === "purchase" ? "bg-emerald-mist text-emerald-dark" : h.kind === "sale" ? "bg-gold/15 text-gold-dark" : "bg-cream text-muted"}`}>{h.kind}</span>}
+                    {what}
+                  </span>
+                  {href ? <span className="text-emerald whitespace-nowrap text-xs">{bill ? "Open bill →" : "View purchase →"}</span> : null}
+                  <span className="text-muted whitespace-nowrap">{timeAgo(h.created_at)}</span>
+                </>
+              );
+              return (
+                <li key={i} className="text-sm">
+                  {href
+                    ? <Link href={href} className="py-2.5 -mx-2 px-2 rounded-lg flex items-center justify-between gap-3 hover:bg-cream/70">{inner}</Link>
+                    : <div className="py-2.5 flex items-center justify-between gap-3">{inner}</div>}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
