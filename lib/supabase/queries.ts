@@ -1015,7 +1015,26 @@ export async function getProductSkus(): Promise<{ sku: string; slug: string }[]>
 }
 
 /** Recent stock movements for one product — powers the Product workspace History tab. */
-export async function getStockHistory(productId: string, limit = 25): Promise<{ delta: number; source: string | null; reason: string | null; kind: string | null; ref_id: string | null; created_at: string }[]> {
+export type StockMove = {
+  delta: number; source: string | null; reason: string | null; kind: string | null; ref_id: string | null; created_at: string;
+  /** The bill this movement came from (sale, bill edit, cancel, return) — so the row can open it. */
+  bill?: { id: string; invoiceNo: string | null; customer: string | null } | null;
+};
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/** Which bill a stock movement belongs to. Sales saved by the billing screen only carry it in the
+ *  text ("order <id>", "wholesale order <id>", "… (bill edited)", "… cancelled"), not in ref_id. */
+export function stockMoveOrderId(m: { kind?: string | null; source?: string | null; ref_id?: string | null }): string | null {
+  const kind = String(m.kind ?? "").toLowerCase();
+  if (kind === "purchase") return null;
+  if (m.ref_id && /^(sale|cancel|return)$/.test(kind)) return m.ref_id;
+  const src = String(m.source ?? "");
+  if (!/^\s*(wholesale\s+)?order\b/i.test(src)) return null;
+  return src.match(UUID_RE)?.[0] ?? null;
+}
+
+export async function getStockHistory(productId: string, limit = 25): Promise<StockMove[]> {
   if (!productId) return [];
   const sb = supabaseServer();
   const { data } = await sb
@@ -1024,7 +1043,19 @@ export async function getStockHistory(productId: string, limit = 25): Promise<{ 
     .eq("product_id", productId)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return (data as any[]) ?? [];
+  const rows = ((data as any[]) ?? []) as StockMove[];
+  // Owner request (Nov 2026): tapping a "SALE −12" line should open the bill it came from.
+  const ids = [...new Set(rows.map(stockMoveOrderId).filter(Boolean) as string[])];
+  if (ids.length) {
+    const { data: orders } = await sb.from("orders").select("id,invoice_no,customer_name").in("id", ids);
+    const byId = new Map(((orders as any[]) ?? []).map((o) => [o.id, o]));
+    for (const r of rows) {
+      const id = stockMoveOrderId(r);
+      const o = id ? byId.get(id) : null;
+      r.bill = id ? { id, invoiceNo: o?.invoice_no ?? null, customer: o?.customer_name ?? null } : null;
+    }
+  }
+  return rows;
 }
 
 /** Open estimates that reserve this product (soft holds — not yet billed, so not in the
