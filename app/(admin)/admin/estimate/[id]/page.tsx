@@ -5,11 +5,15 @@ import { notFound } from "next/navigation";
 import { getEstimate, getProductsLite } from "@/lib/supabase/queries";
 import { formatPaise } from "@/lib/pricing";
 import { PrintButton } from "@/components/admin/PrintButton";
-import { BUSINESS, amountInWords } from "@/lib/business";
+import { amountInWords } from "@/lib/business";
 import { requirePerm } from "@/lib/auth";
 import { updateEstimateCustomerAction, updateEstimateLineAction, updateEstimateLinePriceAction, removeEstimateLineAction, addEstimateLineAction } from "@/app/actions/billing";
 
-export const metadata = { title: "Estimate / Quotation" };
+// Owner request (Nov 2026): preliminary estimates carry NO shop name, address, phone or email —
+// not on the paper and not in the PDF's file name (the browser names the PDF after this title).
+export function generateMetadata({ params }: { params: { id: string } }) {
+  return { title: { absolute: `Estimate EST-${String(params.id).slice(0, 8).toUpperCase()}` } };
+}
 
 export default async function EstimatePrint({ params }: { params: { id: string } }) {
   const data = await getEstimate(params.id);
@@ -50,13 +54,8 @@ export default async function EstimatePrint({ params }: { params: { id: string }
             <p className="text-[10px] text-muted">This is not a tax invoice. Prices valid for 7 days.</p>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4 border border-sand rounded-lg overflow-hidden">
-            <div className="p-4 border-b sm:border-b-0 sm:border-r border-sand">
-              <p className="font-display text-2xl text-ink leading-none">{BUSINESS.brand}</p>
-              <p className="text-xs text-muted mt-0.5">{BUSINESS.legalName}</p>
-              <p className="text-xs text-muted mt-1">{BUSINESS.address}</p>
-              <p className="text-xs text-muted">{BUSINESS.phone} · {BUSINESS.email}</p>
-            </div>
+          {/* No shop name / address / phone / email on an estimate (owner request). */}
+          <div className="border border-sand rounded-lg overflow-hidden sm:max-w-sm sm:ml-auto">
             <div className="p-4 text-xs space-y-1">
               <div className="flex justify-between"><span className="text-muted">Estimate No.</span><span className="font-medium text-ink">{ref}</span></div>
               <div className="flex justify-between"><span className="text-muted">Date</span><span className="text-ink">{date}</span></div>
@@ -101,7 +100,7 @@ export default async function EstimatePrint({ params }: { params: { id: string }
           </div>
 
           <p className="text-center text-[10px] text-muted mt-6 border-t border-sand pt-3">
-            Estimate only — stock is reserved on confirmation. {BUSINESS.brand} · {BUSINESS.phone}
+            Estimate only — stock is reserved on confirmation.
           </p>
         </div>
 
