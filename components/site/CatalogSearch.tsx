@@ -30,10 +30,13 @@ export function CatalogSearch({
   suggestions,
   view,
   initialQuery = "",
+  passQ = "",
 }: {
   suggestions: Suggestions;
   view: "retail" | "wholesale";
   initialQuery?: string;
+  /** "&wt=…" when a customer is viewing through a shared wholesale link — kept so search stays wholesale. */
+  passQ?: string;
 }) {
   const router = useRouter();
   const [term, setTerm] = useState(initialQuery);
@@ -48,7 +51,7 @@ export function CatalogSearch({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const viewQ = view === "wholesale" ? "&view=wholesale" : "";
+  const viewQ = view === "wholesale" ? `&view=wholesale${passQ}` : "";
 
   const hits = useMemo<Hit[]>(() => {
     const q = term.trim().toLowerCase();
@@ -112,7 +115,7 @@ export function CatalogSearch({
           aria-label="Search the catalogue"
         />
         {term && (
-          <button type="button" onClick={() => { setTerm(""); setOpen(false); router.push(`/catalog${view === "wholesale" ? "?view=wholesale" : ""}`); }} className="text-muted hover:text-ink text-sm" aria-label="Clear search"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
+          <button type="button" onClick={() => { setTerm(""); setOpen(false); router.push(`/catalog${view === "wholesale" ? `?view=wholesale${passQ}` : ""}`); }} className="text-muted hover:text-ink text-sm" aria-label="Clear search"><Icon g="✕" className="inline-block align-middle w-[1em] h-[1em]" /></button>
         )}
       </div>
 

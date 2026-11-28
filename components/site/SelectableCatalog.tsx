@@ -9,7 +9,8 @@ import { Icon } from "@/components/ui/Icon";
  * exposing the whole inventory. View toggle (retail / wholesale) controls which price
  * is shown, for sharing with shoppers vs wholesale buyers.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { wholesaleSharePassAction } from "@/app/actions/catalogShare";
 import { formatPaise } from "@/lib/pricing";
 import { ProductImage } from "@/components/Placeholder";
 
@@ -33,14 +34,30 @@ export function SelectableCatalog({ products, view, brand, phone }: { products: 
 
   // A shareable link. With a selection → a clean /catalog?skus=… link that shows ONLY those pieces
   // (never the whole inventory). With nothing selected → the current filtered view.
+  // Wholesale view: fetch a signed pass (staff only — null for anyone else) so the shared link shows the
+  // customer WHOLESALE rates instead of falling back to retail on their phone (owner request, Nov 2026).
+  const [pass, setPass] = useState<string | null>(null);
+  useEffect(() => {
+    if (view !== "wholesale") { setPass(null); return; }
+    let live = true;
+    wholesaleSharePassAction().then((t) => { if (live) setPass(t); }).catch(() => {});
+    return () => { live = false; };
+  }, [view]);
+
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    if (sel.size === 0) return window.location.href;
-    const u = new URL("/catalog", window.location.origin);
-    u.searchParams.set("skus", [...sel].join(","));
-    if (view === "wholesale") u.searchParams.set("view", "wholesale");
+    let u: URL;
+    if (sel.size === 0) u = new URL(window.location.href);
+    else {
+      u = new URL("/catalog", window.location.origin);
+      u.searchParams.set("skus", [...sel].join(","));
+    }
+    if (view === "wholesale") {
+      u.searchParams.set("view", "wholesale");
+      if (pass) u.searchParams.set("wt", pass);
+    }
     return u.toString();
-  }, [sel, view]);
+  }, [sel, view, pass]);
 
   const copy = () => { if (shareUrl) navigator.clipboard?.writeText(shareUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }).catch(() => {}); };
   const whatsapp = () => {

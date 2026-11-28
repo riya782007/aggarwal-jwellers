@@ -6,10 +6,11 @@ import { SelectableCatalog } from "@/components/site/SelectableCatalog";
 import { BUSINESS, waHref } from "@/lib/business";
 import { getSession } from "@/lib/auth";
 import { getWholesaleSession } from "@/lib/wholesale";
+import { checkWholesalePass, wholesalePassSecret } from "@/lib/wholesalePass";
 
 export const metadata = { title: "Catalogue — Aggarwal Jewellers" };
 
-export default async function Catalog({ searchParams }: { searchParams: { category?: string; subcategory?: string; style?: string; view?: string; q?: string; skus?: string } }) {
+export default async function Catalog({ searchParams }: { searchParams: { category?: string; subcategory?: string; style?: string; view?: string; q?: string; skus?: string; wt?: string } }) {
   const category = searchParams.category ?? "all";
   const subcategory = searchParams.subcategory ?? "all";
   const style = searchParams.style ?? "all";
@@ -21,7 +22,11 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
   // receives a shared ?view=wholesale link) is silently forced back to the retail view,
   // and trade prices are never fetched or serialized for them.
   const canSeeWholesale = getSession().authed || !!(await getWholesaleSession());
-  const view: "retail" | "wholesale" = searchParams.view === "wholesale" && canSeeWholesale ? "wholesale" : "retail";
+  // …OR anyone holding a valid signed wholesale pass (`wt`) — added by staff when they share in
+  // Wholesale view, so the customer receiving the link sees wholesale rates (owner request, Nov 2026).
+  const hasPass = searchParams.view === "wholesale" && checkWholesalePass(wholesalePassSecret(), searchParams.wt, Date.now());
+  const view: "retail" | "wholesale" = searchParams.view === "wholesale" && (canSeeWholesale || hasPass) ? "wholesale" : "retail";
+  const passQ = view === "wholesale" && hasPass && searchParams.wt ? `&wt=${encodeURIComponent(searchParams.wt)}` : "";
 
   const [tree, fetched, suggestions] = await Promise.all([
     getCategoryTree(),
@@ -51,7 +56,7 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
     : "Full Collection";
 
   // Helpers to build chip links that preserve the view + the OTHER active filter (2-basis filter).
-  const viewQ = view === "wholesale" ? "&view=wholesale" : "";
+  const viewQ = view === "wholesale" ? `&view=wholesale${passQ}` : "";
   const subQ = subcategory !== "all" ? `&subcategory=${subcategory}` : "";
   const styleQ = style !== "all" ? `&style=${style}` : "";
   const chip = (active: boolean) =>
@@ -69,7 +74,7 @@ export default async function Catalog({ searchParams }: { searchParams: { catego
           </div>
           <div className="flex flex-col items-end gap-2">
             {/* Search with live suggestions — designs, SKUs, categories, colours. */}
-            <CatalogSearch suggestions={suggestions} view={view} initialQuery={q} />
+            <CatalogSearch suggestions={suggestions} view={view} initialQuery={q} passQ={passQ} />
             {/* Retail / Wholesale toggle — shown ONLY to authenticated admin/dealer users. */}
             {canSeeWholesale && (
               <div className="no-print inline-flex rounded-full bg-white/10 p-1 text-sm">
